@@ -1,0 +1,11 @@
+.DS_Store
+.env
+.env.*
+!.env.example
+node_modules/
+web/node_modules/
+web/dist/
+coverage/
+qa/reports/*.json
+supabase/.temp/
+*.log

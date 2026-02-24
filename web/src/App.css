@@ -1,0 +1,258 @@
+:root {
+  --bg-a: #fff7ec;
+  --bg-b: #eef6ff;
+  --ink: #1a2530;
+  --muted: #5f6f7d;
+  --brand: #0f7c90;
+  --brand-strong: #085f75;
+  --accent: #f4a300;
+  --danger: #b5433d;
+  --card: #ffffffd4;
+  --line: #d8e1e9;
+}
+
+.shell {
+  margin: 0 auto;
+  max-width: 980px;
+  padding: 20px;
+  color: var(--ink);
+}
+
+.hero {
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: linear-gradient(130deg, #fff 0%, #f8fbff 52%, #fdf7e8 100%);
+  box-shadow: 0 18px 35px rgba(10, 34, 58, 0.08);
+  margin-bottom: 18px;
+  padding: 20px;
+  animation: slideIn 320ms ease-out;
+}
+
+.hero h1 {
+  font-family: "Palatino Linotype", "Book Antiqua", serif;
+  font-size: clamp(1.6rem, 2vw + 1rem, 2.6rem);
+  margin: 0 0 8px;
+}
+
+.hero p {
+  color: var(--muted);
+  margin: 0;
+}
+
+.eyebrow {
+  color: var(--brand);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+}
+
+.mode-switch {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.mode-switch button {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--ink);
+  padding: 10px 18px;
+}
+
+.mode-switch button.active {
+  background: var(--brand);
+  color: #fff;
+}
+
+.panel {
+  animation: fadeUp 260ms ease-out;
+  display: grid;
+  gap: 14px;
+}
+
+.panel-head {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 12px 30px rgba(12, 36, 59, 0.08);
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+}
+
+.card h3,
+.card h2 {
+  font-family: "Palatino Linotype", "Book Antiqua", serif;
+  margin: 0;
+}
+
+.success {
+  border-left: 6px solid #2b8a55;
+}
+
+label {
+  color: var(--muted);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+input,
+textarea,
+select {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font: inherit;
+  padding: 10px 12px;
+}
+
+textarea {
+  resize: vertical;
+}
+
+button {
+  background: var(--brand);
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  padding: 10px 14px;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+button.secondary {
+  background: #fff;
+  border: 1px solid var(--line);
+  color: var(--ink);
+}
+
+button.danger {
+  background: var(--danger);
+}
+
+.prompt {
+  border-left: 4px solid var(--accent);
+  font-size: 1.06rem;
+  margin: 4px 0;
+  padding-left: 10px;
+}
+
+.meta-row {
+  color: var(--muted);
+  display: flex;
+  font-size: 0.9rem;
+  justify-content: space-between;
+}
+
+.option-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.option {
+  text-align: left;
+}
+
+.option.selected {
+  background: var(--brand-strong);
+}
+
+.metric-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+}
+
+.attempt-list {
+  display: grid;
+  gap: 8px;
+}
+
+.attempt-item {
+  align-items: center;
+  display: grid;
+  gap: 6px;
+  grid-template-columns: 1fr auto auto;
+  text-align: left;
+}
+
+.response-table {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 6px;
+  margin-top: 6px;
+  padding-top: 6px;
+}
+
+.response-row {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr auto auto;
+}
+
+.row {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.error {
+  background: #ffe8e6;
+  border: 1px solid #f6c0bc;
+  border-radius: 10px;
+  color: #83231d;
+  padding: 8px 10px;
+}
+
+.notice {
+  background: #eaf7ec;
+  border: 1px solid #b9e0c0;
+  border-radius: 10px;
+  color: #1f5f2b;
+  padding: 8px 10px;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 720px) {
+  .attempt-item {
+    grid-template-columns: 1fr;
+  }
+  .response-row {
+    grid-template-columns: 1fr;
+  }
+}

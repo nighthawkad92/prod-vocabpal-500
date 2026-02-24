@@ -1,0 +1,20 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  background:
+    radial-gradient(circle at 20% 10%, #ffefcc 0%, transparent 40%),
+    radial-gradient(circle at 85% 25%, #dff2ff 0%, transparent 45%),
+    linear-gradient(180deg, #f9fbff 0%, #fef8ec 100%);
+  font-family: "Avenir Next", "Gill Sans", sans-serif;
+  margin: 0;
+}

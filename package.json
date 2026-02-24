@@ -1,0 +1,17 @@
+{
+  "name": "vocabpal-baseline",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "web"
+  ],
+  "scripts": {
+    "dev": "npm --prefix web run dev",
+    "build": "npm --prefix web run build",
+    "lint": "npm --prefix web run lint",
+    "test": "npm --prefix web run test",
+    "typecheck": "npm --prefix web run typecheck",
+    "qa:remote": "node qa/remote_smoke.mjs",
+    "supabase": "npx supabase"
+  }
+}
