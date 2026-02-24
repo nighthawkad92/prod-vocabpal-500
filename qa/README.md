@@ -41,11 +41,9 @@ Reports are written to `qa/reports/`:
 3. `latest_after_deploy.json` and timestamped after-deploy reports
 4. Failure screenshots in `qa/reports/screenshots/`
 
-## CI (GitHub Actions)
+## Optional CI setup
 
-Workflow file: `.github/workflows/qa-after-deploy.yml`
-
-Add these repository secrets before enabling autonomous runs:
+To run `qa:after-deploy` in GitHub Actions, configure repository secrets:
 
 1. `APP_URL`
 2. `SUPABASE_URL`
