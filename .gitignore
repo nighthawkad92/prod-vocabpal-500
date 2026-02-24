@@ -9,3 +9,4 @@ coverage/
 qa/reports/*.json
 supabase/.temp/
 *.log
+.vercel
