@@ -55,24 +55,24 @@ The PM agent is the scheduler. Only PM changes task state.
 | UI-002 | Student question flow (10 items) | UI | UI-001, BE-004 | DONE | 10-item flow with progress, audio, completion summary |
 | UI-003 | Teacher dashboard and filters | UI | BE-003, BE-008 | DONE | summary, attempts, detail, class-aware display |
 | UI-004 | Window control and reopen UI | UI | BE-003, BE-009 | DONE | open/close windows + reopen form implemented |
-| PM-UI-005 | Prepare UI modernization board/tasks/handoffs | PM | PM-002 | READY | execution plan saved and queued |
-| UI-005 | Install shadcn foundation and core primitives | UI | PM-UI-005 | TODO | Vite setup + component primitives |
-| UI-006 | Refactor app into feature modules and shadcn surfaces | UI | UI-005 | TODO | student and teacher core flows |
-| UI-007 | Add event-based SFX with global mute persistence | UI | UI-006 | TODO | student + teacher scope |
-| UI-008 | Add low-impact Motion transitions and micro animations | UI | UI-006 | TODO | reduced-motion aware |
-| UI-009 | Non-core migration and secondary state polish | UI | UI-007, UI-008 | TODO | notices, lists, empty states |
+| PM-UI-005 | Prepare UI modernization board/tasks/handoffs | PM | PM-002 | DONE | plan section, board tasks, kickoff handoff finalized |
+| UI-005 | Install shadcn foundation and core primitives | UI | PM-UI-005 | DONE | Tailwind/Vite setup + reusable UI primitive layer |
+| UI-006 | Refactor app into feature modules and shadcn surfaces | UI | UI-005 | DONE | student/teacher shell split and shared types/api libs |
+| UI-007 | Add event-based SFX with global mute persistence | UI | UI-006 | DONE | curated SFX, global toggle, persistence, interaction guard |
+| UI-008 | Add low-impact Motion transitions and micro animations | UI | UI-006 | DONE | reduced-motion policy and subtle transitions integrated |
+| UI-009 | Non-core migration and secondary state polish | UI | UI-007, UI-008 | DONE | secondary states, notices, lists, and layout polish completed |
 | QA-001 | Unit tests for scoring and timing | QA | BE-005 | READY | pending dedicated local unit suite |
 | QA-002 | Integration tests for DB persistence | QA | BE-004, BE-005 | DONE | `qa/remote_smoke.mjs` validates storage and class separation |
 | QA-003 | E2E tests for student and teacher flows | QA | UI-004, BE-006 | REVIEW | API-level end-to-end smoke complete incl. TTS path |
-| QA-005 | UI regression + responsive + audio behavior verification | QA | UI-007, UI-008 | TODO | includes sound and motion behavior |
-| QA-006 | UX/data-collection risk validation under degraded conditions | QA | QA-005 | TODO | matrix + release risk summary |
+| QA-005 | UI regression + responsive + audio behavior verification | QA | UI-007, UI-008 | DONE | deployed `qa:remote`, `qa:matrix`, `qa:after-deploy` all passed |
+| QA-006 | UX/data-collection risk validation under degraded conditions | QA | QA-005 | DONE | 3x3 matrix pass with persistence + reduced-motion assertions |
 | QA-004 | Load test pilot profile (500 students) | QA | QA-003 | TODO | concurrency + dashboard read |
 | UXR-001 | Tablet usability review checklist | UX Research | UI-002 | TODO | classroom constraints |
 | UXR-002 | Apply UX recommendations backlog | UX Research | UXR-001 | TODO | scoped design fixes |
 | MKT-001 | Comparable baseline tool scan | Market Research | PM-001 | TODO | risks and constraints memo |
 | PM-002 | Weekly status and risk reporting | PM | all active | RUNNING | tracking active checkpoints and risks |
-| PM-UI-006 | Final UI modernization signoff and release recommendation | PM | QA-006 | TODO | post-QA go/no-go summary |
-| REL-001 | Vercel deployment wiring | PM/Backend/UI | UI-003, QA-003 | BLOCKED | pending CP-05, CP-06 and UI E2E signoff |
+| PM-UI-006 | Final UI modernization signoff and release recommendation | PM | QA-006 | DONE | signoff complete; release recommended for pilot UI scope |
+| REL-001 | Vercel deployment wiring | PM/Backend/UI | UI-003, QA-003 | DONE | main push + auto-deploy + after-deploy QA gate passed |
 | REL-002 | Pilot readiness checklist signoff | PM | QA-004, UXR-002 | TODO | final go/no-go |
 
 ## 4. Task Dependency Rules
@@ -90,8 +90,8 @@ Only these checkpoints pause autonomous flow for user input/credentials.
 | CP-02-SUPABASE-PUSH | Before applying remote migrations | Confirm `supabase db push` execution | BE-002 verification | CLEARED |
 | CP-03-GCP-TTS | Before first live TTS call/pre-generation | Run GCP auth and enable TTS API, set `GOOGLE_TTS_API_KEY` secret | BE-006 | CLEARED |
 | CP-04-GITHUB-PUSH | Before first remote push/PR | Ensure GitHub remote auth and run push | PM-002, REL-001 | CLEARED |
-| CP-05-VERCEL-LINK | Before first preview/prod deploy | Run `vercel login` and `vercel link` | REL-001 | PENDING |
-| CP-06-VERCEL-ENV | Before deploy uses runtime vars | Add required `VITE_*` env vars in Vercel | REL-001 | PENDING |
+| CP-05-VERCEL-LINK | Before first preview/prod deploy | Run `vercel login` and `vercel link` | REL-001 | CLEARED |
+| CP-06-VERCEL-ENV | Before deploy uses runtime vars | Add required `VITE_*` env vars in Vercel | REL-001 | CLEARED |
 | CP-07-CI-SECRETS | Before enabling fully automated CI deploy | Add Supabase/Vercel secrets in GitHub Actions | REL-001 | PENDING |
 
 ## 6. Autonomous Run Loop

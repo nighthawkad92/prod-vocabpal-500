@@ -400,3 +400,18 @@ interface TeacherLoginReq {
 8. Quality gate additions:
 1. keep existing `qa:remote`, `qa:matrix`, and `qa:after-deploy` passing.
 2. extend matrix checks for sound toggle persistence and reduced-motion behavior.
+
+## 22. UI Modernization Execution Outcome (2026-02-24)
+1. Implementation commit:
+1. `d52f819` pushed to `main`.
+2. Deployment:
+1. Vercel production build updated at `https://prod-vocabpal-500.vercel.app`.
+3. QA gate status:
+1. `qa:remote` passed on deployed URL.
+2. `qa:matrix` passed on deployed URL with 9/9 cases.
+3. `qa:after-deploy` passed with both smoke and matrix stages green.
+4. Added matrix assertions now actively validated:
+1. sound toggle persistence via UI + localStorage.
+2. reduced-motion policy detection and behavior.
+5. Residual note:
+1. local-host matrix execution is blocked by Supabase CORS origin policy unless localhost is allowlisted.

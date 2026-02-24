@@ -7,8 +7,8 @@ This playbook defines all mandatory user checkpoints for the autonomous single-c
 2. `CP-02-SUPABASE-PUSH`: Cleared.
 3. `CP-03-GCP-TTS`: Cleared.
 4. `CP-04-GITHUB-PUSH`: Cleared.
-5. `CP-05-VERCEL-LINK`: Pending.
-6. `CP-06-VERCEL-ENV`: Pending.
+5. `CP-05-VERCEL-LINK`: Cleared.
+6. `CP-06-VERCEL-ENV`: Cleared.
 7. `CP-07-CI-SECRETS`: Pending.
 
 ## CP-01-SUPABASE-LINK
