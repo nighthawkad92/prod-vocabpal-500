@@ -415,3 +415,77 @@ interface TeacherLoginReq {
 2. reduced-motion policy detection and behavior.
 5. Residual note:
 1. local-host matrix execution is blocked by Supabase CORS origin policy unless localhost is allowlisted.
+
+## 23. Design System Page Execution Plan (`/designsystem`)
+1. Route model:
+1. hidden direct URL route at `/designsystem` only.
+2. no student/teacher tab exposure.
+2. Scope:
+1. current-state foundations inventory (tokens, typography, spacing, radius, shadows, motion).
+2. component catalog for implemented primitives.
+3. interactive playground with prop/state controls.
+4. motion and SFX behavior panel using existing runtime hooks/config.
+3. Implementation defaults:
+1. no React Router dependency.
+2. pathname-based route switch in `App.tsx`.
+3. Vercel SPA rewrites for `/designsystem` and `/designsystem/*`.
+4. QA requirements:
+1. include `/designsystem` route checks in smoke and matrix QA scripts.
+2. keep `typecheck`, `lint`, and `build` passing.
+5. Workflow requirements:
+1. board tasks and handoffs required for PM/UI/QA transitions.
+2. PM remains state owner in `agent_board.md`.
+
+## 24. Design System Page Execution Outcome (2026-02-24)
+1. Implemented route and module set:
+1. `web/src/features/design-system/design-system-page.tsx`
+2. `web/src/features/design-system/foundations-section.tsx`
+3. `web/src/features/design-system/components-section.tsx`
+4. `web/src/features/design-system/motion-sfx-section.tsx`
+5. `web/src/features/design-system/playground-controls.tsx`
+6. `web/src/features/design-system/types.ts`
+7. `web/src/lib/design-system.ts`
+2. Updated app/deployment files:
+1. `web/src/App.tsx`
+2. `web/src/index.css`
+3. `vercel.json`
+3. Updated QA files:
+1. `qa/remote_smoke.mjs` (adds `/designsystem` reachability check)
+2. `qa/matrix_ui_network.mjs` (adds `/designsystem` render assertion)
+3. `qa/README.md`
+4. Validation snapshot:
+1. `npm --prefix web run typecheck` passed.
+2. `npm --prefix web run lint` passed.
+3. `npm --prefix web run build` passed.
+4. local `qa:remote` passed with new route check.
+5. local `qa:matrix` still fails at student start fetch under localhost environment; `/designsystem` matrix assertion itself passes.
+
+## 25. Layout Stability Rule for Question State Changes
+1. UX rule:
+1. page content must not vertically resize because of transient state messages.
+2. Student audio-gate behavior:
+1. remove conditional "Play audio before submitting" alert block.
+2. keep layout stable by using submit-button label states instead of mounting/unmounting notice rows.
+3. Submit-gate policy:
+1. submit remains disabled until required question audio fully finishes playing.
+2. label states:
+1. `Waiting for Audio` while loading/not yet played.
+2. `Audio playing` while playback is active.
+3. `Submit Answer` only when gate is satisfied.
+4. Scope:
+1. frontend student question flow only.
+2. no backend, DB, or API contract changes.
+
+## 26. Layout Stability Audio-Gate Outcome (2026-02-24)
+1. Implementation:
+1. student mode now tracks explicit `audioPlaying` state.
+2. audio gate unlock occurs on audio `ended` event (not on playback start).
+3. transient notice alert removed from MCQ and dictation paths.
+2. Validation:
+1. `npm --prefix web run typecheck` passed.
+2. `npm --prefix web run lint` passed.
+3. `npm --prefix web run build` passed.
+4. mocked headless UX check confirmed:
+1. old notice text absent.
+2. submit text transitions `Audio playing` -> `Submit Answer`.
+3. submit stays disabled before end and enables after end.

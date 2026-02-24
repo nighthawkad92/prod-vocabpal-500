@@ -4,6 +4,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const requiredEnv = [
+  "APP_URL",
   "SUPABASE_URL",
   "SUPABASE_ANON_KEY",
   "TEACHER_PASSCODE",
@@ -17,6 +18,7 @@ for (const key of requiredEnv) {
 }
 
 const config = {
+  appUrl: process.env.APP_URL.trim().replace(/\/$/, ""),
   supabaseUrl: process.env.SUPABASE_URL.trim().replace(/\/$/, ""),
   anonKey: process.env.SUPABASE_ANON_KEY.trim(),
   teacherName: (process.env.TEACHER_NAME ?? "QA Agent").trim(),
@@ -182,7 +184,29 @@ async function fetchAttemptDetail(token, attemptId) {
   return detail.payload;
 }
 
+async function verifyDesignSystemRoute() {
+  const response = await fetch(`${config.appUrl}/designsystem`, {
+    method: "GET",
+  });
+  const html = await response.text();
+  const reachable =
+    response.status === 200 &&
+    html.includes("<div id=\"root\">");
+
+  assert(
+    reachable,
+    `/designsystem route check failed with ${response.status}`,
+  );
+
+  addStep("designsystem-route-validated", {
+    url: `${config.appUrl}/designsystem`,
+    status: response.status,
+  });
+}
+
 async function run() {
+  await verifyDesignSystemRoute();
+
   const token = await loginTeacher();
   report.artifacts.teacherTokenIssued = true;
 

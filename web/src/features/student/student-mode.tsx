@@ -46,8 +46,8 @@ export function StudentMode({ motionPolicy, playSound }: StudentModeProps) {
   const [completion, setCompletion] = useState<StudentComplete | null>(null);
   const [busy, setBusy] = useState(false);
   const [audioBusy, setAudioBusy] = useState(false);
+  const [audioPlaying, setAudioPlaying] = useState(false);
   const [audioPlayedForQuestion, setAudioPlayedForQuestion] = useState(false);
-  const [audioNotice, setAudioNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const autoPlayedQuestionIdRef = useRef<string | null>(null);
@@ -77,18 +77,27 @@ export function StudentMode({ motionPolicy, playSound }: StudentModeProps) {
         );
 
         if (activeAudioRef.current) {
+          activeAudioRef.current.onended = null;
+          activeAudioRef.current.onerror = null;
           activeAudioRef.current.pause();
           activeAudioRef.current.currentTime = 0;
         }
 
         const player = new Audio(result.audioUrl);
+        player.onended = () => {
+          setAudioPlaying(false);
+          setAudioPlayedForQuestion(true);
+        };
+        player.onerror = () => {
+          setAudioPlaying(false);
+        };
         activeAudioRef.current = player;
         await player.play();
-        setAudioPlayedForQuestion(true);
-        setAudioNotice(null);
+        setAudioPlaying(true);
       } catch (err) {
+        setAudioPlaying(false);
         if (source === "auto") {
-          setAudioNotice("Audio autoplay was blocked. Tap Play Audio.");
+          return;
         } else {
           setError(err instanceof Error ? err.message : "Failed to play audio");
           void playSound("error", { fromInteraction: true });
@@ -105,8 +114,8 @@ export function StudentMode({ motionPolicy, playSound }: StudentModeProps) {
 
     setShownAtIso(new Date().toISOString());
     setAnswer("");
+    setAudioPlaying(false);
     setAudioPlayedForQuestion(false);
-    setAudioNotice(null);
 
     if (autoPlayedQuestionIdRef.current !== question.id && question.ttsText) {
       autoPlayedQuestionIdRef.current = question.id;
@@ -118,6 +127,8 @@ export function StudentMode({ motionPolicy, playSound }: StudentModeProps) {
     return () => {
       if (!activeAudioRef.current) return;
       activeAudioRef.current.pause();
+      activeAudioRef.current.onended = null;
+      activeAudioRef.current.onerror = null;
       activeAudioRef.current = null;
     };
   }, []);
@@ -209,6 +220,15 @@ export function StudentMode({ motionPolicy, playSound }: StudentModeProps) {
           transition: { duration: 0.01 },
         };
 
+  const requiresAudio = Boolean(question?.ttsText);
+  const audioGateLocked =
+    requiresAudio && (!audioPlayedForQuestion || audioBusy || audioPlaying);
+  const submitLabel = busy
+    ? "Submitting..."
+    : audioGateLocked
+      ? (audioBusy ? "Waiting for Audio" : audioPlaying ? "Audio playing" : "Waiting for Audio")
+      : "Submit Answer";
+
   return (
     <section className="space-y-4" aria-label="student-mode">
       <Card>
@@ -292,15 +312,10 @@ export function StudentMode({ motionPolicy, playSound }: StudentModeProps) {
                           void playSound("tap", { fromInteraction: true });
                           void playQuestionAudio("manual");
                         }}
-                        disabled={audioBusy}
+                        disabled={audioBusy || audioPlaying}
                       >
                         {audioBusy ? "Loading audio..." : "Play Audio"}
                       </MotionButton>
-                    )}
-
-                    {audioNotice && <Alert>{audioNotice}</Alert>}
-                    {question.ttsText && !audioPlayedForQuestion && (
-                      <Alert>Play audio before submitting.</Alert>
                     )}
 
                     {question.options && (
@@ -353,15 +368,10 @@ export function StudentMode({ motionPolicy, playSound }: StudentModeProps) {
                               void playSound("tap", { fromInteraction: true });
                               void playQuestionAudio("manual");
                             }}
-                            disabled={audioBusy}
+                            disabled={audioBusy || audioPlaying}
                           >
                             {audioBusy ? "Loading audio..." : "Play Audio"}
                           </MotionButton>
-                        )}
-
-                        {audioNotice && <Alert>{audioNotice}</Alert>}
-                        {question.ttsText && !audioPlayedForQuestion && (
-                          <Alert>Play audio before submitting.</Alert>
                         )}
 
                         <Label htmlFor="dictation-answer">Your answer</Label>
@@ -382,10 +392,10 @@ export function StudentMode({ motionPolicy, playSound }: StudentModeProps) {
                   disabled={
                     busy ||
                     !answer.trim() ||
-                    (Boolean(question.ttsText) && !audioPlayedForQuestion)
+                    audioGateLocked
                   }
                 >
-                  {busy ? "Submitting..." : "Submit Answer"}
+                  {submitLabel}
                 </MotionButton>
               </motion.form>
             </AnimatePresence>

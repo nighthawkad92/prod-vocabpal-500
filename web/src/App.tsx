@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { AppShell } from "@/components/app-shell";
+import { DesignSystemPage } from "@/features/design-system/design-system-page";
 import { StudentMode } from "@/features/student/student-mode";
 import { TeacherMode } from "@/features/teacher/teacher-mode";
 import type { AppMode } from "@/features/shared/types";
@@ -9,7 +10,15 @@ import { useSoundEffects } from "@/hooks/use-sound-effects";
 import { useUiPreferences } from "@/hooks/use-ui-preferences";
 import { getClientConfigError } from "@/lib/env";
 
-function App() {
+export type AppRoute = "app" | "designsystem";
+
+function resolveRoute(pathname: string): AppRoute {
+  return pathname === "/designsystem" || pathname === "/designsystem/"
+    ? "designsystem"
+    : "app";
+}
+
+function BaselineAssessmentApp() {
   const [mode, setMode] = useState<AppMode>("student");
   const configError = getClientConfigError();
   const motionPolicy = useMotionPolicy();
@@ -87,6 +96,17 @@ function App() {
       </AnimatePresence>
     </AppShell>
   );
+}
+
+function App() {
+  const pathname = typeof window === "undefined" ? "/" : window.location.pathname;
+  const route = resolveRoute(pathname);
+
+  if (route === "designsystem") {
+    return <DesignSystemPage />;
+  }
+
+  return <BaselineAssessmentApp />;
 }
 
 export default App;

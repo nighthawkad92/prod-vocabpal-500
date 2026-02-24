@@ -416,6 +416,34 @@ async function verifySoundPreferencePersistence(page) {
   };
 }
 
+async function verifyDesignSystemRoute(browser) {
+  const context = await browser.newContext({
+    viewport: { width: 1280, height: 800 },
+  });
+  const page = await context.newPage();
+
+  try {
+    await page.goto(`${config.appUrl}/designsystem`, {
+      waitUntil: "domcontentloaded",
+      timeout: NAV_TIMEOUT_MS,
+    });
+    await page.getByRole("heading", { name: "Design System" }).first().waitFor({
+      timeout: UI_TIMEOUT_MS,
+    });
+    addApiCheck("designsystem-route-render", true, {
+      url: `${config.appUrl}/designsystem`,
+    });
+  } catch (error) {
+    addApiCheck("designsystem-route-render", false, {
+      url: `${config.appUrl}/designsystem`,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
+  } finally {
+    await context.close();
+  }
+}
+
 async function runUiCase(browser, deviceProfile, networkProfile, student, caseId) {
   const caseResult = {
     caseId,
@@ -636,6 +664,8 @@ async function main() {
   const browser = await chromium.launch({ headless: true });
   const finishedCases = [];
   try {
+    await verifyDesignSystemRoute(browser);
+
     for (const matrixCase of matrixCases) {
       const result = await runUiCase(
         browser,

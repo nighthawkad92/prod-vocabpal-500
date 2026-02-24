@@ -72,6 +72,17 @@ The PM agent is the scheduler. Only PM changes task state.
 | MKT-001 | Comparable baseline tool scan | Market Research | PM-001 | TODO | risks and constraints memo |
 | PM-002 | Weekly status and risk reporting | PM | all active | RUNNING | tracking active checkpoints and risks |
 | PM-UI-006 | Final UI modernization signoff and release recommendation | PM | QA-006 | DONE | signoff complete; release recommended for pilot UI scope |
+| PM-DS-001 | Define and queue design system page tasks | PM | PM-002 | DONE | board tasks and handoff sequencing created for `/designsystem` execution |
+| UI-010 | Route plumbing + `/designsystem` shell | UI | PM-DS-001 | DONE | pathname route switch added with isolated design-system shell |
+| UI-011 | Foundations inventory section | UI | UI-010 | DONE | runtime token inventory (colors/type/spacing/radius/shadow/motion) added |
+| UI-012 | Components catalog + full playground controls | UI | UI-011 | DONE | interactive catalog/playground added for core primitives and states |
+| UI-013 | Motion/SFX documentation and interaction panel | UI | UI-012 | DONE | reduced-motion and SFX event panels added with live controls |
+| QA-007 | Design-system route/functionality regression | QA | UI-013 | DONE | type/lint/build pass; `qa:remote` pass incl `/designsystem`; matrix local blocked by Supabase CORS |
+| PM-DS-002 | Final signoff and release note for `/designsystem` | PM | QA-007 | DONE | signoff complete with deployment follow-up note for route verification on prod |
+| PM-DS-005 | Define vertical layout stability fix execution path | PM | PM-002 | DONE | locked no-layout-shift UX rule and submit-label gate behavior |
+| UI-016 | Remove transient audio notice and enforce submit unlock only after audio end | UI | PM-DS-005 | DONE | replaced alert toggle with stable submit-label states and stricter audio gate |
+| QA-009 | Validate no vertical shift in student question audio gate state changes | QA | UI-016 | DONE | type/lint/build pass + mocked headless UX check confirms stable layout behavior |
+| PM-DS-006 | Final signoff for layout-stability audio gate change | PM | QA-009 | DONE | signoff complete with no backend/API impact |
 | REL-001 | Vercel deployment wiring | PM/Backend/UI | UI-003, QA-003 | DONE | main push + auto-deploy + after-deploy QA gate passed |
 | REL-002 | Pilot readiness checklist signoff | PM | QA-004, UXR-002 | TODO | final go/no-go |
 
