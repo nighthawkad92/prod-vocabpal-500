@@ -374,3 +374,29 @@ interface TeacherLoginReq {
 5. Stage 4:
 1. Inference question (why Meena smiled) => `She did well in her test`
 2. Dictation: `proud`
+
+## 21. UI Modernization Execution Plan (shadcn + Motion + SFX)
+1. Rollout model: sequential hardening.
+2. Scope now: migrate core student and teacher surfaces to shadcn components and states.
+3. Scope next: migrate non-core surfaces and secondary states in a follow-up phase.
+4. Motion policy:
+1. use low-impact transitions and micro animations from Motion.
+2. respect reduced-motion preferences.
+5. Sound policy:
+1. enable by default with persistent mute toggle.
+2. apply to student and teacher interactions.
+3. defer first playback until user interaction to avoid autoplay blocks.
+6. Audio asset baseline (curated only):
+1. `sound effects/UI/select_2.wav` for tap/click.
+2. `sound effects/UI/pop_2.wav` for submit.
+3. `sound effects/UI/select_4.wav` for progress.
+4. `sound effects/Musical Effects/8_bit_chime_quick.wav` for welcome.
+5. `sound effects/Musical Effects/8_bit_positive_long.wav` for end.
+7. Frontend contracts:
+1. `SfxEvent` event model.
+2. `UiPreferences` with persisted sound state and interaction gate.
+3. `MotionPolicy` resolved from reduced-motion preference.
+4. reusable hooks for preferences and sound effects.
+8. Quality gate additions:
+1. keep existing `qa:remote`, `qa:matrix`, and `qa:after-deploy` passing.
+2. extend matrix checks for sound toggle persistence and reduced-motion behavior.

@@ -1,6 +1,22 @@
-*,
-*::before,
-*::after {
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap");
+@import "tailwindcss";
+
+:root {
+  --bg-a: #fff8ea;
+  --bg-b: #edf7ff;
+  --ink: #182538;
+  --muted: #5b6f82;
+  --line: #c9d9e5;
+  --surface: #fefeffd9;
+  --surface-2: #f3f7fb;
+  --brand-600: #0f7f94;
+  --brand-700: #0a6374;
+  --accent: #eab63f;
+  --danger: #b8453f;
+  --ring: #6ca2ff;
+}
+
+* {
   box-sizing: border-box;
 }
 
@@ -11,10 +27,31 @@ body,
 }
 
 body {
-  background:
-    radial-gradient(circle at 20% 10%, #ffefcc 0%, transparent 40%),
-    radial-gradient(circle at 85% 25%, #dff2ff 0%, transparent 45%),
-    linear-gradient(180deg, #f9fbff 0%, #fef8ec 100%);
-  font-family: "Avenir Next", "Gill Sans", sans-serif;
   margin: 0;
+  font-family: "Plus Jakarta Sans", "Avenir Next", "Gill Sans", sans-serif;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at 16% 8%, #ffe9be 0%, transparent 40%),
+    radial-gradient(circle at 88% 24%, #d7edff 0%, transparent 46%),
+    linear-gradient(180deg, #f8fbff 0%, #fff8e8 100%);
+}
+
+.card {
+  display: grid;
+  gap: 0.85rem;
+}
+
+option {
+  color: #10263a;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

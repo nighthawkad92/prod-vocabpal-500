@@ -55,14 +55,23 @@ The PM agent is the scheduler. Only PM changes task state.
 | UI-002 | Student question flow (10 items) | UI | UI-001, BE-004 | DONE | 10-item flow with progress, audio, completion summary |
 | UI-003 | Teacher dashboard and filters | UI | BE-003, BE-008 | DONE | summary, attempts, detail, class-aware display |
 | UI-004 | Window control and reopen UI | UI | BE-003, BE-009 | DONE | open/close windows + reopen form implemented |
+| PM-UI-005 | Prepare UI modernization board/tasks/handoffs | PM | PM-002 | READY | execution plan saved and queued |
+| UI-005 | Install shadcn foundation and core primitives | UI | PM-UI-005 | TODO | Vite setup + component primitives |
+| UI-006 | Refactor app into feature modules and shadcn surfaces | UI | UI-005 | TODO | student and teacher core flows |
+| UI-007 | Add event-based SFX with global mute persistence | UI | UI-006 | TODO | student + teacher scope |
+| UI-008 | Add low-impact Motion transitions and micro animations | UI | UI-006 | TODO | reduced-motion aware |
+| UI-009 | Non-core migration and secondary state polish | UI | UI-007, UI-008 | TODO | notices, lists, empty states |
 | QA-001 | Unit tests for scoring and timing | QA | BE-005 | READY | pending dedicated local unit suite |
 | QA-002 | Integration tests for DB persistence | QA | BE-004, BE-005 | DONE | `qa/remote_smoke.mjs` validates storage and class separation |
 | QA-003 | E2E tests for student and teacher flows | QA | UI-004, BE-006 | REVIEW | API-level end-to-end smoke complete incl. TTS path |
+| QA-005 | UI regression + responsive + audio behavior verification | QA | UI-007, UI-008 | TODO | includes sound and motion behavior |
+| QA-006 | UX/data-collection risk validation under degraded conditions | QA | QA-005 | TODO | matrix + release risk summary |
 | QA-004 | Load test pilot profile (500 students) | QA | QA-003 | TODO | concurrency + dashboard read |
 | UXR-001 | Tablet usability review checklist | UX Research | UI-002 | TODO | classroom constraints |
 | UXR-002 | Apply UX recommendations backlog | UX Research | UXR-001 | TODO | scoped design fixes |
 | MKT-001 | Comparable baseline tool scan | Market Research | PM-001 | TODO | risks and constraints memo |
 | PM-002 | Weekly status and risk reporting | PM | all active | RUNNING | tracking active checkpoints and risks |
+| PM-UI-006 | Final UI modernization signoff and release recommendation | PM | QA-006 | TODO | post-QA go/no-go summary |
 | REL-001 | Vercel deployment wiring | PM/Backend/UI | UI-003, QA-003 | BLOCKED | pending CP-05, CP-06 and UI E2E signoff |
 | REL-002 | Pilot readiness checklist signoff | PM | QA-004, UXR-002 | TODO | final go/no-go |
 

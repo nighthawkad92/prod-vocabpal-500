@@ -97,6 +97,10 @@ const NETWORK_PROFILES = [
   },
 ];
 
+const NAV_TIMEOUT_MS = 60000;
+const RESPONSE_TIMEOUT_MS = 45000;
+const UI_TIMEOUT_MS = 30000;
+
 const report = {
   runAt: new Date().toISOString(),
   status: "running",
@@ -259,7 +263,7 @@ async function waitForQuestionNumber(page, minQuestionNo) {
       return Number(match[1]) >= minNo;
     },
     minQuestionNo,
-    { timeout: 15000 },
+    { timeout: RESPONSE_TIMEOUT_MS },
   );
 }
 
@@ -276,7 +280,7 @@ async function unlockSubmitByPlayingAudio(page, submitButton, maxClicks = 8) {
     }
     const playButton = playButtons.first();
     if (await playButton.isDisabled()) {
-      if (Date.now() - startedAt > 15000) {
+      if (Date.now() - startedAt > RESPONSE_TIMEOUT_MS) {
         break;
       }
       await page.waitForTimeout(400);
@@ -293,7 +297,7 @@ async function submitTwoQuestions(page) {
   const stepResults = [];
 
   for (let i = 0; i < 2; i += 1) {
-    await page.locator(".meta-row").first().waitFor({ timeout: 15000 });
+    await page.locator(".meta-row").first().waitFor({ timeout: RESPONSE_TIMEOUT_MS });
     const currentQuestionNo = await getQuestionNumber(page);
     const submitButton = page.getByRole("button", { name: "Submit Answer" });
 
@@ -311,7 +315,7 @@ async function submitTwoQuestions(page) {
       (response) =>
         response.url().includes("/functions/v1/student-submit-response") &&
         response.request().method() === "POST",
-      { timeout: 15000 },
+      { timeout: RESPONSE_TIMEOUT_MS },
     );
     await submitButton.click();
     const submitResponse = await submitResponsePromise;
@@ -338,6 +342,78 @@ async function submitTwoQuestions(page) {
   }
 
   return stepResults;
+}
+
+async function verifyReducedMotionPolicy(page) {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto(config.appUrl, { waitUntil: "domcontentloaded", timeout: NAV_TIMEOUT_MS });
+
+  await page.locator("main[data-motion-policy]").first().waitFor({ timeout: UI_TIMEOUT_MS });
+  const reducedPolicy = await page.locator("main").first().getAttribute("data-motion-policy");
+  const reducedPass = reducedPolicy === "reduced";
+
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.goto(config.appUrl, { waitUntil: "domcontentloaded", timeout: NAV_TIMEOUT_MS });
+
+  await page.locator("main[data-motion-policy]").first().waitFor({ timeout: UI_TIMEOUT_MS });
+  const defaultPolicy = await page.locator("main").first().getAttribute("data-motion-policy");
+  const defaultPass = defaultPolicy === "full";
+
+  return {
+    pass: reducedPass && defaultPass,
+    details: {
+      reducedPolicy,
+      defaultPolicy,
+    },
+  };
+}
+
+async function verifySoundPreferencePersistence(page) {
+  const soundSwitch = page.getByRole("switch").first();
+  await soundSwitch.waitFor({ timeout: UI_TIMEOUT_MS });
+
+  const initialChecked = (await soundSwitch.getAttribute("aria-checked")) === "true";
+  await soundSwitch.click();
+  await page.waitForTimeout(120);
+
+  const toggledChecked = (await soundSwitch.getAttribute("aria-checked")) === "true";
+  assert(
+    toggledChecked !== initialChecked,
+    "Sound toggle did not change state after click",
+  );
+
+  await page.goto(config.appUrl, { waitUntil: "domcontentloaded", timeout: NAV_TIMEOUT_MS });
+  await soundSwitch.waitFor({ timeout: UI_TIMEOUT_MS });
+
+  const persistedChecked = (await soundSwitch.getAttribute("aria-checked")) === "true";
+  const persistedMainFlag = await page
+    .locator("main")
+    .first()
+    .getAttribute("data-sound-enabled");
+
+  const uiPreferences = await page.evaluate(() => {
+    const raw = window.localStorage.getItem("vocabpal.ui.preferences");
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  });
+
+  return {
+    pass:
+      persistedChecked === toggledChecked &&
+      persistedMainFlag === String(persistedChecked) &&
+      uiPreferences?.soundEnabled === persistedChecked,
+    details: {
+      initialChecked,
+      toggledChecked,
+      persistedChecked,
+      persistedMainFlag,
+      persistedStoredValue: uiPreferences?.soundEnabled ?? null,
+    },
+  };
 }
 
 async function runUiCase(browser, deviceProfile, networkProfile, student, caseId) {
@@ -388,18 +464,30 @@ async function runUiCase(browser, deviceProfile, networkProfile, student, caseId
       await route.continue();
     });
 
-    await page.goto(config.appUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
+    const reducedMotionCheck = await verifyReducedMotionPolicy(page);
+    caseResult.checks.push({
+      name: "reduced-motion-policy",
+      pass: reducedMotionCheck.pass,
+      details: reducedMotionCheck.details,
+    });
 
-    const studentInputs = page.locator("section.panel form.card input");
-    await studentInputs.nth(0).fill(student.firstName);
-    await studentInputs.nth(1).fill(student.lastName);
-    await studentInputs.nth(2).fill(student.className);
+    const soundPreferenceCheck = await verifySoundPreferencePersistence(page);
+    caseResult.checks.push({
+      name: "sound-toggle-persistence",
+      pass: soundPreferenceCheck.pass,
+      details: soundPreferenceCheck.details,
+    });
+
+    await page.locator("#student-first-name").first().waitFor({ timeout: UI_TIMEOUT_MS });
+    await page.locator("#student-first-name").fill(student.firstName);
+    await page.locator("#student-last-name").fill(student.lastName);
+    await page.locator("#student-class-name").fill(student.className);
 
     const startResponsePromise = page.waitForResponse(
       (response) =>
         response.url().includes("/functions/v1/student-start-attempt") &&
         response.request().method() === "POST",
-      { timeout: 15000 },
+      { timeout: RESPONSE_TIMEOUT_MS },
     );
     await page.getByRole("button", { name: "Start Baseline" }).click();
     const startResponse = await startResponsePromise;

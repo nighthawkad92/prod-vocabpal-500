@@ -26,6 +26,10 @@ npm run qa:remote
 ```bash
 npm run qa:matrix
 ```
+Includes explicit checks for:
+1. Student audio-before-submit gate.
+2. Sound toggle persistence (`localStorage` + UI state).
+3. Reduced-motion policy behavior (`prefers-reduced-motion`).
 
 3. After-deploy orchestrator (waits for deployment, then runs smoke + matrix):
 ```bash
