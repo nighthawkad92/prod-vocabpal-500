@@ -7,6 +7,8 @@ web/node_modules/
 web/dist/
 coverage/
 qa/reports/*.json
+qa/reports/screenshots/
 supabase/.temp/
 *.log
 .vercel
+.vscode/
