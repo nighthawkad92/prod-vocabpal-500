@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
+import dictationCat from "./assets/dictation/cat.svg";
+import dictationDog from "./assets/dictation/dog.svg";
+import dictationGreen from "./assets/dictation/green.svg";
+import dictationHappy from "./assets/dictation/happy.svg";
+import dictationProud from "./assets/dictation/proud.svg";
 import "./App.css";
 
 type AppMode = "student" | "teacher";
@@ -83,6 +88,13 @@ type TeacherAttemptDetail = {
 
 const TOKEN_KEY = "vocabpal.teacher.token";
 const NAME_KEY = "vocabpal.teacher.name";
+const DICTATION_IMAGE_BY_ORDER: Record<number, string> = {
+  2: dictationCat,
+  4: dictationDog,
+  6: dictationGreen,
+  8: dictationHappy,
+  10: dictationProud,
+};
 
 function config() {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
@@ -145,6 +157,10 @@ function StudentMode() {
   const [error, setError] = useState<string | null>(null);
   const autoPlayedQuestionIdRef = useRef<string | null>(null);
   const activeAudioRef = useRef<HTMLAudioElement | null>(null);
+  const dictationImage = useMemo(() => {
+    if (!question || question.itemType !== "dictation") return null;
+    return DICTATION_IMAGE_BY_ORDER[question.displayOrder] ?? null;
+  }, [question]);
 
   const playAudio = useCallback(
     async (source: "auto" | "manual" = "manual") => {
@@ -286,33 +302,54 @@ function StudentMode() {
             <span>Question {question.displayOrder} / 10</span>
             <span>{progressLabel}</span>
           </div>
-          <p className="prompt">{question.promptText}</p>
-          {question.ttsText && (
-            <button type="button" className="secondary" onClick={() => void playAudio("manual")} disabled={audioBusy}>
-              {audioBusy ? "Loading audio..." : "Play Audio"}
-            </button>
-          )}
-          {audioNotice && <p className="notice">{audioNotice}</p>}
-
-          {question.itemType === "mcq" && question.options && (
-            <div className="option-grid">
-              {question.options.map((opt) => (
-                <button
-                  key={opt}
-                  type="button"
-                  className={answer === opt ? "option selected" : "option"}
-                  onClick={() => setAnswer(opt)}
-                >
-                  {opt}
+          {question.itemType === "mcq" && (
+            <>
+              <p className="prompt">{question.promptText}</p>
+              {question.ttsText && (
+                <button type="button" className="secondary" onClick={() => void playAudio("manual")} disabled={audioBusy}>
+                  {audioBusy ? "Loading audio..." : "Play Audio"}
                 </button>
-              ))}
-            </div>
+              )}
+              {audioNotice && <p className="notice">{audioNotice}</p>}
+              {question.options && (
+                <div className="option-grid">
+                  {question.options.map((opt) => (
+                    <button
+                      key={opt}
+                      type="button"
+                      className={answer === opt ? "option selected" : "option"}
+                      onClick={() => setAnswer(opt)}
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </>
           )}
 
           {question.itemType === "dictation" && (
             <>
-              <label>Your answer</label>
-              <input value={answer} onChange={(e) => setAnswer(e.target.value)} required />
+              <p className="prompt">Listen to the audio and write the word.</p>
+              <div className="dictation-grid">
+                <div className="dictation-visual">
+                  {dictationImage ? (
+                    <img src={dictationImage} alt="Picture clue" loading="lazy" />
+                  ) : (
+                    <div className="dictation-placeholder">Picture clue</div>
+                  )}
+                </div>
+                <div className="dictation-work">
+                  {question.ttsText && (
+                    <button type="button" className="secondary" onClick={() => void playAudio("manual")} disabled={audioBusy}>
+                      {audioBusy ? "Loading audio..." : "Play Audio"}
+                    </button>
+                  )}
+                  {audioNotice && <p className="notice">{audioNotice}</p>}
+                  <label>Your answer</label>
+                  <input value={answer} onChange={(e) => setAnswer(e.target.value)} required />
+                </div>
+              </div>
             </>
           )}
 

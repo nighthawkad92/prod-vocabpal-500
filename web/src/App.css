@@ -163,6 +163,40 @@ button.danger {
   gap: 8px;
 }
 
+.dictation-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(180px, 36%) 1fr;
+}
+
+.dictation-visual {
+  align-items: center;
+  background: linear-gradient(180deg, #fbfdff 0%, #f4f9ff 100%);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  display: flex;
+  justify-content: center;
+  min-height: 190px;
+  padding: 10px;
+}
+
+.dictation-visual img {
+  height: auto;
+  max-width: 220px;
+  width: 100%;
+}
+
+.dictation-placeholder {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.dictation-work {
+  align-content: start;
+  display: grid;
+  gap: 10px;
+}
+
 .option {
   text-align: left;
 }
@@ -249,6 +283,10 @@ button.danger {
 }
 
 @media (max-width: 720px) {
+  .dictation-grid {
+    grid-template-columns: 1fr;
+  }
+
   .attempt-item {
     grid-template-columns: 1fr;
   }
