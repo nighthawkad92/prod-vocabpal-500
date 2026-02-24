@@ -63,7 +63,7 @@ The PM agent is the scheduler. Only PM changes task state.
 | UXR-002 | Apply UX recommendations backlog | UX Research | UXR-001 | TODO | scoped design fixes |
 | MKT-001 | Comparable baseline tool scan | Market Research | PM-001 | TODO | risks and constraints memo |
 | PM-002 | Weekly status and risk reporting | PM | all active | RUNNING | tracking active checkpoints and risks |
-| REL-001 | Vercel deployment wiring | PM/Backend/UI | UI-003, QA-003 | BLOCKED | pending CP-04, CP-05, CP-06 and UI E2E signoff |
+| REL-001 | Vercel deployment wiring | PM/Backend/UI | UI-003, QA-003 | BLOCKED | pending CP-05, CP-06 and UI E2E signoff |
 | REL-002 | Pilot readiness checklist signoff | PM | QA-004, UXR-002 | TODO | final go/no-go |
 
 ## 4. Task Dependency Rules
@@ -80,7 +80,7 @@ Only these checkpoints pause autonomous flow for user input/credentials.
 | CP-01-SUPABASE-LINK | Before first remote Supabase operation | Run `supabase login` and `supabase link --project-ref <REF>` | BE-002 onward requiring remote | CLEARED |
 | CP-02-SUPABASE-PUSH | Before applying remote migrations | Confirm `supabase db push` execution | BE-002 verification | CLEARED |
 | CP-03-GCP-TTS | Before first live TTS call/pre-generation | Run GCP auth and enable TTS API, set `GOOGLE_TTS_API_KEY` secret | BE-006 | CLEARED |
-| CP-04-GITHUB-PUSH | Before first remote push/PR | Ensure GitHub remote auth and run push | PM-002, REL-001 | PENDING |
+| CP-04-GITHUB-PUSH | Before first remote push/PR | Ensure GitHub remote auth and run push | PM-002, REL-001 | CLEARED |
 | CP-05-VERCEL-LINK | Before first preview/prod deploy | Run `vercel login` and `vercel link` | REL-001 | PENDING |
 | CP-06-VERCEL-ENV | Before deploy uses runtime vars | Add required `VITE_*` env vars in Vercel | REL-001 | PENDING |
 | CP-07-CI-SECRETS | Before enabling fully automated CI deploy | Add Supabase/Vercel secrets in GitHub Actions | REL-001 | PENDING |
