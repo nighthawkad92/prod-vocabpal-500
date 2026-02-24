@@ -141,6 +141,22 @@ function formatDate(value: string | null): string {
   return new Date(value).toLocaleString();
 }
 
+function formatDurationMs(value: number): string {
+  if (!Number.isFinite(value) || value < 0) return "-";
+  const totalSeconds = Math.round(value / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  if (hours > 0) {
+    return `${hours} hr ${minutes} min ${seconds} sec`;
+  }
+  if (minutes > 0) {
+    return `${minutes} min ${seconds} sec`;
+  }
+  return `${seconds} sec`;
+}
+
 function StudentMode() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -678,13 +694,13 @@ function TeacherMode() {
           <p>Started: {formatDate(detail.attempt.startedAt)}</p>
           <p>Ended: {formatDate(detail.attempt.endedAt)}</p>
           <p>Score: {detail.attempt.totalScore10}/10 | Stars: {detail.attempt.stars}</p>
-          <p>Total Time: {detail.attempt.totalResponseTimeMs} ms</p>
+          <p>Total Time: {formatDurationMs(detail.attempt.totalResponseTimeMs)}</p>
           <div className="response-table">
             {detail.responses.map((response) => (
               <div key={response.id} className="response-row">
                 <span>S{response.stageNo} I{response.itemNo}</span>
                 <span>{response.isCorrect ? "Correct" : "Wrong"}</span>
-                <span>{response.responseTimeMs} ms</span>
+                <span>{formatDurationMs(response.responseTimeMs)}</span>
               </div>
             ))}
           </div>
