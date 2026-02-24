@@ -176,6 +176,7 @@ function StudentMode() {
   const [completion, setCompletion] = useState<StudentComplete | null>(null);
   const [busy, setBusy] = useState(false);
   const [audioBusy, setAudioBusy] = useState(false);
+  const [audioPlayedForQuestion, setAudioPlayedForQuestion] = useState(false);
   const [audioNotice, setAudioNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const autoPlayedQuestionIdRef = useRef<string | null>(null);
@@ -201,6 +202,7 @@ function StudentMode() {
         const player = new Audio(audio.audioUrl);
         activeAudioRef.current = player;
         await player.play();
+        setAudioPlayedForQuestion(true);
         setAudioNotice(null);
       } catch (err) {
         if (source === "manual") {
@@ -219,6 +221,7 @@ function StudentMode() {
     if (question) {
       setShownAtIso(new Date().toISOString());
       setAnswer("");
+      setAudioPlayedForQuestion(false);
       setAudioNotice(null);
       if (autoPlayedQuestionIdRef.current !== question.id && question.ttsText) {
         autoPlayedQuestionIdRef.current = question.id;
@@ -334,6 +337,7 @@ function StudentMode() {
                 </button>
               )}
               {audioNotice && <p className="notice">{audioNotice}</p>}
+              {question.ttsText && !audioPlayedForQuestion && <p className="notice">Play audio before submitting.</p>}
               {question.options && (
                 <div className="option-grid">
                   {question.options.map((opt) => (
@@ -369,6 +373,7 @@ function StudentMode() {
                     </button>
                   )}
                   {audioNotice && <p className="notice">{audioNotice}</p>}
+                  {question.ttsText && !audioPlayedForQuestion && <p className="notice">Play audio before submitting.</p>}
                   <label>Your answer</label>
                   <input value={answer} onChange={(e) => setAnswer(e.target.value)} required />
                 </div>
@@ -376,7 +381,7 @@ function StudentMode() {
             </>
           )}
 
-          <button type="submit" disabled={busy || !answer.trim()}>
+          <button type="submit" disabled={busy || !answer.trim() || (Boolean(question.ttsText) && !audioPlayedForQuestion)}>
             {busy ? "Submitting..." : "Submit Answer"}
           </button>
         </form>
