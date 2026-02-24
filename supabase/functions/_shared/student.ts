@@ -225,7 +225,7 @@ export async function getOpenWindowForStudent(
     throw new Error(`Failed to query open windows: ${error.message}`);
   }
   if (!data || data.length === 0) {
-    throw new Error("No open baseline window is available");
+    throw new Error("No baseline session is currently in progress");
   }
 
   const firstNorm = normalizeNameKey(firstName);
@@ -253,7 +253,7 @@ export async function getOpenWindowForStudent(
     }
   }
 
-  throw new Error("Student is not allowed in the current baseline window");
+  throw new Error("Student is not allowed in the current baseline session");
 }
 
 export async function getLatestAttempt(

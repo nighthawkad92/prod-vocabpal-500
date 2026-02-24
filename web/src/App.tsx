@@ -8,6 +8,7 @@ import dictationProud from "./assets/dictation/proud.svg";
 import "./App.css";
 
 type AppMode = "student" | "teacher";
+type SessionStatus = "in_progress" | "paused" | "ended";
 
 type Question = {
   id: string;
@@ -155,6 +156,12 @@ function formatDurationMs(value: number): string {
     return `${minutes} min ${seconds} sec`;
   }
   return `${seconds} sec`;
+}
+
+function formatSessionStatus(value: SessionStatus): string {
+  if (value === "in_progress") return "In Progress";
+  if (value === "paused") return "Paused";
+  return "Ended";
 }
 
 function StudentMode() {
@@ -398,8 +405,10 @@ function TeacherMode() {
   const [attempts, setAttempts] = useState<TeacherAttempt[]>([]);
   const [detail, setDetail] = useState<TeacherAttemptDetail | null>(null);
   const [windowScope, setWindowScope] = useState<"all" | "allowlist">("all");
+  const [createWindowStatus, setCreateWindowStatus] = useState<SessionStatus>("in_progress");
   const [allowlistText, setAllowlistText] = useState("Ria,Patel,Class A");
-  const [toggleWindowId, setToggleWindowId] = useState("");
+  const [statusWindowId, setStatusWindowId] = useState("");
+  const [nextWindowStatus, setNextWindowStatus] = useState<SessionStatus>("paused");
   const [reopenFirstName, setReopenFirstName] = useState("");
   const [reopenLastName, setReopenLastName] = useState("");
   const [reopenClassName, setReopenClassName] = useState("Class A");
@@ -497,37 +506,42 @@ function TeacherMode() {
         body: {
           scope: windowScope,
           allowlist: windowScope === "allowlist" ? allowlist : [],
-          isOpen: true,
+          status: createWindowStatus,
           startAt: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
           endAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
         },
       });
-      setNotice("Baseline window created.");
+      setNotice(`Baseline session created (${formatSessionStatus(createWindowStatus)}).`);
       await refresh(token);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create window");
+      setError(err instanceof Error ? err.message : "Failed to create session");
     } finally {
       setBusy(false);
     }
   }
 
-  async function toggleWindow(e: FormEvent) {
+  async function updateWindowStatus(e: FormEvent) {
     e.preventDefault();
     if (!token) return;
     setBusy(true);
     setError(null);
     setNotice(null);
     try {
-      await callFunction("teacher-windows", {
+      const result = await callFunction<{ window: { id: string }; status: SessionStatus; usedLatest: boolean }>("teacher-windows", {
         method: "PATCH",
         token,
-        body: { windowId: toggleWindowId, isOpen: false },
+        body: {
+          windowId: statusWindowId.trim() || undefined,
+          status: nextWindowStatus,
+        },
       });
-      setToggleWindowId("");
-      setNotice("Window closed.");
+      setStatusWindowId(result.window.id);
+      setNotice(
+        `Baseline session ${result.window.id} set to ${formatSessionStatus(result.status)}${result.usedLatest ? " (latest session)." : "."}`,
+      );
       await refresh(token);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to toggle window");
+      setError(err instanceof Error ? err.message : "Failed to update session status");
     } finally {
       setBusy(false);
     }
@@ -625,12 +639,18 @@ function TeacherMode() {
       )}
 
       <div className="card">
-        <h3>Open Baseline Window</h3>
+        <h3>Create Baseline Session</h3>
         <form onSubmit={createWindow}>
           <label>Scope</label>
           <select value={windowScope} onChange={(e) => setWindowScope(e.target.value as "all" | "allowlist")}>
             <option value="all">All Students</option>
             <option value="allowlist">Allowlist Only</option>
+          </select>
+          <label>Initial Status</label>
+          <select value={createWindowStatus} onChange={(e) => setCreateWindowStatus(e.target.value as SessionStatus)}>
+            <option value="in_progress">In Progress</option>
+            <option value="paused">Paused</option>
+            <option value="ended">Ended</option>
           </select>
           {windowScope === "allowlist" && (
             <>
@@ -639,18 +659,28 @@ function TeacherMode() {
             </>
           )}
           <button type="submit" disabled={busy}>
-            Create Window
+            Create Session
           </button>
         </form>
       </div>
 
       <div className="card">
-        <h3>Close Window</h3>
-        <form onSubmit={toggleWindow}>
-          <label>Window ID</label>
-          <input value={toggleWindowId} onChange={(e) => setToggleWindowId(e.target.value)} placeholder="Paste window ID" />
-          <button type="submit" disabled={busy || !toggleWindowId.trim()}>
-            Close Window
+        <h3>Update Session Status</h3>
+        <form onSubmit={updateWindowStatus}>
+          <label>Session ID (optional)</label>
+          <input
+            value={statusWindowId}
+            onChange={(e) => setStatusWindowId(e.target.value)}
+            placeholder="Leave blank to update latest session"
+          />
+          <label>Status</label>
+          <select value={nextWindowStatus} onChange={(e) => setNextWindowStatus(e.target.value as SessionStatus)}>
+            <option value="in_progress">In Progress</option>
+            <option value="paused">Paused</option>
+            <option value="ended">Ended</option>
+          </select>
+          <button type="submit" disabled={busy}>
+            Update Status
           </button>
         </form>
       </div>

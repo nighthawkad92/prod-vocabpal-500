@@ -114,14 +114,14 @@ async function createOpenWindow(token) {
     token,
     body: {
       scope: "all",
-      isOpen: true,
+      status: "in_progress",
       startAt: new Date(now - 5 * 60 * 1000).toISOString(),
       endAt: new Date(now + 60 * 60 * 1000).toISOString(),
     },
   });
   expectStatus(result, 200, "teacher-windows POST");
   assert(result.payload?.window?.id, "window creation did not return id");
-  addStep("window-created", { windowId: result.payload.window.id });
+  addStep("session-created", { windowId: result.payload.window.id, status: result.payload.status });
   return result.payload.window.id;
 }
 
@@ -288,13 +288,13 @@ async function run() {
     attemptsToday: summary.payload.attemptsToday,
   });
 
-  const closeWindow = await callFunction("teacher-windows", {
+  const pauseSession = await callFunction("teacher-windows", {
     method: "PATCH",
     token,
-    body: { windowId, isOpen: false },
+    body: { windowId, status: "paused" },
   });
-  expectStatus(closeWindow, 200, "teacher-windows PATCH close");
-  addStep("window-closed", { windowId });
+  expectStatus(pauseSession, 200, "teacher-windows PATCH status update");
+  addStep("session-paused", { windowId, status: pauseSession.payload?.status });
 
   const logout = await callFunction("teacher-logout", { method: "POST", token });
   expectStatus(logout, 200, "teacher-logout");
