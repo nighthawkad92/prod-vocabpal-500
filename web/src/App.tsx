@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import "./App.css";
 
@@ -141,14 +141,61 @@ function StudentMode() {
   const [completion, setCompletion] = useState<StudentComplete | null>(null);
   const [busy, setBusy] = useState(false);
   const [audioBusy, setAudioBusy] = useState(false);
+  const [audioNotice, setAudioNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const autoPlayedQuestionIdRef = useRef<string | null>(null);
+  const activeAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  const playAudio = useCallback(
+    async (source: "auto" | "manual" = "manual") => {
+      if (!question || !question.ttsText) return;
+      setAudioBusy(true);
+      if (source === "manual") {
+        setError(null);
+      }
+      try {
+        const audio = await callFunction<{ audioUrl: string }>(`student-question-audio/${question.id}`);
+        if (activeAudioRef.current) {
+          activeAudioRef.current.pause();
+          activeAudioRef.current.currentTime = 0;
+        }
+        const player = new Audio(audio.audioUrl);
+        activeAudioRef.current = player;
+        await player.play();
+        setAudioNotice(null);
+      } catch (err) {
+        if (source === "manual") {
+          setError(err instanceof Error ? err.message : "Failed to play audio");
+        } else {
+          setAudioNotice("Audio autoplay was blocked. Tap Play Audio.");
+        }
+      } finally {
+        setAudioBusy(false);
+      }
+    },
+    [question],
+  );
 
   useEffect(() => {
     if (question) {
       setShownAtIso(new Date().toISOString());
       setAnswer("");
+      setAudioNotice(null);
+      if (autoPlayedQuestionIdRef.current !== question.id && question.ttsText) {
+        autoPlayedQuestionIdRef.current = question.id;
+        void playAudio("auto");
+      }
     }
-  }, [question]);
+  }, [question, playAudio]);
+
+  useEffect(() => {
+    return () => {
+      if (activeAudioRef.current) {
+        activeAudioRef.current.pause();
+        activeAudioRef.current = null;
+      }
+    };
+  }, []);
 
   async function startAttempt(e: FormEvent) {
     e.preventDefault();
@@ -172,21 +219,6 @@ function StudentMode() {
       setError(err instanceof Error ? err.message : "Failed to start attempt");
     } finally {
       setBusy(false);
-    }
-  }
-
-  async function playAudio() {
-    if (!question) return;
-    setAudioBusy(true);
-    setError(null);
-    try {
-      const audio = await callFunction<{ audioUrl: string }>(`student-question-audio/${question.id}`);
-      const player = new Audio(audio.audioUrl);
-      await player.play();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to play audio");
-    } finally {
-      setAudioBusy(false);
     }
   }
 
@@ -256,10 +288,11 @@ function StudentMode() {
           </div>
           <p className="prompt">{question.promptText}</p>
           {question.ttsText && (
-            <button type="button" className="secondary" onClick={playAudio} disabled={audioBusy}>
+            <button type="button" className="secondary" onClick={() => void playAudio("manual")} disabled={audioBusy}>
               {audioBusy ? "Loading audio..." : "Play Audio"}
             </button>
           )}
+          {audioNotice && <p className="notice">{audioNotice}</p>}
 
           {question.itemType === "mcq" && question.options && (
             <div className="option-grid">
