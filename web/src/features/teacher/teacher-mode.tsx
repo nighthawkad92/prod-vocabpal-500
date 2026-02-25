@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { motion } from "motion/react";
 import { Archive, RefreshCw } from "lucide-react";
 import { MotionButton } from "@/components/motion-button";
@@ -89,6 +89,23 @@ function parseClassSection(className: string | null): { classLabel: string; sect
   }
 
   return { classLabel: className, sectionLabel: "-" };
+}
+
+function instructionalNeedFromStage(stage: number | null): string {
+  switch (stage) {
+    case 0:
+      return "Phonics + Sound Work";
+    case 1:
+      return "Word Reading Practice";
+    case 2:
+      return "Sentence Fluency";
+    case 3:
+      return "Paragraph + Vocabulary";
+    case 4:
+      return "Inference + Expression";
+    default:
+      return "-";
+  }
 }
 
 export function TeacherMode({
@@ -550,10 +567,21 @@ export function TeacherMode({
 
         <CardContent>
           {summary && summary.classBreakdown.length > 0 ? (
-            <div className="space-y-3">
+            <div className="overflow-x-auto pb-1">
+              <div className="flex min-w-max items-stretch gap-3 pr-1">
               {summary.classBreakdown.map((classSummary) => (
-                <ClassPerformanceRow key={classSummary.className} summary={classSummary} />
+                <ClassPerformanceRow
+                  key={classSummary.className}
+                  summary={classSummary}
+                  isActive={classFilter === classSummary.className}
+                  onSelect={(selectedClassName) => {
+                    const nextFilter = classFilter === selectedClassName ? "all" : selectedClassName;
+                    setClassFilter(nextFilter);
+                    void playSound("tap", { fromInteraction: true });
+                  }}
+                />
               ))}
+              </div>
             </div>
           ) : (
             <p className="text-sm text-[color:var(--muted)]">No attempts available yet.</p>
@@ -669,7 +697,7 @@ export function TeacherMode({
                         <MotionButton
                           variant="secondary"
                           motionPolicy={motionPolicy}
-                          className={`h-auto flex-1 justify-start px-3 py-3 text-left ${
+                          className={`h-auto flex-1 justify-start px-3 py-3 text-left !bg-white hover:!bg-white ${
                             attempt.id === selectedAttemptId
                               ? "ring-2 ring-[color:var(--ring)]"
                               : ""
@@ -788,71 +816,54 @@ type ClassSummaryRow = TeacherSummary["classBreakdown"][number];
 
 type ClassPerformanceRowProps = {
   summary: ClassSummaryRow;
+  isActive: boolean;
+  onSelect: (className: string) => void;
 };
 
-function ClassPerformanceRow({ summary }: ClassPerformanceRowProps) {
+function ClassPerformanceRow({ summary, isActive, onSelect }: ClassPerformanceRowProps) {
   return (
-    <div className="rounded-[var(--radius-xl)] border border-[color:var(--line)] bg-white p-3 shadow-[var(--shadow-2xs)]">
-      <div className="grid gap-3 lg:grid-cols-[1fr_1.2fr] lg:items-center">
-        <div className="space-y-2">
-          <p className="text-sm font-semibold uppercase tracking-[0.08em] text-[color:var(--muted)]">{summary.className}</p>
-          <div className="grid grid-cols-2 gap-2 text-sm text-[color:var(--ink)]">
-            <MetricChip label="Attempts" value={summary.attempts} />
-            <MetricChip label="Completed" value={summary.completedAttempts} />
-            <MetricChip label="In Progress" value={summary.inProgressAttempts} />
-            <MetricChip label="Avg Score" value={summary.avgScore10} />
-          </div>
-        </div>
-
-        <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
-          <div className="space-y-1.5">
-            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[color:var(--muted)]">
-              Average score graph
+    <button
+      type="button"
+      onClick={() => onSelect(summary.className)}
+      className={`w-fit min-w-[280px] rounded-[var(--radius-xl)] border bg-white p-3 text-left shadow-[var(--shadow-2xs)] transition-colors ${
+        isActive
+          ? "border-[color:var(--ring)] ring-2 ring-[color:var(--ring)]/30"
+          : "border-[color:var(--line)] hover:bg-[color:var(--surface)]"
+      }`}
+      aria-pressed={isActive}
+      aria-label={`Filter attempts by ${summary.className}`}
+    >
+      <div className="space-y-3">
+        <div className="flex items-center justify-between gap-4">
+          <p className="text-sm font-semibold uppercase tracking-[0.08em] text-[color:var(--muted)]">
+            {summary.className}
+          </p>
+          <div className="text-right">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-[color:var(--muted)]">
+              Avg Score
             </p>
-            <div className="h-3 w-full overflow-hidden rounded-full bg-[color:var(--surface-2)]">
-              <div
-                className="h-full rounded-full bg-[color:var(--brand-600)]"
-                style={{ width: `${Math.max(0, Math.min(100, (summary.avgScore10 / 10) * 100))}%` }}
-              />
-            </div>
+            <p className="text-2xl font-bold leading-none text-[color:var(--ink)]">
+              {summary.avgScore10}
+            </p>
           </div>
+        </div>
 
-          <CompletionPie
-            label="Completion"
-            completedAttempts={summary.completedAttempts}
-            totalAttempts={summary.attempts}
-          />
+        <div className="space-y-1 text-sm font-semibold text-[color:var(--ink)]">
+          <div className="flex items-baseline justify-between gap-3">
+            <span>Attempts</span>
+            <span>{summary.attempts}</span>
+          </div>
+          <div className="flex items-baseline justify-between gap-3">
+            <span>Completed</span>
+            <span>{summary.completedAttempts}</span>
+          </div>
+          <div className="flex items-baseline justify-between gap-3">
+            <span>In Progress</span>
+            <span>{summary.inProgressAttempts}</span>
+          </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-type CompletionPieProps = {
-  label: string;
-  completedAttempts: number;
-  totalAttempts: number;
-};
-
-function CompletionPie({ label, completedAttempts, totalAttempts }: CompletionPieProps) {
-  const completionPercent = totalAttempts > 0 ? (completedAttempts / totalAttempts) * 100 : 0;
-  const boundedCompletion = Math.max(0, Math.min(100, completionPercent));
-
-  return (
-    <div className="flex items-center gap-2">
-      <div
-        className="relative h-12 w-12 rounded-full border border-[color:var(--line)]"
-        style={{
-          background: `conic-gradient(var(--brand-600) ${boundedCompletion}%, var(--surface-2) ${boundedCompletion}% 100%)`,
-        }}
-      >
-        <div className="absolute inset-[0.3rem] rounded-full bg-white" />
-      </div>
-      <div className="text-xs font-semibold text-[color:var(--ink)]">
-        <p>{label}</p>
-        <p>{Math.round(boundedCompletion)}%</p>
-      </div>
-    </div>
+    </button>
   );
 }
 
@@ -881,70 +892,64 @@ function AttemptDetailBody({ detail }: AttemptDetailBodyProps) {
 
   const { classLabel, sectionLabel } = parseClassSection(detail.attempt.student.className);
 
-  const average = detail.responses.length > 0
-    ? `${((detail.attempt.totalCorrect / detail.responses.length) * 100).toFixed(1)}%`
-    : "-";
-
-  const correctResponses = detail.responses.filter((response) => response.isCorrect).length;
-  const wrongResponses = detail.responses.length - correctResponses;
   const maxResponseTime = Math.max(
     ...detail.responses.map((response) => response.responseTimeMs),
     1,
   );
+  const readingStage = detail.attempt.placementStage;
+  const instructionalNeed = instructionalNeedFromStage(readingStage);
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-        <MetricChip label="Full Name" value={studentName} />
-        <MetricChip label="Class" value={classLabel} />
-        <MetricChip label="Section" value={sectionLabel} />
-        <MetricChip label="Start Date" value={formatDateOnly(detail.attempt.startedAt)} />
-        <MetricChip label="End Date" value={formatDateOnly(detail.attempt.endedAt)} />
-        <MetricChip label="Start Time" value={formatTimeOnly(detail.attempt.startedAt)} />
-        <MetricChip label="End Time" value={formatTimeOnly(detail.attempt.endedAt)} />
-        <MetricChip label="Total Score" value={`${detail.attempt.totalScore10}/10`} />
-        <MetricChip label="Total Time" value={formatDurationMs(detail.attempt.totalResponseTimeMs)} />
-        <MetricChip label="Average" value={average} />
+      <div className="grid gap-3 xl:grid-cols-3">
+        <DetailGroup title="Student">
+          <DetailRow label="Full Name" value={studentName} />
+          <DetailRow label="Class" value={classLabel} />
+          <DetailRow label="Section" value={sectionLabel} />
+        </DetailGroup>
+
+        <DetailGroup title="Timing">
+          <DetailRow
+            label="Start"
+            value={`${formatDateOnly(detail.attempt.startedAt)} · ${formatTimeOnly(detail.attempt.startedAt)}`}
+          />
+          <DetailRow
+            label="End"
+            value={`${formatDateOnly(detail.attempt.endedAt)} · ${formatTimeOnly(detail.attempt.endedAt)}`}
+          />
+          <DetailRow label="Total Time" value={formatDurationMs(detail.attempt.totalResponseTimeMs)} />
+        </DetailGroup>
+
+        <DetailGroup title="Performance">
+          <DetailRow label="Score" value={`${detail.attempt.totalScore10}/10`} />
+          <DetailRow
+            label="Reading Stage"
+            value={readingStage === null ? "-" : `${readingStage}`}
+          />
+          <DetailRow label="Instructional Need" value={instructionalNeed} />
+        </DetailGroup>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[auto_1fr]">
-        <div className="rounded-[var(--radius-xl)] border border-[color:var(--line)] bg-white p-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[color:var(--muted)]">
-            Result Pie
-          </p>
-          <div className="mt-3">
-            <CompletionPie
-              label="Correct"
-              completedAttempts={correctResponses}
-              totalAttempts={Math.max(detail.responses.length, 1)}
-            />
-          </div>
-          <p className="mt-2 text-xs font-semibold text-[color:var(--ink)]">
-            Correct {correctResponses} | Wrong {wrongResponses}
-          </p>
-        </div>
-
-        <div className="rounded-[var(--radius-xl)] border border-[color:var(--line)] bg-white p-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[color:var(--muted)]">
-            Time Graph (per question)
-          </p>
-          <div className="mt-3 space-y-2">
-            {detail.responses.map((response, index) => {
-              const width = (response.responseTimeMs / maxResponseTime) * 100;
-              return (
-                <div key={response.id} className="grid grid-cols-[auto_1fr_auto] items-center gap-2 text-xs">
-                  <span className="w-8 font-semibold text-[color:var(--ink)]">Q{response.displayOrder ?? index + 1}</span>
-                  <div className="h-2 rounded-full bg-[color:var(--surface-2)]">
-                    <div
-                      className="h-full rounded-full bg-[color:var(--brand-600)]"
-                      style={{ width: `${Math.max(width, 4)}%` }}
-                    />
-                  </div>
-                  <span className="font-semibold text-[color:var(--ink)]">{formatDurationMs(response.responseTimeMs)}</span>
+      <div className="rounded-[var(--radius-xl)] border border-[color:var(--line)] bg-white p-3">
+        <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[color:var(--muted)]">
+          Time Graph (per question)
+        </p>
+        <div className="mt-3 space-y-2">
+          {detail.responses.map((response, index) => {
+            const width = (response.responseTimeMs / maxResponseTime) * 100;
+            return (
+              <div key={response.id} className="grid grid-cols-[auto_1fr_auto] items-center gap-2 text-xs">
+                <span className="w-8 font-semibold text-[color:var(--ink)]">Q{response.displayOrder ?? index + 1}</span>
+                <div className="h-2 rounded-full bg-[color:var(--surface-2)]">
+                  <div
+                    className="h-full rounded-full bg-[color:var(--brand-600)]"
+                    style={{ width: `${Math.max(width, 4)}%` }}
+                  />
                 </div>
-              );
-            })}
-          </div>
+                <span className="font-semibold text-[color:var(--ink)]">{formatDurationMs(response.responseTimeMs)}</span>
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -971,6 +976,36 @@ function AttemptDetailBody({ detail }: AttemptDetailBodyProps) {
           );
         })}
       </div>
+    </div>
+  );
+}
+
+type DetailGroupProps = {
+  title: string;
+  children: ReactNode;
+};
+
+function DetailGroup({ title, children }: DetailGroupProps) {
+  return (
+    <div className="rounded-[var(--radius-lg)] border border-[color:var(--line)] bg-white p-3">
+      <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[color:var(--muted)]">{title}</p>
+      <div className="mt-2 space-y-2">{children}</div>
+    </div>
+  );
+}
+
+type DetailRowProps = {
+  label: string;
+  value: string | number;
+};
+
+function DetailRow({ label, value }: DetailRowProps) {
+  return (
+    <div className="space-y-0.5">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[color:var(--muted)]">
+        {label}
+      </p>
+      <p className="text-sm font-semibold text-[color:var(--ink)]">{value}</p>
     </div>
   );
 }
