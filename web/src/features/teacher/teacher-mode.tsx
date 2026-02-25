@@ -127,13 +127,20 @@ export function TeacherMode({
 
   const [busy, setBusy] = useState(false);
   const [detailBusy, setDetailBusy] = useState(false);
+  const [headerActionLoading, setHeaderActionLoading] = useState<"status" | "refresh" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
   const refresh = useCallback(
-    async (authToken = token ?? undefined) => {
+    async (
+      authToken = token ?? undefined,
+      source: "auto" | "refresh" | "status" = "auto",
+    ) => {
       if (!authToken) return;
 
+      if (source !== "auto") {
+        setHeaderActionLoading(source);
+      }
       setBusy(true);
       setError(null);
 
@@ -164,6 +171,9 @@ export function TeacherMode({
         void playSound("error", { fromInteraction: true });
       } finally {
         setBusy(false);
+        if (source !== "auto") {
+          setHeaderActionLoading(null);
+        }
       }
     },
     [playSound, token],
@@ -219,6 +229,14 @@ export function TeacherMode({
       onAuthStateChange?.(false);
     };
   }, [onAuthStateChange]);
+
+  useEffect(() => {
+    if (!notice) return;
+    const timeoutId = window.setTimeout(() => {
+      setNotice(null);
+    }, 3000);
+    return () => window.clearTimeout(timeoutId);
+  }, [notice]);
 
   const classOptions = useMemo(() => {
     return Array.from(
@@ -332,6 +350,8 @@ export function TeacherMode({
   }, [playSound, token]);
 
   const sessionStatus = windowState?.status === "in_progress" ? "in_progress" : "paused";
+  const isStatusActionLoading = headerActionLoading === "status";
+  const isRefreshActionLoading = headerActionLoading === "refresh";
 
   const updateSessionStatus = useCallback(
     async (nextStatus: "paused" | "in_progress") => {
@@ -366,7 +386,7 @@ export function TeacherMode({
         }
 
         setNotice(`Baseline set to ${formatSessionStatus(response.status)}.`);
-        await refresh(token);
+        await refresh(token, "status");
         void playSound("submit", { fromInteraction: true });
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to update baseline status");
@@ -524,6 +544,14 @@ export function TeacherMode({
 
   return (
     <section className="space-y-4" aria-label="teacher-mode">
+      {notice ? (
+        <div className="fixed inset-x-0 top-4 z-50 flex justify-center px-4" role="status" aria-live="polite">
+          <Alert variant="success" className="w-full max-w-5xl shadow-[var(--shadow-md)]">
+            {notice}
+          </Alert>
+        </div>
+      ) : null}
+
       <Card>
         <CardHeader className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
@@ -534,27 +562,34 @@ export function TeacherMode({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <SessionStatusToggle
-              status={sessionStatus}
-              disabled={busy}
-              onChange={(nextStatus) => {
-                void playSound("tap", { fromInteraction: true });
-                void updateSessionStatus(nextStatus);
-              }}
-            />
-            <Badge>{formatSessionStatus(sessionStatus)}</Badge>
-            <MotionButton
-              motionPolicy={motionPolicy}
-              variant="secondary"
-              onClick={() => {
-                void playSound("tap", { fromInteraction: true });
-                void refresh();
-              }}
-              disabled={busy}
-            >
-              <RefreshCw className="h-4 w-4" />
-              Refresh
-            </MotionButton>
+            {isStatusActionLoading ? (
+              <HeaderActionSkeleton className="w-[220px]" />
+            ) : (
+              <SessionStatusToggle
+                status={sessionStatus}
+                disabled={busy}
+                onChange={(nextStatus) => {
+                  void playSound("tap", { fromInteraction: true });
+                  void updateSessionStatus(nextStatus);
+                }}
+              />
+            )}
+            {isRefreshActionLoading ? (
+              <HeaderActionSkeleton className="w-[128px]" />
+            ) : (
+              <MotionButton
+                motionPolicy={motionPolicy}
+                variant="secondary"
+                onClick={() => {
+                  void playSound("tap", { fromInteraction: true });
+                  void refresh(token ?? undefined, "refresh");
+                }}
+                disabled={busy}
+              >
+                <RefreshCw className="h-4 w-4" />
+                Refresh
+              </MotionButton>
+            )}
             <MotionButton
               motionPolicy={motionPolicy}
               variant="destructive"
@@ -769,7 +804,6 @@ export function TeacherMode({
         </Card>
       </motion.div>
 
-      {notice && <Alert variant="success">{notice}</Alert>}
       {error && <Alert variant="destructive">{error}</Alert>}
     </section>
   );
@@ -809,6 +843,19 @@ function SessionStatusToggle({ status, disabled = false, onChange }: SessionStat
         In Progress
       </button>
     </div>
+  );
+}
+
+type HeaderActionSkeletonProps = {
+  className: string;
+};
+
+function HeaderActionSkeleton({ className }: HeaderActionSkeletonProps) {
+  return (
+    <div
+      className={`${className} h-11 animate-pulse rounded-[var(--radius-xl)] border border-[color:var(--line)] bg-[color:var(--surface-2)] shadow-[var(--shadow-2xs)]`}
+      aria-hidden="true"
+    />
   );
 }
 
