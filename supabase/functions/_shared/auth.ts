@@ -35,7 +35,10 @@ function resolveAllowedOrigin(req: Request): string {
 export function corsHeaders(req: Request): Headers {
   const headers = new Headers();
   headers.set("Access-Control-Allow-Origin", resolveAllowedOrigin(req));
-  headers.set("Access-Control-Allow-Headers", "authorization, x-client-info, apikey, content-type");
+  headers.set(
+    "Access-Control-Allow-Headers",
+    "authorization, x-client-info, apikey, content-type, x-teacher-session",
+  );
   headers.set("Access-Control-Allow-Methods", "GET,POST,PATCH,OPTIONS");
   headers.set("Access-Control-Allow-Credentials", "true");
   headers.set("Vary", "Origin");
@@ -151,6 +154,11 @@ export async function createTeacherSession(
 }
 
 export function extractSessionToken(req: Request): string | null {
+  const teacherHeader = req.headers.get("x-teacher-session");
+  if (teacherHeader && teacherHeader.trim().length > 0) {
+    return teacherHeader.trim();
+  }
+
   const authHeader = req.headers.get("authorization");
   if (authHeader && authHeader.toLowerCase().startsWith("bearer ")) {
     const bearerToken = authHeader.slice(7).trim();

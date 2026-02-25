@@ -51,13 +51,22 @@ export async function callFunction<T>(
 ): Promise<T> {
   const { supabaseUrl, apikey } = getClientConfig();
   const method = opts.method ?? "GET";
+  const headers = new Headers({
+    "Content-Type": "application/json",
+    apikey,
+  });
+  if (opts.token) {
+    if (opts.token.split(".").length === 3) {
+      headers.set("Authorization", `Bearer ${opts.token}`);
+    } else {
+      headers.set("x-teacher-session", opts.token);
+    }
+  }
+
   const response = await fetch(`${supabaseUrl}/functions/v1/${path}`, {
     method,
-    headers: {
-      "Content-Type": "application/json",
-      apikey,
-      ...(opts.token ? { Authorization: `Bearer ${opts.token}` } : {}),
-    },
+    credentials: "include",
+    headers,
     body: method === "GET" ? undefined : JSON.stringify(opts.body ?? {}),
   });
 

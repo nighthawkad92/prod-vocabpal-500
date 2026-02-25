@@ -135,8 +135,10 @@ export function TeacherMode({
     async (
       authToken = token ?? undefined,
       source: "auto" | "refresh" | "status" = "auto",
+      opts?: { throwOnError?: boolean },
     ) => {
       if (!authToken) return;
+      const throwOnError = opts?.throwOnError ?? false;
 
       if (source !== "auto") {
         setHeaderActionLoading(source);
@@ -167,8 +169,12 @@ export function TeacherMode({
           return list.attempts[0].id;
         });
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load dashboard");
+        const message = err instanceof Error ? err.message : "Failed to load dashboard";
+        setError(message);
         void playSound("error", { fromInteraction: true });
+        if (throwOnError) {
+          throw err instanceof Error ? err : new Error(message);
+        }
       } finally {
         setBusy(false);
         if (source !== "auto") {
@@ -430,19 +436,29 @@ export function TeacherMode({
         });
 
         const archivedCount = response.archivedCount ?? uniqueAttemptIds.length;
-        if (archivedCount === 1 && response.students[0]) {
-          const studentName = [response.students[0].firstName, response.students[0].lastName]
-            .filter(Boolean)
-            .join(" ") || "student";
-          setNotice(`Attempt archived for ${studentName}. Baseline test reopened.`);
-        } else {
-          setNotice(`${archivedCount} attempts archived. Baseline test reopened for selected students.`);
-        }
+        const successNotice = archivedCount === 1 && response.students[0]
+          ? `Attempt archived for ${
+            [response.students[0].firstName, response.students[0].lastName]
+              .filter(Boolean)
+              .join(" ") || "student"
+          }. Baseline test reopened.`
+          : `${archivedCount} attempts archived. Baseline test reopened for selected students.`;
 
         setSelectedAttemptIds((current) =>
           current.filter((attemptId) => !uniqueAttemptIds.includes(attemptId))
         );
-        await refresh(token);
+
+        try {
+          await refresh(token, "auto", { throwOnError: true });
+          setNotice(successNotice);
+        } catch (refreshError) {
+          const refreshMessage = refreshError instanceof Error
+            ? refreshError.message
+            : "Failed to refresh dashboard";
+          setError(`Archive succeeded but dashboard refresh failed: ${refreshMessage}`);
+          setNotice(`${successNotice} Refresh failed, tap Refresh.`);
+        }
+
         void playSound("submit", { fromInteraction: true });
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to archive attempts");

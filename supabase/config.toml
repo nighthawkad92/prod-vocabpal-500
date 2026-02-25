@@ -389,7 +389,7 @@ s3_secret_key = "env(S3_SECRET_KEY)"
 
 [functions.teacher-login]
 enabled = true
-verify_jwt = true
+verify_jwt = false
 import_map = "./functions/teacher-login/deno.json"
 # Uncomment to specify a custom file path to the entrypoint.
 # Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
@@ -400,7 +400,7 @@ entrypoint = "./functions/teacher-login/index.ts"
 
 [functions.teacher-logout]
 enabled = true
-verify_jwt = true
+verify_jwt = false
 import_map = "./functions/teacher-logout/deno.json"
 # Uncomment to specify a custom file path to the entrypoint.
 # Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
@@ -411,7 +411,7 @@ entrypoint = "./functions/teacher-logout/index.ts"
 
 [functions.teacher-me]
 enabled = true
-verify_jwt = true
+verify_jwt = false
 import_map = "./functions/teacher-me/deno.json"
 # Uncomment to specify a custom file path to the entrypoint.
 # Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
@@ -422,7 +422,7 @@ entrypoint = "./functions/teacher-me/index.ts"
 
 [functions.student-start-attempt]
 enabled = true
-verify_jwt = true
+verify_jwt = false
 import_map = "./functions/student-start-attempt/deno.json"
 # Uncomment to specify a custom file path to the entrypoint.
 # Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
@@ -433,7 +433,7 @@ entrypoint = "./functions/student-start-attempt/index.ts"
 
 [functions.student-submit-response]
 enabled = true
-verify_jwt = true
+verify_jwt = false
 import_map = "./functions/student-submit-response/deno.json"
 # Uncomment to specify a custom file path to the entrypoint.
 # Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
@@ -444,7 +444,7 @@ entrypoint = "./functions/student-submit-response/index.ts"
 
 [functions.student-complete-attempt]
 enabled = true
-verify_jwt = true
+verify_jwt = false
 import_map = "./functions/student-complete-attempt/deno.json"
 # Uncomment to specify a custom file path to the entrypoint.
 # Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
@@ -455,7 +455,7 @@ entrypoint = "./functions/student-complete-attempt/index.ts"
 
 [functions.student-question-audio]
 enabled = true
-verify_jwt = true
+verify_jwt = false
 import_map = "./functions/student-question-audio/deno.json"
 # Uncomment to specify a custom file path to the entrypoint.
 # Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
@@ -466,7 +466,7 @@ entrypoint = "./functions/student-question-audio/index.ts"
 
 [functions.teacher-windows]
 enabled = true
-verify_jwt = true
+verify_jwt = false
 import_map = "./functions/teacher-windows/deno.json"
 # Uncomment to specify a custom file path to the entrypoint.
 # Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
@@ -477,7 +477,7 @@ entrypoint = "./functions/teacher-windows/index.ts"
 
 [functions.teacher-reopen]
 enabled = true
-verify_jwt = true
+verify_jwt = false
 import_map = "./functions/teacher-reopen/deno.json"
 # Uncomment to specify a custom file path to the entrypoint.
 # Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
@@ -488,7 +488,7 @@ entrypoint = "./functions/teacher-reopen/index.ts"
 
 [functions.teacher-window-toggle]
 enabled = true
-verify_jwt = true
+verify_jwt = false
 import_map = "./functions/teacher-window-toggle/deno.json"
 # Uncomment to specify a custom file path to the entrypoint.
 # Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
@@ -499,7 +499,7 @@ entrypoint = "./functions/teacher-window-toggle/index.ts"
 
 [functions.teacher-dashboard-summary]
 enabled = true
-verify_jwt = true
+verify_jwt = false
 import_map = "./functions/teacher-dashboard-summary/deno.json"
 # Uncomment to specify a custom file path to the entrypoint.
 # Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
@@ -510,7 +510,7 @@ entrypoint = "./functions/teacher-dashboard-summary/index.ts"
 
 [functions.teacher-dashboard-attempts]
 enabled = true
-verify_jwt = true
+verify_jwt = false
 import_map = "./functions/teacher-dashboard-attempts/deno.json"
 # Uncomment to specify a custom file path to the entrypoint.
 # Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
@@ -521,7 +521,7 @@ entrypoint = "./functions/teacher-dashboard-attempts/index.ts"
 
 [functions.teacher-attempt-detail]
 enabled = true
-verify_jwt = true
+verify_jwt = false
 import_map = "./functions/teacher-attempt-detail/deno.json"
 # Uncomment to specify a custom file path to the entrypoint.
 # Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
@@ -532,7 +532,7 @@ entrypoint = "./functions/teacher-attempt-detail/index.ts"
 
 [functions.teacher-window-set]
 enabled = true
-verify_jwt = true
+verify_jwt = false
 import_map = "./functions/teacher-window-set/deno.json"
 # Uncomment to specify a custom file path to the entrypoint.
 # Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
@@ -543,7 +543,7 @@ entrypoint = "./functions/teacher-window-set/index.ts"
 
 [functions.teacher-dashboard-list]
 enabled = true
-verify_jwt = true
+verify_jwt = false
 import_map = "./functions/teacher-dashboard-list/deno.json"
 # Uncomment to specify a custom file path to the entrypoint.
 # Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
@@ -551,3 +551,14 @@ entrypoint = "./functions/teacher-dashboard-list/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/teacher-dashboard-list/*.html" ]
+
+[functions.teacher-attempt-archive]
+enabled = true
+verify_jwt = false
+import_map = "./functions/teacher-attempt-archive/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/teacher-attempt-archive/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/teacher-attempt-archive/*.html" ]
