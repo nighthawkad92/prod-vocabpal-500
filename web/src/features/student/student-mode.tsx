@@ -277,10 +277,14 @@ export function StudentMode({
       : "Submit Answer";
   const stepOneComplete = firstName.trim().length > 0 && lastName.trim().length > 0;
   const stepTwoComplete = Boolean(classNumber && sectionLetter);
-  const entrySubtitle =
+  const entryStepMeta =
     step === 1
-      ? "Step 1 of 2: Enter your full name"
-      : "Step 2 of 2: Choose your class and section";
+      ? "Step 1 of 2:"
+      : "Step 2 of 2:";
+  const entryStepAction =
+    step === 1
+      ? "Enter your full name"
+      : "Choose your class and section";
 
   return (
     <section
@@ -309,8 +313,15 @@ export function StudentMode({
             </>
           ) : (
             <>
-              <CardTitle className="text-left text-4xl">Baseline Test</CardTitle>
-              <CardDescription className="text-left">{entrySubtitle}</CardDescription>
+              <CardTitle className="text-left text-2xl">Baseline Test</CardTitle>
+              <CardDescription className="text-left text-[color:var(--ink)]">
+                <span className="text-xs font-bold leading-4 text-[color:var(--muted)]">
+                  {entryStepMeta}
+                </span>{" "}
+                <span className="text-base font-semibold leading-6 text-[color:var(--ink)]">
+                  {entryStepAction}
+                </span>
+              </CardDescription>
             </>
           )}
         </CardHeader>

@@ -121,6 +121,10 @@ The PM agent is the scheduler. Only PM changes task state.
 | UI-027 | Replace class/section `RadioOption` selectors with `Tabs` controls | UI | PM-DS-023 | DONE | student step-2 class and section now use tabs triggers with touch-friendly sizing and existing tap audio behavior |
 | QA-020 | Validate tabs-based class/section selector behavior and regression gates | QA | UI-027 | DONE | type/lint/build pass; step-2 selection and start-gate logic unchanged after control swap |
 | PM-DS-024 | Final signoff for tabs-based class/section selector rollout | PM | QA-020 | DONE | signoff complete; frontend-only control update accepted |
+| PM-DS-025 | Queue entry subtitle type-scale mapping update | PM | PM-002 | DONE | queued exact type-scale mapping for entry title and split subtitle roles (`Meta/Caption` + `Body Large`) |
+| UI-028 | Apply type-scale mapping for `Baseline Test` and split step subtitle roles | UI | PM-DS-025 | DONE | `Baseline Test` now uses card-title scale; step subtitle split into meta label + body-large action text |
+| QA-021 | Validate entry type-scale mapping and regression gates | QA | UI-028 | DONE | type/lint/build pass; student and teacher entry headings and student subtitle scales match requested mapping |
+| PM-DS-026 | Final signoff for entry type-scale mapping update | PM | QA-021 | DONE | signoff complete; frontend typography-only update accepted |
 | PM-QA-010 | Queue post-push release-gate validation and CI checkpoint closure | PM | PM-002 | DONE | scoped QA harness alignment and rerun of `qa:after-deploy` after main push |
 | QA-010 | Align matrix harness with audio-end submit gate and rerun release gate | QA | PM-QA-010 | DONE | updated submit selector + mock audio `onended`; `qa:matrix` and `qa:after-deploy` passed |
 | PM-QA-011 | Sign off post-push QA recovery and checkpoint closure | PM | QA-010 | DONE | verified green after-deploy report and cleared CP-07 via GitHub secrets |

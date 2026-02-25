@@ -345,7 +345,7 @@ export function TeacherMode({
 
         <Card className="w-full max-w-[450px]">
           <CardHeader>
-            <CardTitle className="text-left text-4xl">Baseline Test</CardTitle>
+            <CardTitle className="text-left text-2xl">Baseline Test</CardTitle>
             <CardDescription className="text-left">Teacher sign in</CardDescription>
           </CardHeader>
           <CardContent>
