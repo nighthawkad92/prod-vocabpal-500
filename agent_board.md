@@ -125,6 +125,10 @@ The PM agent is the scheduler. Only PM changes task state.
 | UI-028 | Apply type-scale mapping for `Baseline Test` and split step subtitle roles | UI | PM-DS-025 | DONE | `Baseline Test` now uses card-title scale; step subtitle split into meta label + body-large action text |
 | QA-021 | Validate entry type-scale mapping and regression gates | QA | UI-028 | DONE | type/lint/build pass; student and teacher entry headings and student subtitle scales match requested mapping |
 | PM-DS-026 | Final signoff for entry type-scale mapping update | PM | QA-021 | DONE | signoff complete; frontend typography-only update accepted |
+| PM-DS-027 | Queue entry subtitle parity + full-viewport background coverage fix | PM | PM-002 | DONE | queued equalized subtitle scale and full width/height global pattern rendering fix |
+| UI-029 | Align `Step X of 2:` to body-large scale and enforce full-viewport SVG background coverage | UI | PM-DS-027 | DONE | step prefix now matches action text scale; global background layer now stretches full viewport without tiling seams |
+| QA-022 | Validate subtitle scale parity + full-viewport background rendering regression gates | QA | UI-029 | DONE | type/lint/build pass; entry subtitle sizing and full-screen pattern coverage verified |
+| PM-DS-028 | Final signoff for subtitle/background coverage fix | PM | QA-022 | DONE | signoff complete; frontend visual fix accepted |
 | PM-QA-010 | Queue post-push release-gate validation and CI checkpoint closure | PM | PM-002 | DONE | scoped QA harness alignment and rerun of `qa:after-deploy` after main push |
 | QA-010 | Align matrix harness with audio-end submit gate and rerun release gate | QA | PM-QA-010 | DONE | updated submit selector + mock audio `onended`; `qa:matrix` and `qa:after-deploy` passed |
 | PM-QA-011 | Sign off post-push QA recovery and checkpoint closure | PM | QA-010 | DONE | verified green after-deploy report and cleared CP-07 via GitHub secrets |

@@ -83,9 +83,9 @@ body::before {
   position: fixed;
   inset: 0;
   background-image: url("./assets/backgrounds/image-bg.svg");
-  background-size: 560px auto;
-  background-repeat: repeat;
-  background-position: center top;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  background-position: center;
   opacity: 0.3;
   pointer-events: none;
   z-index: 0;

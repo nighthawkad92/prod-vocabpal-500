@@ -315,7 +315,7 @@ export function StudentMode({
             <>
               <CardTitle className="text-left text-2xl">Baseline Test</CardTitle>
               <CardDescription className="text-left text-[color:var(--ink)]">
-                <span className="text-xs font-bold leading-4 text-[color:var(--muted)]">
+                <span className="text-base font-semibold leading-6 text-[color:var(--ink)]">
                   {entryStepMeta}
                 </span>{" "}
                 <span className="text-base font-semibold leading-6 text-[color:var(--ink)]">
