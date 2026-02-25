@@ -19,6 +19,10 @@ import {
   TOTAL_QUESTION_COUNT,
   type QuestionVisual,
 } from "@/features/student/dictation-images";
+import {
+  QUESTION_READING_PRELUDE_BY_ORDER,
+  type QuestionReadingPrelude,
+} from "@/features/student/reading-preludes";
 import logoVocabPal from "@/assets/branding/logo-vocabpal.png";
 import arrowLeftIcon from "@/assets/icons/arrow-left.svg";
 import playIcon from "@/assets/icons/play.svg";
@@ -93,6 +97,7 @@ export function StudentMode({
   const [audioBusy, setAudioBusy] = useState(false);
   const [audioPlaying, setAudioPlaying] = useState(false);
   const [audioPlayedForQuestion, setAudioPlayedForQuestion] = useState(false);
+  const [showReadingPrelude, setShowReadingPrelude] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const autoPlayedQuestionIdRef = useRef<string | null>(null);
@@ -106,6 +111,11 @@ export function StudentMode({
     if (!question) return null;
     return QUESTION_VISUAL_BY_ORDER[question.displayOrder] ?? null;
   }, [question]);
+  const readingPrelude = useMemo<QuestionReadingPrelude | null>(() => {
+    if (!question) return null;
+    return QUESTION_READING_PRELUDE_BY_ORDER[question.displayOrder] ?? null;
+  }, [question]);
+  const activeQuestionPromptText = readingPrelude?.questionPrompt ?? question?.promptText ?? "";
 
   const playQuestionAudio = useCallback(
     async (source: "auto" | "manual") => {
@@ -156,13 +166,17 @@ export function StudentMode({
 
   useEffect(() => {
     if (!question) return;
+    const hasReadingPrelude = Boolean(
+      QUESTION_READING_PRELUDE_BY_ORDER[question.displayOrder],
+    );
 
-    setShownAtIso(new Date().toISOString());
+    setShownAtIso(hasReadingPrelude ? "" : new Date().toISOString());
     setAnswer("");
     setAudioPlaying(false);
     setAudioPlayedForQuestion(false);
+    setShowReadingPrelude(hasReadingPrelude);
 
-    if (autoPlayedQuestionIdRef.current !== question.id && question.ttsText) {
+    if (!hasReadingPrelude && autoPlayedQuestionIdRef.current !== question.id && question.ttsText) {
       autoPlayedQuestionIdRef.current = question.id;
       void playQuestionAudio("auto");
     }
@@ -318,6 +332,16 @@ export function StudentMode({
       )}
     </div>
   );
+  const revealQuestion = useCallback(() => {
+    setShowReadingPrelude(false);
+    setShownAtIso(new Date().toISOString());
+    void playSound("tap", { fromInteraction: true });
+
+    if (question?.ttsText && autoPlayedQuestionIdRef.current !== question.id) {
+      autoPlayedQuestionIdRef.current = question.id;
+      void playQuestionAudio("auto");
+    }
+  }, [playQuestionAudio, playSound, question]);
 
   return (
     <section
@@ -509,125 +533,155 @@ export function StudentMode({
                 onSubmit={submitAnswer}
                 {...questionTransition}
               >
-                {question.itemType === "mcq" && (
+                {showReadingPrelude && readingPrelude ? (
                   <>
-                    <div className={questionVisual ? "grid gap-3 md:grid-cols-[minmax(190px,36%)_1fr]" : "grid gap-3"}>
-                      {questionVisual ? renderQuestionVisual("Question illustration") : null}
-                      <div className="grid content-start gap-3">
-                        <p className="prompt font-['Fraunces',serif] text-2xl leading-tight text-[color:var(--ink)]">
-                          {`Q${question.displayOrder}: ${question.promptText}`}
-                        </p>
-
-                        {question.ttsText && (
-                          <MotionButton
-                            type="button"
-                            variant="secondary"
-                            motionPolicy={motionPolicy}
-                            className="secondary w-fit"
-                            data-testid="question-audio-button"
-                            onClick={() => {
-                              void playSound("tap", { fromInteraction: true });
-                              void playQuestionAudio("manual");
-                            }}
-                            disabled={audioBusy || audioPlaying}
-                          >
-                            {!audioBusy && (
-                              <img src={playIcon} alt="" aria-hidden="true" className="h-4 w-4" />
-                            )}
-                            {audioBusy ? "Loading audio..." : "Play audio"}
-                          </MotionButton>
-                        )}
-
-                        {question.options && (
-                          <div
-                            className="option-grid grid gap-2"
-                            role="radiogroup"
-                            aria-label="Answer options"
-                            style={{ gridTemplateColumns: `repeat(${question.options.length}, minmax(0, 1fr))` }}
-                          >
-                            {question.options.map((option) => {
-                              const selected = answer === option;
-                              return (
-                                <RadioOption
-                                  key={option}
-                                  motionPolicy={motionPolicy}
-                                  variant="tile"
-                                  selected={selected}
-                                  label={toSentenceCase(option)}
-                                  onSelect={() => {
-                                    setAnswer(option);
-                                    void playSound("tap", { fromInteraction: true });
-                                  }}
-                                />
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                {question.itemType === "dictation" && (
-                  <>
-                    <p className="prompt font-['Fraunces',serif] text-2xl leading-tight text-[color:var(--ink)]">
-                      {`Q${question.displayOrder}: Listen to the word and type what you hear.`}
-                    </p>
-                    <div className="dictation-grid grid gap-3 md:grid-cols-[minmax(190px,36%)_1fr]">
-                      {renderQuestionVisual("Picture clue")}
-
-                      <div className="dictation-work grid content-start gap-3">
-                        {question.ttsText && (
-                          <MotionButton
-                            type="button"
-                            variant="secondary"
-                            motionPolicy={motionPolicy}
-                            className="secondary w-fit"
-                            data-testid="question-audio-button"
-                            onClick={() => {
-                              void playSound("tap", { fromInteraction: true });
-                              void playQuestionAudio("manual");
-                            }}
-                            disabled={audioBusy || audioPlaying}
-                          >
-                            {!audioBusy && (
-                              <img src={playIcon} alt="" aria-hidden="true" className="h-4 w-4" />
-                            )}
-                            {audioBusy ? "Loading audio..." : "Play audio"}
-                          </MotionButton>
-                        )}
-
-                        <Label htmlFor="dictation-answer">Your answer</Label>
-                        <Input
-                          id="dictation-answer"
-                          value={answer}
-                          className="text-base font-semibold leading-6"
-                          onChange={(event) => setAnswer(event.target.value)}
-                          required
+                    <div className="grid gap-3 md:grid-cols-[minmax(190px,36%)_1fr]">
+                      <div className="dictation-visual flex min-h-[190px] items-center justify-center rounded-2xl border border-[color:var(--line)] bg-white p-3">
+                        <img
+                          src={readingPrelude.imageSrc}
+                          alt={`Question ${question.displayOrder} sentence illustration`}
+                          loading="lazy"
+                          className="h-auto w-full max-w-[220px]"
                         />
                       </div>
+
+                      <div className="grid content-center gap-3">
+                        <p className="font-['Fraunces',serif] text-3xl leading-tight text-[color:var(--ink)]">
+                          {readingPrelude.sentence}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end">
+                      <MotionButton motionPolicy={motionPolicy} type="button" onClick={revealQuestion}>
+                        Show question
+                      </MotionButton>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {question.itemType === "mcq" && (
+                      <>
+                        <div className={questionVisual ? "grid gap-3 md:grid-cols-[minmax(190px,36%)_1fr]" : "grid gap-3"}>
+                          {questionVisual ? renderQuestionVisual("Question illustration") : null}
+                          <div className="grid content-start gap-3">
+                            <p className="prompt font-['Fraunces',serif] text-2xl leading-tight text-[color:var(--ink)]">
+                              {`Q${question.displayOrder}: ${activeQuestionPromptText}`}
+                            </p>
+
+                            {question.ttsText && (
+                              <MotionButton
+                                type="button"
+                                variant="secondary"
+                                motionPolicy={motionPolicy}
+                                className="secondary w-fit"
+                                data-testid="question-audio-button"
+                                onClick={() => {
+                                  void playSound("tap", { fromInteraction: true });
+                                  void playQuestionAudio("manual");
+                                }}
+                                disabled={audioBusy || audioPlaying}
+                              >
+                                {!audioBusy && (
+                                  <img src={playIcon} alt="" aria-hidden="true" className="h-4 w-4" />
+                                )}
+                                {audioBusy ? "Loading audio..." : "Play audio"}
+                              </MotionButton>
+                            )}
+
+                            {question.options && (
+                              <div
+                                className="option-grid grid gap-2"
+                                role="radiogroup"
+                                aria-label="Answer options"
+                                style={{ gridTemplateColumns: `repeat(${question.options.length}, minmax(0, 1fr))` }}
+                              >
+                                {question.options.map((option) => {
+                                  const selected = answer === option;
+                                  return (
+                                    <RadioOption
+                                      key={option}
+                                      motionPolicy={motionPolicy}
+                                      variant="tile"
+                                      selected={selected}
+                                      label={toSentenceCase(option)}
+                                      onSelect={() => {
+                                        setAnswer(option);
+                                        void playSound("tap", { fromInteraction: true });
+                                      }}
+                                    />
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </>
+                    )}
+
+                    {question.itemType === "dictation" && (
+                      <>
+                        <p className="prompt font-['Fraunces',serif] text-2xl leading-tight text-[color:var(--ink)]">
+                          {`Q${question.displayOrder}: Listen to the word and type what you hear.`}
+                        </p>
+                        <div className="dictation-grid grid gap-3 md:grid-cols-[minmax(190px,36%)_1fr]">
+                          {renderQuestionVisual("Picture clue")}
+
+                          <div className="dictation-work grid content-start gap-3">
+                            {question.ttsText && (
+                              <MotionButton
+                                type="button"
+                                variant="secondary"
+                                motionPolicy={motionPolicy}
+                                className="secondary w-fit"
+                                data-testid="question-audio-button"
+                                onClick={() => {
+                                  void playSound("tap", { fromInteraction: true });
+                                  void playQuestionAudio("manual");
+                                }}
+                                disabled={audioBusy || audioPlaying}
+                              >
+                                {!audioBusy && (
+                                  <img src={playIcon} alt="" aria-hidden="true" className="h-4 w-4" />
+                                )}
+                                {audioBusy ? "Loading audio..." : "Play audio"}
+                              </MotionButton>
+                            )}
+
+                            <Label htmlFor="dictation-answer">Your answer</Label>
+                            <Input
+                              id="dictation-answer"
+                              value={answer}
+                              className="text-base font-semibold leading-6"
+                              onChange={(event) => setAnswer(event.target.value)}
+                              required
+                            />
+                          </div>
+                        </div>
+                      </>
+                    )}
+
+                    <div className="flex justify-end">
+                      <MotionButton
+                        motionPolicy={motionPolicy}
+                        type="submit"
+                        data-testid="question-submit-button"
+                        className="ml-auto h-auto w-auto px-5 py-3 font-['Fraunces',serif] text-2xl leading-tight"
+                        disabled={
+                          busy ||
+                          !answer.trim() ||
+                          !shownAtIso ||
+                          audioGateLocked
+                        }
+                      >
+                        {showReadySubmitIcon && (
+                          <img src={starIcon} alt="" aria-hidden="true" className="h-[1.65rem] w-[1.65rem] shrink-0" />
+                        )}
+                        {submitLabel}
+                      </MotionButton>
                     </div>
                   </>
                 )}
-
-                <div className="flex justify-end">
-                  <MotionButton
-                    motionPolicy={motionPolicy}
-                    type="submit"
-                    data-testid="question-submit-button"
-                    className="ml-auto h-auto w-auto px-5 py-3 font-['Fraunces',serif] text-2xl leading-tight"
-                    disabled={
-                      busy ||
-                      !answer.trim() ||
-                      audioGateLocked
-                    }
-                  >
-                    {showReadySubmitIcon && (
-                      <img src={starIcon} alt="" aria-hidden="true" className="h-[1.65rem] w-[1.65rem] shrink-0" />
-                    )}
-                    {submitLabel}
-                  </MotionButton>
-                </div>
               </motion.form>
             </AnimatePresence>
           </CardContent>

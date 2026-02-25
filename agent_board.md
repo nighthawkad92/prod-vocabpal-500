@@ -158,6 +158,10 @@ The PM agent is the scheduler. Only PM changes task state.
 | UI-037 | Implement Q1/Q2 lottie visuals and shared media layout in student question flow | UI | PM-DS-041 | DONE | added lottie player support, remapped question visuals (Q1 cat lottie, Q2 dog lottie), and reused two-column media layout for Q1 MCQ + Q2 dictation |
 | QA-029 | Validate lottie rendering, asset bundling, and static regression gates | QA | UI-037 | DONE | typecheck/lint/build pass; `.lottie` bundling validated after vite `assetsInclude` update |
 | PM-DS-042 | Final signoff for Q1/Q2 lottie visual update | PM | QA-029 | DONE | signoff complete; frontend-only media update accepted with no API/schema impact |
+| PM-DS-043 | Queue sentence-reading pre-screen for question-set 3/4/5 | PM | PM-002 | DONE | queued staged pre-screen flow for comprehension questions with dedicated sentence artwork and `Show question` CTA |
+| UI-038 | Implement sentence pre-screen (image + H3 sentence + CTA) before questions 3/4/5 | UI | PM-DS-043 | DONE | added reading-prelude mapping and flow gate: pre-screen renders before target questions; `Show question` reveals actual question/answer screen |
+| QA-030 | Validate pre-screen flow gating and static regression gates | QA | UI-038 | DONE | typecheck/lint/build pass; pre-screen appears only on configured questions and question view unlock works via CTA |
+| PM-DS-044 | Final signoff for question 3/4/5 pre-screen rollout | PM | QA-030 | DONE | signoff complete; frontend-only flow enhancement accepted with no backend/db/schema impact |
 | PM-QA-010 | Queue post-push release-gate validation and CI checkpoint closure | PM | PM-002 | DONE | scoped QA harness alignment and rerun of `qa:after-deploy` after main push |
 | QA-010 | Align matrix harness with audio-end submit gate and rerun release gate | QA | PM-QA-010 | DONE | updated submit selector + mock audio `onended`; `qa:matrix` and `qa:after-deploy` passed |
 | PM-QA-011 | Sign off post-push QA recovery and checkpoint closure | PM | QA-010 | DONE | verified green after-deploy report and cleared CP-07 via GitHub secrets |
