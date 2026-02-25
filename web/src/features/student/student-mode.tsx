@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { RadioOption } from "@/components/ui/radio-option";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { MotionPolicy } from "@/hooks/use-motion-policy";
 import type { SfxEvent } from "@/lib/sfx";
 import { callFunction } from "@/lib/env";
@@ -44,6 +45,19 @@ type SectionLetter = "A" | "B" | "C" | "D" | "E" | "F";
 
 const CLASS_OPTIONS: ClassNumber[] = [1, 2, 3, 4, 5, 6];
 const SECTION_OPTIONS: SectionLetter[] = ["A", "B", "C", "D", "E", "F"];
+
+function parseClassNumber(value: string): ClassNumber | null {
+  const numeric = Number(value);
+  return CLASS_OPTIONS.includes(numeric as ClassNumber)
+    ? (numeric as ClassNumber)
+    : null;
+}
+
+function parseSectionLetter(value: string): SectionLetter | null {
+  return SECTION_OPTIONS.includes(value as SectionLetter)
+    ? (value as SectionLetter)
+    : null;
+}
 
 export function StudentMode({
   motionPolicy,
@@ -344,40 +358,54 @@ export function StudentMode({
                 <div className="grid gap-4">
                   <div className="space-y-2">
                     <Label>Class</Label>
-                    <div className="grid grid-cols-3 gap-2 md:grid-cols-6" role="radiogroup" aria-label="Select class">
-                      {CLASS_OPTIONS.map((value) => (
-                        <RadioOption
-                          key={value}
-                          motionPolicy={motionPolicy}
-                          selected={classNumber === value}
-                          label={<span className="font-semibold">{value}</span>}
-                          className="h-14 justify-center px-2"
-                          onSelect={() => {
-                            setClassNumber(value);
-                            void playSound("tap", { fromInteraction: true });
-                          }}
-                        />
-                      ))}
-                    </div>
+                    <Tabs
+                      value={classNumber ? String(classNumber) : ""}
+                      onValueChange={(value) => {
+                        const next = parseClassNumber(value);
+                        if (!next) return;
+                        setClassNumber(next);
+                        void playSound("tap", { fromInteraction: true });
+                      }}
+                      className="space-y-0"
+                    >
+                      <TabsList className="grid w-full grid-cols-3 gap-2 border-none bg-transparent p-0 shadow-none md:grid-cols-6">
+                        {CLASS_OPTIONS.map((value) => (
+                          <TabsTrigger
+                            key={value}
+                            value={String(value)}
+                            className="h-14 w-full justify-center px-2 text-lg"
+                          >
+                            {value}
+                          </TabsTrigger>
+                        ))}
+                      </TabsList>
+                    </Tabs>
                   </div>
 
                   <div className="space-y-2">
                     <Label>Section</Label>
-                    <div className="grid grid-cols-3 gap-2 md:grid-cols-6" role="radiogroup" aria-label="Select section">
-                      {SECTION_OPTIONS.map((value) => (
-                        <RadioOption
-                          key={value}
-                          motionPolicy={motionPolicy}
-                          selected={sectionLetter === value}
-                          label={<span className="font-semibold">{value}</span>}
-                          className="h-14 justify-center px-2"
-                          onSelect={() => {
-                            setSectionLetter(value);
-                            void playSound("tap", { fromInteraction: true });
-                          }}
-                        />
-                      ))}
-                    </div>
+                    <Tabs
+                      value={sectionLetter ?? ""}
+                      onValueChange={(value) => {
+                        const next = parseSectionLetter(value);
+                        if (!next) return;
+                        setSectionLetter(next);
+                        void playSound("tap", { fromInteraction: true });
+                      }}
+                      className="space-y-0"
+                    >
+                      <TabsList className="grid w-full grid-cols-3 gap-2 border-none bg-transparent p-0 shadow-none md:grid-cols-6">
+                        {SECTION_OPTIONS.map((value) => (
+                          <TabsTrigger
+                            key={value}
+                            value={value}
+                            className="h-14 w-full justify-center px-2 text-lg"
+                          >
+                            {value}
+                          </TabsTrigger>
+                        ))}
+                      </TabsList>
+                    </Tabs>
                   </div>
 
                   <div className="flex items-center gap-2">

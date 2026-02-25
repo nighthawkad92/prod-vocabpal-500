@@ -113,6 +113,14 @@ The PM agent is the scheduler. Only PM changes task state.
 | UI-025 | Add type scale details to design-system foundations typography section | UI | PM-DS-019 | DONE | added `Type Scale` panel with role labels, specs, and live samples under typography card |
 | QA-018 | Validate design-system type scale rendering and regression gates | QA | UI-025 | DONE | type/lint/build pass; `/designsystem` typography now includes type scale details block |
 | PM-DS-020 | Final signoff for design-system type scale detail rollout | PM | QA-018 | DONE | signoff complete; documentation-only frontend update accepted |
+| PM-DS-021 | Queue global image background rollout | PM | PM-002 | DONE | queued global background texture application using bundled `image-bg.svg` at 30% opacity |
+| UI-026 | Apply `image-bg.svg` as global background layer at 30% opacity | UI | PM-DS-021 | DONE | copied background asset into web bundle and added fixed opacity layer in global css for all routes |
+| QA-019 | Validate global background rendering and static regression gates | QA | UI-026 | DONE | type/lint/build pass; global textured background appears behind app and design-system screens |
+| PM-DS-022 | Final signoff for global image background rollout | PM | QA-019 | DONE | signoff complete; frontend visual update accepted with no behavioral contract impact |
+| PM-DS-023 | Queue class/section selector control simplification | PM | PM-002 | DONE | queued replacement of clunky radio-style selectors with tabs-based controls in student step 2 |
+| UI-027 | Replace class/section `RadioOption` selectors with `Tabs` controls | UI | PM-DS-023 | DONE | student step-2 class and section now use tabs triggers with touch-friendly sizing and existing tap audio behavior |
+| QA-020 | Validate tabs-based class/section selector behavior and regression gates | QA | UI-027 | DONE | type/lint/build pass; step-2 selection and start-gate logic unchanged after control swap |
+| PM-DS-024 | Final signoff for tabs-based class/section selector rollout | PM | QA-020 | DONE | signoff complete; frontend-only control update accepted |
 | PM-QA-010 | Queue post-push release-gate validation and CI checkpoint closure | PM | PM-002 | DONE | scoped QA harness alignment and rerun of `qa:after-deploy` after main push |
 | QA-010 | Align matrix harness with audio-end submit gate and rerun release gate | QA | PM-QA-010 | DONE | updated submit selector + mock audio `onended`; `qa:matrix` and `qa:after-deploy` passed |
 | PM-QA-011 | Sign off post-push QA recovery and checkpoint closure | PM | QA-010 | DONE | verified green after-deploy report and cleared CP-07 via GitHub secrets |
