@@ -95,6 +95,11 @@ The PM agent is the scheduler. Only PM changes task state.
 | UI-019 | Implement muted-to-ink token harmonization and DS consistency update | UI | PM-DS-011 | DONE | `--muted` aligned to ink (light/dark) and DS token fallback updated |
 | QA-014 | Validate text color harmonization regression gates | QA | UI-019 | DONE | type/lint/build pass; local `/` and `/designsystem` screenshots captured |
 | PM-DS-012 | Final signoff for text color harmonization rollout | PM | QA-014 | DONE | signoff complete; frontend-only change with no backend/db impact |
+| PM-DS-013 | Queue main-page header/layout redesign execution | PM | PM-002 | DONE | execution queued for utility-row shell, entry-card branding, and state-wired logo behavior |
+| UI-020 | Remove app-shell hero and build utility-row layout | UI | PM-DS-013 | DONE | hero container removed; background utility row added with Sound then mode toggle ordering |
+| UI-021 | Embed logo/subtitle in entry cards and wire state-based utility logo | UI | UI-020 | DONE | student/teacher entry branding updated; active/auth callbacks drive 200px utility logo |
+| QA-015 | Validate layout behavior across student/teacher entry/internal states | QA | UI-021 | DONE | type/lint/build pass and local visual capture for entry/internal states |
+| PM-DS-014 | Final signoff and release recommendation for header/layout redesign | PM | QA-015 | DONE | signoff complete; frontend-only layout change validated with no backend/db impact |
 | PM-QA-010 | Queue post-push release-gate validation and CI checkpoint closure | PM | PM-002 | DONE | scoped QA harness alignment and rerun of `qa:after-deploy` after main push |
 | QA-010 | Align matrix harness with audio-end submit gate and rerun release gate | QA | PM-QA-010 | DONE | updated submit selector + mock audio `onended`; `qa:matrix` and `qa:after-deploy` passed |
 | PM-QA-011 | Sign off post-push QA recovery and checkpoint closure | PM | QA-010 | DONE | verified green after-deploy report and cleared CP-07 via GitHub secrets |

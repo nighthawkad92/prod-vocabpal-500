@@ -15,6 +15,7 @@ import type { SessionStatus, TeacherAttempt, TeacherAttemptDetail, TeacherSummar
 import { callFunction } from "@/lib/env";
 import { formatDate, formatDurationMs, formatSessionStatus } from "@/lib/format";
 import type { SfxEvent } from "@/lib/sfx";
+import logoVocabPal from "@/assets/branding/logo-vocabpal.png";
 
 const TOKEN_KEY = "vocabpal.teacher.token";
 const NAME_KEY = "vocabpal.teacher.name";
@@ -22,6 +23,7 @@ const NAME_KEY = "vocabpal.teacher.name";
 type TeacherModeProps = {
   motionPolicy: MotionPolicy;
   playSound: (event: SfxEvent, options?: { fromInteraction?: boolean }) => Promise<boolean>;
+  onAuthStateChange?: (active: boolean) => void;
 };
 
 type CreateWindowResponse = {
@@ -44,7 +46,11 @@ const cardMotion = {
   animate: { opacity: 1, y: 0 },
 };
 
-export function TeacherMode({ motionPolicy, playSound }: TeacherModeProps) {
+export function TeacherMode({
+  motionPolicy,
+  playSound,
+  onAuthStateChange,
+}: TeacherModeProps) {
   const [fullName, setFullName] = useState(localStorage.getItem(NAME_KEY) ?? "Akash Datta");
   const [passcode, setPasscode] = useState("");
   const [token, setToken] = useState(localStorage.getItem(TOKEN_KEY));
@@ -109,6 +115,16 @@ export function TeacherMode({ motionPolicy, playSound }: TeacherModeProps) {
     if (!token) return;
     void refresh(token);
   }, [token, refresh]);
+
+  useEffect(() => {
+    onAuthStateChange?.(Boolean(token));
+  }, [onAuthStateChange, token]);
+
+  useEffect(() => {
+    return () => {
+      onAuthStateChange?.(false);
+    };
+  }, [onAuthStateChange]);
 
   const login = useCallback(
     async (event: FormEvent) => {
@@ -321,8 +337,16 @@ export function TeacherMode({ motionPolicy, playSound }: TeacherModeProps) {
       <section className="space-y-4" aria-label="teacher-login">
         <Card>
           <CardHeader>
-            <CardTitle className="text-4xl">Teacher Dashboard</CardTitle>
-            <CardDescription>Use your passcode to access pilot reports.</CardDescription>
+            <div className="flex flex-col items-center gap-3 text-center">
+              <img
+                src={logoVocabPal}
+                alt="VocabPal"
+                className="h-auto w-[250px] max-w-full"
+              />
+              <p className="text-base font-semibold text-[color:var(--ink)]">
+                Vocabulary Baseline Test
+              </p>
+            </div>
           </CardHeader>
           <CardContent>
             <form className="card grid gap-3" onSubmit={login}>

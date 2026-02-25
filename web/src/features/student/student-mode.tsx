@@ -13,10 +13,12 @@ import type { SfxEvent } from "@/lib/sfx";
 import { callFunction } from "@/lib/env";
 import type { Question, StudentComplete } from "@/features/shared/types";
 import { DICTATION_IMAGE_BY_ORDER, TOTAL_QUESTION_COUNT } from "@/features/student/dictation-images";
+import logoVocabPal from "@/assets/branding/logo-vocabpal.png";
 
 type StudentModeProps = {
   motionPolicy: MotionPolicy;
   playSound: (event: SfxEvent, options?: { fromInteraction?: boolean }) => Promise<boolean>;
+  onAttemptStateChange?: (active: boolean) => void;
 };
 
 type StartAttemptResponse = {
@@ -35,7 +37,11 @@ type SubmitResponse = {
   };
 };
 
-export function StudentMode({ motionPolicy, playSound }: StudentModeProps) {
+export function StudentMode({
+  motionPolicy,
+  playSound,
+  onAttemptStateChange,
+}: StudentModeProps) {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [className, setClassName] = useState("Class A");
@@ -133,6 +139,16 @@ export function StudentMode({ motionPolicy, playSound }: StudentModeProps) {
       activeAudioRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    onAttemptStateChange?.(Boolean(attemptId));
+  }, [attemptId, onAttemptStateChange]);
+
+  useEffect(() => {
+    return () => {
+      onAttemptStateChange?.(false);
+    };
+  }, [onAttemptStateChange]);
 
   const startAttempt = useCallback(
     async (event: FormEvent) => {
@@ -233,11 +249,26 @@ export function StudentMode({ motionPolicy, playSound }: StudentModeProps) {
   return (
     <section className="space-y-4" aria-label="student-mode">
       <Card>
-        <CardHeader className="space-y-2">
-          <CardTitle className="text-4xl">Student Baseline Test</CardTitle>
-          <CardDescription>
-            Complete each question carefully. Audio must be played before submit.
-          </CardDescription>
+        <CardHeader className={attemptId ? "space-y-2" : "space-y-3"}>
+          {attemptId ? (
+            <>
+              <CardTitle className="text-4xl">Student Baseline Test</CardTitle>
+              <CardDescription>
+                Complete each question carefully. Audio must be played before submit.
+              </CardDescription>
+            </>
+          ) : (
+            <div className="flex flex-col items-center gap-3 text-center">
+              <img
+                src={logoVocabPal}
+                alt="VocabPal"
+                className="h-auto w-[250px] max-w-full"
+              />
+              <p className="text-base font-semibold text-[color:var(--ink)]">
+                Vocabulary Baseline Test
+              </p>
+            </div>
+          )}
         </CardHeader>
 
         {!attemptId && (

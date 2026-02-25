@@ -9,6 +9,7 @@ import { useMotionPolicy } from "@/hooks/use-motion-policy";
 import { useSoundEffects } from "@/hooks/use-sound-effects";
 import { useUiPreferences } from "@/hooks/use-ui-preferences";
 import { getClientConfigError } from "@/lib/env";
+import logoVocabPal from "@/assets/branding/logo-vocabpal.png";
 
 export type AppRoute = "app" | "designsystem";
 
@@ -20,6 +21,8 @@ function resolveRoute(pathname: string): AppRoute {
 
 function BaselineAssessmentApp() {
   const [mode, setMode] = useState<AppMode>("student");
+  const [studentAttemptActive, setStudentAttemptActive] = useState(false);
+  const [teacherAuthenticated, setTeacherAuthenticated] = useState(false);
   const configError = getClientConfigError();
   const motionPolicy = useMotionPolicy();
 
@@ -70,6 +73,8 @@ function BaselineAssessmentApp() {
           transition: { duration: 0.01 },
         };
 
+  const showUtilityLogo = mode === "student" ? studentAttemptActive : teacherAuthenticated;
+
   return (
     <AppShell
       mode={mode}
@@ -84,13 +89,23 @@ function BaselineAssessmentApp() {
       }}
       configError={configError}
       motionPolicy={motionPolicy}
+      showUtilityLogo={showUtilityLogo}
+      utilityLogoSrc={logoVocabPal}
     >
       <AnimatePresence mode="wait">
         <motion.section key={mode} {...sectionTransition}>
           {mode === "student" ? (
-            <StudentMode motionPolicy={motionPolicy} playSound={play} />
+            <StudentMode
+              motionPolicy={motionPolicy}
+              playSound={play}
+              onAttemptStateChange={setStudentAttemptActive}
+            />
           ) : (
-            <TeacherMode motionPolicy={motionPolicy} playSound={play} />
+            <TeacherMode
+              motionPolicy={motionPolicy}
+              playSound={play}
+              onAuthStateChange={setTeacherAuthenticated}
+            />
           )}
         </motion.section>
       </AnimatePresence>
