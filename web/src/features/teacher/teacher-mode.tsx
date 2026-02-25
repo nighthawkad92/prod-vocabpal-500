@@ -17,7 +17,7 @@ import type {
   TeacherSummary,
   TeacherWindowState,
 } from "@/features/shared/types";
-import { callFunction } from "@/lib/env";
+import { ApiError, callFunction } from "@/lib/env";
 import { formatDurationMs, formatSessionStatus } from "@/lib/format";
 import type { SfxEvent } from "@/lib/sfx";
 import logoVocabPal from "@/assets/branding/logo-vocabpal.png";
@@ -120,6 +120,17 @@ function instructionalNeedFromStage(stage: number | null): string {
   }
 }
 
+function isTeacherSessionError(error: unknown): boolean {
+  if (error instanceof ApiError && error.status === 401) {
+    return true;
+  }
+  const message = error instanceof Error ? error.message.toLowerCase() : "";
+  return (
+    message.includes("invalid or expired teacher session") ||
+    message.includes("missing teacher session token")
+  );
+}
+
 export function TeacherMode({
   motionPolicy,
   playSound,
@@ -145,6 +156,28 @@ export function TeacherMode({
   const [headerActionLoading, setHeaderActionLoading] = useState<"status" | "refresh" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+
+  const resetDashboardState = useCallback(() => {
+    setSummary(null);
+    setWindowState(null);
+    setAttempts([]);
+    setSelectedAttemptId(null);
+    setSelectedAttemptIds([]);
+    setDetail(null);
+    setSearchText("");
+    setClassFilter("all");
+    setAttemptPage(1);
+    setAttemptsTotal(0);
+    setFilteredAttemptsTotal(0);
+  }, []);
+
+  const expireTeacherSession = useCallback(() => {
+    localStorage.removeItem(TOKEN_KEY);
+    setToken(null);
+    resetDashboardState();
+    setNotice(null);
+    setError("Teacher session expired. Please sign in again.");
+  }, [resetDashboardState]);
 
   const refresh = useCallback(
     async (
@@ -208,6 +241,14 @@ export function TeacherMode({
           return list.attempts[0].id;
         });
       } catch (err) {
+        if (isTeacherSessionError(err)) {
+          expireTeacherSession();
+          if (throwOnError) {
+            throw err instanceof Error ? err : new Error("Teacher session expired");
+          }
+          return;
+        }
+
         const message = err instanceof Error ? err.message : "Failed to load dashboard";
         setError(message);
         void playSound("error", { fromInteraction: true });
@@ -221,7 +262,7 @@ export function TeacherMode({
         }
       }
     },
-    [attemptPage, classFilter, playSound, searchText, token],
+    [attemptPage, classFilter, expireTeacherSession, playSound, searchText, token],
   );
 
   const loadAttempt = useCallback(
@@ -238,13 +279,17 @@ export function TeacherMode({
         );
         setDetail(nextDetail);
       } catch (err) {
+        if (isTeacherSessionError(err)) {
+          expireTeacherSession();
+          return;
+        }
         setError(err instanceof Error ? err.message : "Failed to load attempt detail");
         void playSound("error", { fromInteraction: true });
       } finally {
         setDetailBusy(false);
       }
     },
-    [playSound, token],
+    [expireTeacherSession, playSound, token],
   );
 
   useEffect(() => {
@@ -365,22 +410,12 @@ export function TeacherMode({
     } finally {
       localStorage.removeItem(TOKEN_KEY);
       setToken(null);
-      setSummary(null);
-      setWindowState(null);
-      setAttempts([]);
-      setSelectedAttemptId(null);
-      setSelectedAttemptIds([]);
-      setDetail(null);
-      setSearchText("");
-      setClassFilter("all");
-      setAttemptPage(1);
-      setAttemptsTotal(0);
-      setFilteredAttemptsTotal(0);
+      resetDashboardState();
       setNotice(null);
       setError(null);
       void playSound("tap", { fromInteraction: true });
     }
-  }, [playSound, token]);
+  }, [playSound, resetDashboardState, token]);
 
   const sessionStatus = windowState?.status === "in_progress" ? "in_progress" : "paused";
   const isStatusActionLoading = headerActionLoading === "status";
@@ -429,13 +464,17 @@ export function TeacherMode({
         await refresh(token, "status");
         void playSound("submit", { fromInteraction: true });
       } catch (err) {
+        if (isTeacherSessionError(err)) {
+          expireTeacherSession();
+          return;
+        }
         setError(err instanceof Error ? err.message : "Failed to update baseline status");
         void playSound("error", { fromInteraction: true });
       } finally {
         setBusy(false);
       }
     },
-    [playSound, refresh, token, windowState?.window?.id],
+    [expireTeacherSession, playSound, refresh, token, windowState?.window?.id],
   );
 
   const archiveAttempts = useCallback(
@@ -495,13 +534,17 @@ export function TeacherMode({
 
         void playSound("submit", { fromInteraction: true });
       } catch (err) {
+        if (isTeacherSessionError(err)) {
+          expireTeacherSession();
+          return;
+        }
         setError(err instanceof Error ? err.message : "Failed to archive attempts");
         void playSound("error", { fromInteraction: true });
       } finally {
         setBusy(false);
       }
     },
-    [playSound, refresh, token],
+    [expireTeacherSession, playSound, refresh, token],
   );
 
   const archiveAttempt = useCallback(() => {
