@@ -154,6 +154,10 @@ The PM agent is the scheduler. Only PM changes task state.
 | UI-036 | Implement question-shell spacing, left-aligned counter row, and collect-star indicator | UI | PM-DS-039 | DONE | added deterministic spacing (48/8/48), left-aligned `Question X of 10`, vertical separator, and `Collect X` indicator with star icon |
 | QA-028 | Validate question-shell spacing/counter layout and static regression gates | QA | UI-036 | DONE | typecheck/lint/build pass; spacing and counter-row behavior verified in active question screens |
 | PM-DS-040 | Final signoff for question-shell spacing and collect-counter rollout | PM | QA-028 | DONE | signoff complete; frontend-only layout polish accepted with no backend/API/schema impact |
+| PM-DS-041 | Queue Q1/Q2 lottie visual mapping update | PM | PM-002 | DONE | queued Q1/Q2 visual remap to bundled `.lottie` assets with shared two-column media layout |
+| UI-037 | Implement Q1/Q2 lottie visuals and shared media layout in student question flow | UI | PM-DS-041 | DONE | added lottie player support, remapped question visuals (Q1 cat lottie, Q2 dog lottie), and reused two-column media layout for Q1 MCQ + Q2 dictation |
+| QA-029 | Validate lottie rendering, asset bundling, and static regression gates | QA | UI-037 | DONE | typecheck/lint/build pass; `.lottie` bundling validated after vite `assetsInclude` update |
+| PM-DS-042 | Final signoff for Q1/Q2 lottie visual update | PM | QA-029 | DONE | signoff complete; frontend-only media update accepted with no API/schema impact |
 | PM-QA-010 | Queue post-push release-gate validation and CI checkpoint closure | PM | PM-002 | DONE | scoped QA harness alignment and rerun of `qa:after-deploy` after main push |
 | QA-010 | Align matrix harness with audio-end submit gate and rerun release gate | QA | PM-QA-010 | DONE | updated submit selector + mock audio `onended`; `qa:matrix` and `qa:after-deploy` passed |
 | PM-QA-011 | Sign off post-push QA recovery and checkpoint closure | PM | QA-010 | DONE | verified green after-deploy report and cleared CP-07 via GitHub secrets |

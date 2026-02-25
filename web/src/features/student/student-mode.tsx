@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { AnimatePresence, motion } from "motion/react";
+import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import { MotionButton } from "@/components/motion-button";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +14,11 @@ import type { MotionPolicy } from "@/hooks/use-motion-policy";
 import type { SfxEvent } from "@/lib/sfx";
 import { callFunction } from "@/lib/env";
 import type { Question, StudentComplete } from "@/features/shared/types";
-import { DICTATION_IMAGE_BY_ORDER, TOTAL_QUESTION_COUNT } from "@/features/student/dictation-images";
+import {
+  QUESTION_VISUAL_BY_ORDER,
+  TOTAL_QUESTION_COUNT,
+  type QuestionVisual,
+} from "@/features/student/dictation-images";
 import logoVocabPal from "@/assets/branding/logo-vocabpal.png";
 import arrowLeftIcon from "@/assets/icons/arrow-left.svg";
 import playIcon from "@/assets/icons/play.svg";
@@ -97,9 +102,9 @@ export function StudentMode({
     return Math.min(100, (answeredItems / TOTAL_QUESTION_COUNT) * 100);
   }, [answeredItems]);
 
-  const dictationImage = useMemo(() => {
-    if (!question || question.itemType !== "dictation") return null;
-    return DICTATION_IMAGE_BY_ORDER[question.displayOrder] ?? null;
+  const questionVisual = useMemo<QuestionVisual | null>(() => {
+    if (!question) return null;
+    return QUESTION_VISUAL_BY_ORDER[question.displayOrder] ?? null;
   }, [question]);
 
   const playQuestionAudio = useCallback(
@@ -295,6 +300,24 @@ export function StudentMode({
     step === 1
       ? "Enter your full name"
       : "Choose your class and section";
+  const renderQuestionVisual = (alt: string) => (
+    <div className="dictation-visual flex min-h-[190px] items-center justify-center rounded-2xl border border-[color:var(--line)] bg-white p-3">
+      {questionVisual ? (
+        questionVisual.kind === "lottie" ? (
+          <DotLottieReact
+            src={questionVisual.src}
+            loop
+            autoplay
+            style={{ width: "100%", maxWidth: "220px", height: "auto" }}
+          />
+        ) : (
+          <img src={questionVisual.src} alt={alt} loading="lazy" className="h-auto w-full max-w-[220px]" />
+        )
+      ) : (
+        <div className="dictation-placeholder text-sm font-semibold text-[color:var(--muted)]">Picture clue</div>
+      )}
+    </div>
+  );
 
   return (
     <section
@@ -488,55 +511,60 @@ export function StudentMode({
               >
                 {question.itemType === "mcq" && (
                   <>
-                    <p className="prompt font-['Fraunces',serif] text-2xl leading-tight text-[color:var(--ink)]">
-                      {`Q${question.displayOrder}: ${question.promptText}`}
-                    </p>
+                    <div className={questionVisual ? "grid gap-3 md:grid-cols-[minmax(190px,36%)_1fr]" : "grid gap-3"}>
+                      {questionVisual ? renderQuestionVisual("Question illustration") : null}
+                      <div className="grid content-start gap-3">
+                        <p className="prompt font-['Fraunces',serif] text-2xl leading-tight text-[color:var(--ink)]">
+                          {`Q${question.displayOrder}: ${question.promptText}`}
+                        </p>
 
-                    {question.ttsText && (
-                      <MotionButton
-                        type="button"
-                        variant="secondary"
-                        motionPolicy={motionPolicy}
-                        className="secondary w-fit"
-                        data-testid="question-audio-button"
-                        onClick={() => {
-                          void playSound("tap", { fromInteraction: true });
-                          void playQuestionAudio("manual");
-                        }}
-                        disabled={audioBusy || audioPlaying}
-                      >
-                        {!audioBusy && (
-                          <img src={playIcon} alt="" aria-hidden="true" className="h-4 w-4" />
+                        {question.ttsText && (
+                          <MotionButton
+                            type="button"
+                            variant="secondary"
+                            motionPolicy={motionPolicy}
+                            className="secondary w-fit"
+                            data-testid="question-audio-button"
+                            onClick={() => {
+                              void playSound("tap", { fromInteraction: true });
+                              void playQuestionAudio("manual");
+                            }}
+                            disabled={audioBusy || audioPlaying}
+                          >
+                            {!audioBusy && (
+                              <img src={playIcon} alt="" aria-hidden="true" className="h-4 w-4" />
+                            )}
+                            {audioBusy ? "Loading audio..." : "Play audio"}
+                          </MotionButton>
                         )}
-                        {audioBusy ? "Loading audio..." : "Play audio"}
-                      </MotionButton>
-                    )}
 
-                    {question.options && (
-                      <div
-                        className="option-grid grid gap-2"
-                        role="radiogroup"
-                        aria-label="Answer options"
-                        style={{ gridTemplateColumns: `repeat(${question.options.length}, minmax(0, 1fr))` }}
-                      >
-                        {question.options.map((option) => {
-                          const selected = answer === option;
-                          return (
-                            <RadioOption
-                              key={option}
-                              motionPolicy={motionPolicy}
-                              variant="tile"
-                              selected={selected}
-                              label={toSentenceCase(option)}
-                              onSelect={() => {
-                                setAnswer(option);
-                                void playSound("tap", { fromInteraction: true });
-                              }}
-                            />
-                          );
-                        })}
+                        {question.options && (
+                          <div
+                            className="option-grid grid gap-2"
+                            role="radiogroup"
+                            aria-label="Answer options"
+                            style={{ gridTemplateColumns: `repeat(${question.options.length}, minmax(0, 1fr))` }}
+                          >
+                            {question.options.map((option) => {
+                              const selected = answer === option;
+                              return (
+                                <RadioOption
+                                  key={option}
+                                  motionPolicy={motionPolicy}
+                                  variant="tile"
+                                  selected={selected}
+                                  label={toSentenceCase(option)}
+                                  onSelect={() => {
+                                    setAnswer(option);
+                                    void playSound("tap", { fromInteraction: true });
+                                  }}
+                                />
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
-                    )}
+                    </div>
                   </>
                 )}
 
@@ -546,13 +574,7 @@ export function StudentMode({
                       {`Q${question.displayOrder}: Listen to the word and type what you hear.`}
                     </p>
                     <div className="dictation-grid grid gap-3 md:grid-cols-[minmax(190px,36%)_1fr]">
-                      <div className="dictation-visual flex min-h-[190px] items-center justify-center rounded-2xl border border-[color:var(--line)] bg-white p-3">
-                        {dictationImage ? (
-                          <img src={dictationImage} alt="Picture clue" loading="lazy" className="h-auto max-w-[220px] w-full" />
-                        ) : (
-                          <div className="dictation-placeholder text-sm font-semibold text-[color:var(--muted)]">Picture clue</div>
-                        )}
-                      </div>
+                      {renderQuestionVisual("Picture clue")}
 
                       <div className="dictation-work grid content-start gap-3">
                         {question.ttsText && (
@@ -601,17 +623,7 @@ export function StudentMode({
                     }
                   >
                     {showReadySubmitIcon && (
-                      <span
-                        aria-hidden="true"
-                        className="inline-block"
-                        style={{
-                          width: "1.65rem",
-                          height: "1.65rem",
-                          backgroundColor: "var(--ink)",
-                          WebkitMask: `url(${starIcon}) center / contain no-repeat`,
-                          mask: `url(${starIcon}) center / contain no-repeat`,
-                        }}
-                      />
+                      <img src={starIcon} alt="" aria-hidden="true" className="h-[1.65rem] w-[1.65rem] shrink-0" />
                     )}
                     {submitLabel}
                   </MotionButton>
