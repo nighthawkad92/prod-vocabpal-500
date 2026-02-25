@@ -129,6 +129,10 @@ The PM agent is the scheduler. Only PM changes task state.
 | UI-029 | Align `Step X of 2:` to body-large scale and enforce full-viewport SVG background coverage | UI | PM-DS-027 | DONE | step prefix now matches action text scale; global background layer now stretches full viewport without tiling seams |
 | QA-022 | Validate subtitle scale parity + full-viewport background rendering regression gates | QA | UI-029 | DONE | type/lint/build pass; entry subtitle sizing and full-screen pattern coverage verified |
 | PM-DS-028 | Final signoff for subtitle/background coverage fix | PM | QA-022 | DONE | signoff complete; frontend visual fix accepted |
+| PM-DS-029 | Queue entry lockup spacing refinement | PM | PM-002 | DONE | queued requested spacing adjustments: 48px lockup-to-form gap and 8px inner lockup gap |
+| UI-030 | Apply entry lockup spacing refinement on student and teacher entry states | UI | PM-DS-029 | DONE | entry layout gap raised to 48px and lockup internal gap set explicitly to 8px in student/teacher entry screens |
+| QA-023 | Validate entry spacing refinement and static regression gates | QA | UI-030 | DONE | type/lint/build pass; spacing updates verified with no functional regressions |
+| PM-DS-030 | Final signoff for entry lockup spacing refinement | PM | QA-023 | DONE | signoff complete; frontend spacing polish accepted |
 | PM-QA-010 | Queue post-push release-gate validation and CI checkpoint closure | PM | PM-002 | DONE | scoped QA harness alignment and rerun of `qa:after-deploy` after main push |
 | QA-010 | Align matrix harness with audio-end submit gate and rerun release gate | QA | PM-QA-010 | DONE | updated submit selector + mock audio `onended`; `qa:matrix` and `qa:after-deploy` passed |
 | PM-QA-011 | Sign off post-push QA recovery and checkpoint closure | PM | QA-010 | DONE | verified green after-deploy report and cleared CP-07 via GitHub secrets |

@@ -335,10 +335,10 @@ export function TeacherMode({
   if (!token) {
     return (
       <section
-        className="flex min-h-[calc(100vh-10rem)] flex-col items-center justify-center gap-6"
+        className="flex min-h-[calc(100vh-10rem)] flex-col items-center justify-center gap-12"
         aria-label="teacher-login"
       >
-        <div className="flex flex-col items-center gap-2 px-2 text-center">
+        <div className="flex flex-col items-center gap-[8px] px-2 text-center">
           <img src={logoVocabPal} alt="VocabPal" className="h-auto w-[250px] max-w-full" />
           <p className="text-base font-semibold text-[color:var(--ink)]">English Vocabulary Revision</p>
         </div>
