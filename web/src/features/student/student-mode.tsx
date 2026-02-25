@@ -45,6 +45,7 @@ type StartAttemptResponse = {
 };
 
 type SubmitResponse = {
+  isCorrect: boolean;
   nextQuestion: Question | null;
   progress: {
     answeredItems: number;
@@ -99,6 +100,8 @@ export function StudentMode({
   const [audioPlaying, setAudioPlaying] = useState(false);
   const [audioPlayedForQuestion, setAudioPlayedForQuestion] = useState(false);
   const [showReadingPrelude, setShowReadingPrelude] = useState(false);
+  const [showProgressSweep, setShowProgressSweep] = useState(false);
+  const [starPulseTick, setStarPulseTick] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   const autoPlayedQuestionIdRef = useRef<string | null>(null);
@@ -258,7 +261,19 @@ export function StudentMode({
         });
 
         void playSound("submit", { fromInteraction: true });
+
         setAnsweredItems(submit.progress.answeredItems);
+        if (submit.isCorrect) {
+          setStarPulseTick((current) => current + 1);
+          if (motionPolicy === "full") {
+            setShowProgressSweep(true);
+          }
+          await new Promise((resolve) => {
+            window.setTimeout(resolve, motionPolicy === "full" ? 220 : 90);
+          });
+          setShowProgressSweep(false);
+        }
+
         setQuestion(submit.nextQuestion);
 
         if (submit.nextQuestion) {
@@ -278,7 +293,7 @@ export function StudentMode({
         setBusy(false);
       }
     },
-    [answer, attemptId, playSound, question, shownAtIso],
+    [answer, attemptId, motionPolicy, playSound, question, shownAtIso],
   );
 
   const questionTransition =
@@ -385,18 +400,52 @@ export function StudentMode({
         <div className="mb-12 space-y-2">
           <div className="flex items-center gap-3">
             <Badge data-testid="question-counter">{`Question ${question.displayOrder} of ${TOTAL_QUESTION_COUNT}`}</Badge>
-            <Badge className="ml-auto gap-1">
-              <img
-                src={starIcon}
-                alt=""
-                aria-hidden="true"
-                className="h-3.5 w-3.5 shrink-0"
-                style={{ filter: "brightness(0)" }}
-              />
-              {`Collected ${answeredItems}`}
-            </Badge>
+            <motion.div
+              key={`collected-${starPulseTick}`}
+              className="ml-auto"
+              initial={
+                starPulseTick === 0
+                  ? false
+                  : motionPolicy === "full"
+                    ? { scale: 1 }
+                    : { opacity: 0.92 }
+              }
+              animate={
+                starPulseTick === 0
+                  ? { scale: 1, opacity: 1 }
+                  : motionPolicy === "full"
+                    ? { scale: [1, 1.04, 1] }
+                    : { opacity: [0.92, 1] }
+              }
+              transition={{ duration: motionPolicy === "full" ? 0.22 : 0.08 }}
+            >
+              <Badge className="gap-1">
+                <img
+                  src={starIcon}
+                  alt=""
+                  aria-hidden="true"
+                  className="h-3.5 w-3.5 shrink-0"
+                  style={{ filter: "brightness(0)" }}
+                />
+                {`Collected ${answeredItems}`}
+              </Badge>
+            </motion.div>
           </div>
-          <Progress value={progressPercent} />
+          <div className="relative overflow-hidden rounded-full">
+            <Progress value={progressPercent} />
+            <AnimatePresence>
+              {showProgressSweep && motionPolicy === "full" ? (
+                <motion.div
+                  key="progress-sweep"
+                  initial={{ x: "-125%", opacity: 0.2 }}
+                  animate={{ x: "150%", opacity: 0.42 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.26, ease: "easeOut" }}
+                  className="pointer-events-none absolute inset-y-0 w-[32%] rounded-full bg-white"
+                />
+              ) : null}
+            </AnimatePresence>
+          </div>
         </div>
       )}
 
