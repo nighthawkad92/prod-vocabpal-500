@@ -385,7 +385,7 @@ export function StudentMode({
         <div className="mb-12 space-y-2">
           <div className="flex items-center gap-3">
             <Badge data-testid="question-counter">{`Question ${question.displayOrder} of ${TOTAL_QUESTION_COUNT}`}</Badge>
-            <Badge className="gap-2">
+            <Badge className="ml-auto gap-1">
               <img
                 src={starIcon}
                 alt=""

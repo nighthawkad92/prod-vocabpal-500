@@ -206,6 +206,10 @@ The PM agent is the scheduler. Only PM changes task state.
 | UI-049 | Replace bundled logo asset and wire favicon to `favicon-vocabpal.png` | UI | PM-DS-065 | DONE | updated `web/src/assets/branding/logo-vocabpal.png`, added `web/public/favicon-vocabpal.png`, and switched `web/index.html` favicon link to PNG |
 | QA-041 | Validate brand asset refresh/fav icon update and static regression gates | QA | UI-049 | DONE | typecheck/lint/build pass; favicon link resolves to new PNG and app compiles with updated logo asset |
 | PM-DS-066 | Final signoff for brand asset refresh and favicon rollout | PM | QA-041 | DONE | signoff complete; frontend-only brand asset update accepted with no backend/API/schema impact |
+| PM-DS-067 | Queue progress-row collected badge alignment/spacing refinement | PM | PM-002 | DONE | queued right-alignment of collected badge and icon-label spacing reduction to 4px |
+| UI-050 | Right-align collected badge and reduce icon-label gap to 4px | UI | PM-DS-067 | DONE | set collected badge to `ml-auto` for right alignment and reduced star/text gap from 8px to 4px |
+| QA-042 | Validate collected-badge alignment/spacing tweak and static regression gates | QA | UI-050 | DONE | typecheck/lint/build pass; collected badge right-aligned and icon-text spacing reduced per spec |
+| PM-DS-068 | Final signoff for collected-badge alignment/spacing update | PM | QA-042 | DONE | signoff complete; frontend-only spacing/alignment polish accepted with no backend/API/schema impact |
 | PM-QA-010 | Queue post-push release-gate validation and CI checkpoint closure | PM | PM-002 | DONE | scoped QA harness alignment and rerun of `qa:after-deploy` after main push |
 | QA-010 | Align matrix harness with audio-end submit gate and rerun release gate | QA | PM-QA-010 | DONE | updated submit selector + mock audio `onended`; `qa:matrix` and `qa:after-deploy` passed |
 | PM-QA-011 | Sign off post-push QA recovery and checkpoint closure | PM | QA-010 | DONE | verified green after-deploy report and cleared CP-07 via GitHub secrets |
