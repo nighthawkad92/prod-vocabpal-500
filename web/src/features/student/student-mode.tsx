@@ -14,6 +14,7 @@ import { callFunction } from "@/lib/env";
 import type { Question, StudentComplete } from "@/features/shared/types";
 import { DICTATION_IMAGE_BY_ORDER, TOTAL_QUESTION_COUNT } from "@/features/student/dictation-images";
 import logoVocabPal from "@/assets/branding/logo-vocabpal.png";
+import arrowLeftIcon from "@/assets/icons/arrow-left.svg";
 
 type StudentModeProps = {
   motionPolicy: MotionPolicy;
@@ -37,14 +38,23 @@ type SubmitResponse = {
   };
 };
 
+type StudentOnboardingStep = 1 | 2;
+type ClassNumber = 1 | 2 | 3 | 4 | 5 | 6;
+type SectionLetter = "A" | "B" | "C" | "D" | "E" | "F";
+
+const CLASS_OPTIONS: ClassNumber[] = [1, 2, 3, 4, 5, 6];
+const SECTION_OPTIONS: SectionLetter[] = ["A", "B", "C", "D", "E", "F"];
+
 export function StudentMode({
   motionPolicy,
   playSound,
   onAttemptStateChange,
 }: StudentModeProps) {
+  const [step, setStep] = useState<StudentOnboardingStep>(1);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [className, setClassName] = useState("Class A");
+  const [classNumber, setClassNumber] = useState<ClassNumber | null>(null);
+  const [sectionLetter, setSectionLetter] = useState<SectionLetter | null>(null);
   const [attemptId, setAttemptId] = useState<string | null>(null);
   const [question, setQuestion] = useState<Question | null>(null);
   const [answer, setAnswer] = useState("");
@@ -153,10 +163,16 @@ export function StudentMode({
   const startAttempt = useCallback(
     async (event: FormEvent) => {
       event.preventDefault();
+      if (!classNumber || !sectionLetter) {
+        setError("Please select class and section.");
+        return;
+      }
+
       setBusy(true);
       setError(null);
 
       try {
+        const className = `Class ${classNumber} - Section ${sectionLetter}`;
         const result = await callFunction<StartAttemptResponse>("student-start-attempt", {
           method: "POST",
           body: { firstName, lastName, className },
@@ -174,7 +190,7 @@ export function StudentMode({
         setBusy(false);
       }
     },
-    [className, firstName, lastName, playSound],
+    [classNumber, firstName, lastName, playSound, sectionLetter],
   );
 
   const submitAnswer = useCallback(
@@ -245,9 +261,19 @@ export function StudentMode({
     : audioGateLocked
       ? (audioBusy ? "Waiting for Audio" : audioPlaying ? "Audio playing" : "Waiting for Audio")
       : "Submit Answer";
+  const onboardingProgressPercent = step === 1 ? 50 : 100;
+  const stepOneComplete = firstName.trim().length > 0 && lastName.trim().length > 0;
+  const stepTwoComplete = Boolean(classNumber && sectionLetter);
 
   return (
     <section className="space-y-4" aria-label="student-mode">
+      {!attemptId && (
+        <div className="flex flex-col items-center gap-2 px-2 text-center">
+          <img src={logoVocabPal} alt="VocabPal" className="h-auto w-[250px] max-w-full" />
+          <p className="text-base font-semibold text-[color:var(--ink)]">English Vocabulary Revision</p>
+        </div>
+      )}
+
       <Card>
         <CardHeader className={attemptId ? "space-y-2" : "space-y-3"}>
           {attemptId ? (
@@ -258,56 +284,131 @@ export function StudentMode({
               </CardDescription>
             </>
           ) : (
-            <div className="flex flex-col items-center gap-3 text-center">
-              <img
-                src={logoVocabPal}
-                alt="VocabPal"
-                className="h-auto w-[250px] max-w-full"
-              />
-              <p className="text-base font-semibold text-[color:var(--ink)]">
-                Vocabulary Baseline Test
-              </p>
-            </div>
+            <>
+              <CardTitle className="text-center text-4xl">Vocabulary Baseline Test</CardTitle>
+              <CardDescription className="text-center">
+                Complete each question carefully.
+              </CardDescription>
+            </>
           )}
         </CardHeader>
 
         {!attemptId && (
           <CardContent>
-            <form className="card grid gap-3" onSubmit={startAttempt}>
-              <Label htmlFor="student-first-name">First Name</Label>
-              <Input
-                id="student-first-name"
-                value={firstName}
-                onChange={(event) => setFirstName(event.target.value)}
-                required
-              />
+            <form
+              className="card grid gap-4"
+              onSubmit={step === 1 ? (event) => {
+                event.preventDefault();
+                if (!stepOneComplete) return;
+                setStep(2);
+              } : startAttempt}
+            >
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm font-semibold text-[color:var(--ink)]">
+                  <span>{`Step ${step} of 2`}</span>
+                  <span>{`${onboardingProgressPercent}% complete`}</span>
+                </div>
+                <Progress value={onboardingProgressPercent} />
+              </div>
 
-              <Label htmlFor="student-last-name">Last Name</Label>
-              <Input
-                id="student-last-name"
-                value={lastName}
-                onChange={(event) => setLastName(event.target.value)}
-                required
-              />
+              {step === 1 ? (
+                <div className="grid gap-3">
+                  <Label htmlFor="student-first-name">First Name</Label>
+                  <Input
+                    id="student-first-name"
+                    value={firstName}
+                    onChange={(event) => setFirstName(event.target.value)}
+                    required
+                  />
 
-              <Label htmlFor="student-class-name">Class</Label>
-              <Input
-                id="student-class-name"
-                value={className}
-                onChange={(event) => setClassName(event.target.value)}
-                required
-              />
+                  <Label htmlFor="student-last-name">Last Name</Label>
+                  <Input
+                    id="student-last-name"
+                    value={lastName}
+                    onChange={(event) => setLastName(event.target.value)}
+                    required
+                  />
 
-              <MotionButton
-                motionPolicy={motionPolicy}
-                type="submit"
-                disabled={busy}
-                onClick={() => {
-                  void playSound("tap", { fromInteraction: true });
-                }}
-              >
-                {busy ? "Starting..." : "Start Baseline"}
-              </MotionButton>
+                  <MotionButton
+                    motionPolicy={motionPolicy}
+                    type="submit"
+                    disabled={!stepOneComplete}
+                    onClick={() => {
+                      void playSound("tap", { fromInteraction: true });
+                    }}
+                  >
+                    Next
+                  </MotionButton>
+                </div>
+              ) : (
+                <div className="grid gap-4">
+                  <div className="space-y-2">
+                    <Label>Class</Label>
+                    <div className="grid grid-cols-3 gap-2 md:grid-cols-6" role="radiogroup" aria-label="Select class">
+                      {CLASS_OPTIONS.map((value) => (
+                        <RadioOption
+                          key={value}
+                          motionPolicy={motionPolicy}
+                          selected={classNumber === value}
+                          label={<span className="font-semibold">{value}</span>}
+                          className="h-14 justify-center px-2"
+                          onSelect={() => {
+                            setClassNumber(value);
+                            void playSound("tap", { fromInteraction: true });
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Section</Label>
+                    <div className="grid grid-cols-3 gap-2 md:grid-cols-6" role="radiogroup" aria-label="Select section">
+                      {SECTION_OPTIONS.map((value) => (
+                        <RadioOption
+                          key={value}
+                          motionPolicy={motionPolicy}
+                          selected={sectionLetter === value}
+                          label={<span className="font-semibold">{value}</span>}
+                          className="h-14 justify-center px-2"
+                          onSelect={() => {
+                            setSectionLetter(value);
+                            void playSound("tap", { fromInteraction: true });
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <MotionButton
+                      motionPolicy={motionPolicy}
+                      type="button"
+                      variant="secondary"
+                      size="icon"
+                      aria-label="Back to name details"
+                      onClick={() => {
+                        setStep(1);
+                        void playSound("tap", { fromInteraction: true });
+                      }}
+                    >
+                      <img src={arrowLeftIcon} alt="" aria-hidden="true" className="h-4 w-4" />
+                    </MotionButton>
+
+                    <MotionButton
+                      motionPolicy={motionPolicy}
+                      type="submit"
+                      disabled={busy || !stepTwoComplete}
+                      className="flex-1"
+                      onClick={() => {
+                        void playSound("tap", { fromInteraction: true });
+                      }}
+                    >
+                      {busy ? "Starting..." : "Start test"}
+                    </MotionButton>
+                  </div>
+                </div>
+              )}
             </form>
           </CardContent>
         )}

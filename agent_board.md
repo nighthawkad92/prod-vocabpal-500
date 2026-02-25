@@ -100,6 +100,11 @@ The PM agent is the scheduler. Only PM changes task state.
 | UI-021 | Embed logo/subtitle in entry cards and wire state-based utility logo | UI | UI-020 | DONE | student/teacher entry branding updated; active/auth callbacks drive 200px utility logo |
 | QA-015 | Validate layout behavior across student/teacher entry/internal states | QA | UI-021 | DONE | type/lint/build pass and local visual capture for entry/internal states |
 | PM-DS-014 | Final signoff and release recommendation for header/layout redesign | PM | QA-015 | DONE | signoff complete; frontend-only layout change validated with no backend/db impact |
+| PM-DS-015 | Queue header/onboarding refresh execution | PM | PM-002 | DONE | execution queued for entry branding relocation, toggle shell parity, and 2-step student onboarding |
+| UI-022 | Apply utility-row parity and entry branding relocation | UI | PM-DS-015 | DONE | mode toggle wrapped in white utility shell; student/teacher entry logo moved above card with in-card form title |
+| UI-023 | Implement student 2-step onboarding with class/section tap grids and stepper | UI | UI-022 | DONE | stepper flow added with Next/Start test CTAs, icon-only back button, and `Class N - Section X` serialization |
+| QA-016 | Validate onboarding layout/serialization regression gates | QA | UI-023 | DONE | type/lint/build pass; payload format and entry/internal state behavior validated |
+| PM-DS-016 | Final signoff and release recommendation for header/onboarding refresh | PM | QA-016 | DONE | signoff complete; frontend-only UX refresh accepted with no backend/db schema impact |
 | PM-QA-010 | Queue post-push release-gate validation and CI checkpoint closure | PM | PM-002 | DONE | scoped QA harness alignment and rerun of `qa:after-deploy` after main push |
 | QA-010 | Align matrix harness with audio-end submit gate and rerun release gate | QA | PM-QA-010 | DONE | updated submit selector + mock audio `onended`; `qa:matrix` and `qa:after-deploy` passed |
 | PM-QA-011 | Sign off post-push QA recovery and checkpoint closure | PM | QA-010 | DONE | verified green after-deploy report and cleared CP-07 via GitHub secrets |

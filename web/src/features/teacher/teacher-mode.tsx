@@ -335,18 +335,15 @@ export function TeacherMode({
   if (!token) {
     return (
       <section className="space-y-4" aria-label="teacher-login">
+        <div className="flex flex-col items-center gap-2 px-2 text-center">
+          <img src={logoVocabPal} alt="VocabPal" className="h-auto w-[250px] max-w-full" />
+          <p className="text-base font-semibold text-[color:var(--ink)]">English Vocabulary Revision</p>
+        </div>
+
         <Card>
           <CardHeader>
-            <div className="flex flex-col items-center gap-3 text-center">
-              <img
-                src={logoVocabPal}
-                alt="VocabPal"
-                className="h-auto w-[250px] max-w-full"
-              />
-              <p className="text-base font-semibold text-[color:var(--ink)]">
-                Vocabulary Baseline Test
-              </p>
-            </div>
+            <CardTitle className="text-center text-4xl">Vocabulary Baseline Test</CardTitle>
+            <CardDescription className="text-center">Teacher sign in</CardDescription>
           </CardHeader>
           <CardContent>
             <form className="card grid gap-3" onSubmit={login}>
