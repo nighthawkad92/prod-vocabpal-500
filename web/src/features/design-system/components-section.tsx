@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
+import { RadioOption } from "@/components/ui/radio-option";
 import { Select } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
@@ -45,6 +46,10 @@ export function ComponentsSection({
     switchChecked: true,
     switchDisabled: false,
     tabsValue: "student",
+    radioSelected: "option-a",
+    radioDisabled: false,
+    radioOptionA: "sand",
+    radioOptionB: "cat",
     motionPolicy: defaultMotionPolicy,
   });
 
@@ -116,6 +121,17 @@ export function ComponentsSection({
           options: ["student", "teacher"],
         },
       ],
+      radio: [
+        {
+          id: "radioSelected",
+          label: "Selected Option",
+          kind: "select",
+          options: ["option-a", "option-b", "none"],
+        },
+        { id: "radioDisabled", label: "Disabled", kind: "toggle" },
+        { id: "radioOptionA", label: "Option A Text", kind: "text" },
+        { id: "radioOptionB", label: "Option B Text", kind: "text" },
+      ],
       motion: [
         {
           id: "motionPolicy",
@@ -143,6 +159,15 @@ export function ComponentsSection({
   const motionPolicy = String(playground.motionPolicy) as MotionPolicy;
   const alertVariant = String(playground.alertVariant) as "default" | "success" | "destructive";
   const progressValue = Math.max(0, Math.min(100, Number(playground.progressValue ?? 0)));
+  const radioSelected = String(playground.radioSelected);
+  const radioOptionA = String(playground.radioOptionA || "sand");
+  const radioOptionB = String(playground.radioOptionB || "cat");
+  const selectedRadioLabel =
+    radioSelected === "option-a"
+      ? radioOptionA
+      : radioSelected === "option-b"
+        ? radioOptionB
+        : "(none)";
 
   return (
     <section className="space-y-4" aria-labelledby="components-heading">
@@ -196,6 +221,7 @@ export function ComponentsSection({
               <TabsTrigger value="progress">Progress</TabsTrigger>
               <TabsTrigger value="switch">Switch</TabsTrigger>
               <TabsTrigger value="tabs">Tabs</TabsTrigger>
+              <TabsTrigger value="radio">Radio Option</TabsTrigger>
               <TabsTrigger value="motion">MotionButton</TabsTrigger>
             </TabsList>
 
@@ -309,6 +335,32 @@ export function ComponentsSection({
                     </p>
                   </TabsContent>
                 </Tabs>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="radio">
+              <PlaygroundControls controls={controlsByTab.radio} values={playground} onChange={update} />
+              <div className="ds-preview-panel max-w-xl">
+                <p className="text-sm font-semibold text-[color:var(--ink)]">Student answer option style</p>
+                <div className="grid gap-2" role="radiogroup" aria-label="Design system radio options">
+                  <RadioOption
+                    label={radioOptionA}
+                    selected={radioSelected === "option-a"}
+                    disabled={Boolean(playground.radioDisabled)}
+                    motionPolicy={motionPolicy}
+                    onSelect={() => update("radioSelected", "option-a")}
+                  />
+                  <RadioOption
+                    label={radioOptionB}
+                    selected={radioSelected === "option-b"}
+                    disabled={Boolean(playground.radioDisabled)}
+                    motionPolicy={motionPolicy}
+                    onSelect={() => update("radioSelected", "option-b")}
+                  />
+                </div>
+                <p className="text-xs text-[color:var(--muted)]">
+                  Selected: <strong>{selectedRadioLabel}</strong>
+                </p>
               </div>
             </TabsContent>
 

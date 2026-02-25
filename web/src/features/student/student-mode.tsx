@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
+import { RadioOption } from "@/components/ui/radio-option";
 import type { MotionPolicy } from "@/hooks/use-motion-policy";
 import type { SfxEvent } from "@/lib/sfx";
 import { callFunction } from "@/lib/env";
@@ -319,31 +320,20 @@ export function StudentMode({ motionPolicy, playSound }: StudentModeProps) {
                     )}
 
                     {question.options && (
-                      <div className="option-grid grid gap-2">
+                      <div className="option-grid grid gap-2" role="radiogroup" aria-label="Answer options">
                         {question.options.map((option) => {
                           const selected = answer === option;
                           return (
-                            <MotionButton
+                            <RadioOption
                               key={option}
-                              type="button"
-                              variant="secondary"
                               motionPolicy={motionPolicy}
-                              className={`option justify-start gap-3 ${selected ? "border-[color:var(--primary)] bg-[color:var(--secondary)]" : "bg-transparent"}`}
-                              onClick={() => {
+                              selected={selected}
+                              label={option}
+                              onSelect={() => {
                                 setAnswer(option);
                                 void playSound("tap", { fromInteraction: true });
                               }}
-                            >
-                              <span
-                                aria-hidden="true"
-                                className={`inline-flex h-5 w-5 items-center justify-center rounded-full border border-[color:var(--border)] shadow-[var(--shadow-2xs)] ${selected ? "bg-[color:var(--secondary)]" : "bg-transparent"}`}
-                              >
-                                <span
-                                  className={`h-2.5 w-2.5 rounded-full border border-[color:var(--border)] ${selected ? "bg-[color:var(--primary)]" : "bg-transparent"}`}
-                                />
-                              </span>
-                              <span>{option}</span>
-                            </MotionButton>
+                            />
                           );
                         })}
                       </div>

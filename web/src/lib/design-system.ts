@@ -132,6 +132,13 @@ const COMPONENT_CATALOG: ComponentCatalogItem[] = [
     states: ["active", "inactive"],
   },
   {
+    id: "radio-option",
+    name: "RadioOption",
+    description: "Answer-option control used by student MCQ questions and design-system demos.",
+    variants: ["selected", "unselected"],
+    states: ["selected", "unselected", "disabled"],
+  },
+  {
     id: "motion-button",
     name: "MotionButton",
     description: "Button variant with low-impact tap-scale animation.",
