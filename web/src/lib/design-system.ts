@@ -9,7 +9,7 @@ const COLOR_VARIABLES: Array<{ name: string; fallback: string; description?: str
   { name: "--bg-a", fallback: "oklch(0.967 0.067 122.328)", description: "Warm lime gradient anchor" },
   { name: "--bg-b", fallback: "oklch(0.959 0.046 146.81)", description: "Cool lime gradient anchor" },
   { name: "--ink", fallback: "oklch(0.274 0.072 132.109)", description: "Primary text color" },
-  { name: "--muted", fallback: "oklch(0.488 0.06 132.109)", description: "Secondary text color" },
+  { name: "--muted", fallback: "oklch(0.274 0.072 132.109)", description: "Secondary text color (aligned with primary ink)" },
   { name: "--line", fallback: "oklch(0.872 0.031 128.981)", description: "Border and divider color" },
   { name: "--surface", fallback: "oklch(0.99 0.011 120.757 / 0.9)", description: "Card surface color" },
   { name: "--surface-2", fallback: "oklch(0.967 0.067 122.328 / 0.58)", description: "Muted surface color" },

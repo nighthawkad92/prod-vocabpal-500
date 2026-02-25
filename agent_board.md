@@ -91,6 +91,10 @@ The PM agent is the scheduler. Only PM changes task state.
 | UI-018 | Add reusable `RadioOption` primitive and `/designsystem` playground coverage | UI | PM-DS-009 | DONE | shared UI primitive added; student MCQ migrated; design-system catalog/playground now includes radio-option state controls |
 | QA-013 | Run post-push `qa:after-deploy` and verify prod route/data regressions | QA | UI-018 | DONE | `qa:after-deploy` passed against `https://prod-vocabpal-500.vercel.app` (smoke + matrix + after-deploy all green) |
 | PM-DS-010 | Final signoff for radio-option parity rollout | PM | QA-013 | DONE | signoff complete; rollout confirmed in prod with no backend/db contract impact |
+| PM-DS-011 | Queue muted-to-ink text color harmonization rollout | PM | PM-002 | DONE | rollout packet executed for token-level harmonization and DS consistency |
+| UI-019 | Implement muted-to-ink token harmonization and DS consistency update | UI | PM-DS-011 | DONE | `--muted` aligned to ink (light/dark) and DS token fallback updated |
+| QA-014 | Validate text color harmonization regression gates | QA | UI-019 | DONE | type/lint/build pass; local `/` and `/designsystem` screenshots captured |
+| PM-DS-012 | Final signoff for text color harmonization rollout | PM | QA-014 | DONE | signoff complete; frontend-only change with no backend/db impact |
 | PM-QA-010 | Queue post-push release-gate validation and CI checkpoint closure | PM | PM-002 | DONE | scoped QA harness alignment and rerun of `qa:after-deploy` after main push |
 | QA-010 | Align matrix harness with audio-end submit gate and rerun release gate | QA | PM-QA-010 | DONE | updated submit selector + mock audio `onended`; `qa:matrix` and `qa:after-deploy` passed |
 | PM-QA-011 | Sign off post-push QA recovery and checkpoint closure | PM | QA-010 | DONE | verified green after-deploy report and cleared CP-07 via GitHub secrets |
