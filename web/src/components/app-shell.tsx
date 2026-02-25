@@ -53,7 +53,7 @@ export function AppShell({
             <span className="text-sm font-semibold text-[color:var(--ink)]">Sound</span>
             <div className="flex items-center gap-2">
               {soundEnabled ? (
-                <Volume2 className="h-4 w-4 text-[color:var(--brand-700)]" />
+                <Volume2 className="h-4 w-4 text-[color:var(--ink)]" />
               ) : (
                 <VolumeX className="h-4 w-4 text-[color:var(--ink)]" />
               )}

@@ -314,7 +314,7 @@ export function StudentMode({
     step === 1
       ? "Enter your full name"
       : "Choose your class and section";
-  const renderQuestionVisual = (alt: string) => (
+  const renderQuestionVisual = (alt: string, layout: "default" | "full-width" = "default") => (
     <div className="dictation-visual flex min-h-[190px] items-center justify-center rounded-2xl border border-[color:var(--line)] bg-white p-3">
       {questionVisual ? (
         questionVisual.kind === "lottie" ? (
@@ -322,10 +322,19 @@ export function StudentMode({
             src={questionVisual.src}
             loop
             autoplay
-            style={{ width: "100%", maxWidth: "220px", height: "auto" }}
+            style={{
+              width: "100%",
+              maxWidth: layout === "full-width" ? "100%" : "220px",
+              height: "auto",
+            }}
           />
         ) : (
-          <img src={questionVisual.src} alt={alt} loading="lazy" className="h-auto w-full max-w-[220px]" />
+          <img
+            src={questionVisual.src}
+            alt={alt}
+            loading="lazy"
+            className={layout === "full-width" ? "h-auto w-full max-w-full" : "h-auto w-full max-w-[220px]"}
+          />
         )
       ) : (
         <div className="dictation-placeholder text-sm font-semibold text-[color:var(--muted)]">Picture clue</div>
@@ -363,21 +372,16 @@ export function StudentMode({
         <div className="mb-12 space-y-2">
           <div className="flex items-center gap-3">
             <Badge data-testid="question-counter">{`Question ${question.displayOrder} of ${TOTAL_QUESTION_COUNT}`}</Badge>
-            <div aria-hidden="true" className="h-5 w-px bg-[color:var(--line)]" />
-            <div className="inline-flex items-center gap-2 rounded-[var(--radius-xl)] border border-[color:var(--line)] bg-white px-3 py-1.5 shadow-[var(--shadow-2xs)]">
-              <span
+            <Badge className="gap-2">
+              <img
+                src={starIcon}
+                alt=""
                 aria-hidden="true"
-                className="inline-block"
-                style={{
-                  width: "1rem",
-                  height: "1rem",
-                  backgroundColor: "var(--ink)",
-                  WebkitMask: `url(${starIcon}) center / contain no-repeat`,
-                  mask: `url(${starIcon}) center / contain no-repeat`,
-                }}
+                className="h-3.5 w-3.5 shrink-0"
+                style={{ filter: "brightness(0)" }}
               />
-              <span className="text-sm font-semibold text-[color:var(--ink)]">{`Collect ${answeredItems}`}</span>
-            </div>
+              {`Collected ${answeredItems}`}
+            </Badge>
           </div>
           <Progress value={progressPercent} />
         </div>
@@ -562,59 +566,60 @@ export function StudentMode({
                   <>
                     {question.itemType === "mcq" && (
                       <>
-                        <div className={questionVisual ? "grid gap-3 md:grid-cols-[minmax(190px,36%)_1fr]" : "grid gap-3"}>
-                          {questionVisual ? renderQuestionVisual("Question illustration") : null}
-                          <div className="grid content-start gap-3">
-                            <p className="prompt font-['Fraunces',serif] text-2xl leading-tight text-[color:var(--ink)]">
-                              {`Q${question.displayOrder}: ${activeQuestionPromptText}`}
-                            </p>
+                        <div className="grid gap-3">
+                          <p className="prompt font-['Fraunces',serif] text-2xl leading-tight text-[color:var(--ink)]">
+                            {`Q${question.displayOrder}: ${activeQuestionPromptText}`}
+                          </p>
 
-                            {question.ttsText && (
-                              <MotionButton
-                                type="button"
-                                variant="secondary"
-                                motionPolicy={motionPolicy}
-                                className="secondary w-fit"
-                                data-testid="question-audio-button"
-                                onClick={() => {
-                                  void playSound("tap", { fromInteraction: true });
-                                  void playQuestionAudio("manual");
-                                }}
-                                disabled={audioBusy || audioPlaying}
-                              >
-                                {!audioBusy && (
-                                  <img src={playIcon} alt="" aria-hidden="true" className="h-4 w-4" />
-                                )}
-                                {audioBusy ? "Loading audio..." : "Play audio"}
-                              </MotionButton>
-                            )}
+                          {question.ttsText && (
+                            <MotionButton
+                              type="button"
+                              variant="secondary"
+                              motionPolicy={motionPolicy}
+                              className="secondary w-fit"
+                              data-testid="question-audio-button"
+                              onClick={() => {
+                                void playSound("tap", { fromInteraction: true });
+                                void playQuestionAudio("manual");
+                              }}
+                              disabled={audioBusy || audioPlaying}
+                            >
+                              {!audioBusy && (
+                                <img src={playIcon} alt="" aria-hidden="true" className="h-4 w-4" />
+                              )}
+                              {audioBusy ? "Loading audio..." : "Play audio"}
+                            </MotionButton>
+                          )}
 
-                            {question.options && (
-                              <div
-                                className="option-grid grid gap-2"
-                                role="radiogroup"
-                                aria-label="Answer options"
-                                style={{ gridTemplateColumns: `repeat(${question.options.length}, minmax(0, 1fr))` }}
-                              >
-                                {question.options.map((option) => {
-                                  const selected = answer === option;
-                                  return (
-                                    <RadioOption
-                                      key={option}
-                                      motionPolicy={motionPolicy}
-                                      variant="tile"
-                                      selected={selected}
-                                      label={toSentenceCase(option)}
-                                      onSelect={() => {
-                                        setAnswer(option);
-                                        void playSound("tap", { fromInteraction: true });
-                                      }}
-                                    />
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </div>
+                          {question.displayOrder === 1 && questionVisual
+                            ? renderQuestionVisual("Question 1 illustration", "full-width")
+                            : null}
+
+                          {question.options && (
+                            <div
+                              className="option-grid grid gap-2"
+                              role="radiogroup"
+                              aria-label="Answer options"
+                              style={{ gridTemplateColumns: `repeat(${question.options.length}, minmax(0, 1fr))` }}
+                            >
+                              {question.options.map((option) => {
+                                const selected = answer === option;
+                                return (
+                                  <RadioOption
+                                    key={option}
+                                    motionPolicy={motionPolicy}
+                                    variant="tile"
+                                    selected={selected}
+                                    label={toSentenceCase(option)}
+                                    onSelect={() => {
+                                      setAnswer(option);
+                                      void playSound("tap", { fromInteraction: true });
+                                    }}
+                                  />
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
                       </>
                     )}
@@ -624,10 +629,8 @@ export function StudentMode({
                         <p className="prompt font-['Fraunces',serif] text-2xl leading-tight text-[color:var(--ink)]">
                           {`Q${question.displayOrder}: Listen to the word and type what you hear.`}
                         </p>
-                        <div className="dictation-grid grid gap-3 md:grid-cols-[minmax(190px,36%)_1fr]">
-                          {renderQuestionVisual("Picture clue")}
-
-                          <div className="dictation-work grid content-start gap-3">
+                        {question.displayOrder === 2 || question.displayOrder === 8 ? (
+                          <div className="grid gap-3">
                             {question.ttsText && (
                               <MotionButton
                                 type="button"
@@ -647,6 +650,10 @@ export function StudentMode({
                                 {audioBusy ? "Loading audio..." : "Play audio"}
                               </MotionButton>
                             )}
+
+                            {question.displayOrder === 2
+                              ? renderQuestionVisual("Question 2 illustration", "full-width")
+                              : null}
 
                             <Label htmlFor="dictation-answer">Your answer</Label>
                             <Input
@@ -657,7 +664,42 @@ export function StudentMode({
                               required
                             />
                           </div>
-                        </div>
+                        ) : (
+                          <div className="dictation-grid grid gap-3 md:grid-cols-[minmax(190px,36%)_1fr]">
+                            {renderQuestionVisual("Picture clue")}
+
+                            <div className="dictation-work grid content-start gap-3">
+                              {question.ttsText && (
+                                <MotionButton
+                                  type="button"
+                                  variant="secondary"
+                                  motionPolicy={motionPolicy}
+                                  className="secondary w-fit"
+                                  data-testid="question-audio-button"
+                                  onClick={() => {
+                                    void playSound("tap", { fromInteraction: true });
+                                    void playQuestionAudio("manual");
+                                  }}
+                                  disabled={audioBusy || audioPlaying}
+                                >
+                                  {!audioBusy && (
+                                    <img src={playIcon} alt="" aria-hidden="true" className="h-4 w-4" />
+                                  )}
+                                  {audioBusy ? "Loading audio..." : "Play audio"}
+                                </MotionButton>
+                              )}
+
+                              <Label htmlFor="dictation-answer">Your answer</Label>
+                              <Input
+                                id="dictation-answer"
+                                value={answer}
+                                className="text-base font-semibold leading-6"
+                                onChange={(event) => setAnswer(event.target.value)}
+                                required
+                              />
+                            </div>
+                          </div>
+                        )}
                       </>
                     )}
 
