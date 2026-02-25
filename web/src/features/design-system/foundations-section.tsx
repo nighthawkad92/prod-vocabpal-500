@@ -2,6 +2,80 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { groupDesignTokens } from "@/lib/design-system";
 import type { DesignToken } from "@/features/design-system/types";
 
+type TypeScaleItem = {
+  id: string;
+  label: string;
+  spec: string;
+  sampleClassName: string;
+  sampleText: string;
+};
+
+const TYPE_SCALE: TypeScaleItem[] = [
+  {
+    id: "display",
+    label: "Display / Hero",
+    spec: "Fraunces 3.6rem / 1.06 / 700",
+    sampleClassName: "font-['Fraunces',serif] text-[clamp(2rem,4vw,3.6rem)] leading-[1.06]",
+    sampleText: "Baseline Assessment Console",
+  },
+  {
+    id: "h1",
+    label: "H1",
+    spec: "Fraunces 3rem / tight / 700",
+    sampleClassName: "font-['Fraunces',serif] text-5xl leading-tight",
+    sampleText: "Student Baseline Test",
+  },
+  {
+    id: "h2",
+    label: "H2",
+    spec: "Fraunces 2.25rem / tight / 700",
+    sampleClassName: "font-['Fraunces',serif] text-4xl leading-tight",
+    sampleText: "Teacher Dashboard",
+  },
+  {
+    id: "h3",
+    label: "H3",
+    spec: "Fraunces 1.875rem / tight / 700",
+    sampleClassName: "font-['Fraunces',serif] text-3xl leading-tight",
+    sampleText: "Design System",
+  },
+  {
+    id: "title",
+    label: "Card Title",
+    spec: "Fraunces 1.5rem / tight / 700",
+    sampleClassName: "font-['Fraunces',serif] text-2xl leading-tight",
+    sampleText: "Color Tokens",
+  },
+  {
+    id: "body-lg",
+    label: "Body Large",
+    spec: "Plus Jakarta Sans 1rem / 1.5 / 600",
+    sampleClassName: "text-base font-semibold leading-6",
+    sampleText: "Vocabulary Baseline Test",
+  },
+  {
+    id: "body-md",
+    label: "Body",
+    spec: "Plus Jakarta Sans 0.875rem / 1.5 / 400",
+    sampleClassName: "text-sm leading-6",
+    sampleText: "Audio must be played before submit.",
+  },
+  {
+    id: "label",
+    label: "Label",
+    spec: "Plus Jakarta Sans 0.875rem / 1.4 / 600",
+    sampleClassName: "text-sm font-semibold leading-5",
+    sampleText: "First Name",
+  },
+  {
+    id: "meta",
+    label: "Meta / Caption",
+    spec: "Plus Jakarta Sans 0.75rem / 1.3 / 700",
+    sampleClassName: "text-xs font-bold uppercase tracking-[0.12em] leading-4",
+    sampleText: "Step 1 of 2",
+  },
+];
+
 type FoundationsSectionProps = {
   tokens: DesignToken[];
 };
@@ -45,7 +119,7 @@ export function FoundationsSection({ tokens }: FoundationsSectionProps) {
         <Card>
           <CardHeader>
             <CardTitle className="text-2xl">Typography</CardTitle>
-            <CardDescription>Current type pairs in use across app surfaces.</CardDescription>
+            <CardDescription>Current type pairs and scale details used across app surfaces.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2 rounded-2xl border border-[color:var(--line)] bg-white p-4">
@@ -57,6 +131,24 @@ export function FoundationsSection({ tokens }: FoundationsSectionProps) {
               <p className="text-sm text-[color:var(--muted)]">
                 Used for body copy, labels, controls, and dashboard text.
               </p>
+            </div>
+
+            <div className="space-y-3 rounded-2xl border border-[color:var(--line)] bg-white p-4">
+              <p className="text-xs font-bold uppercase tracking-[0.12em] text-[color:var(--muted)]">Type Scale</p>
+              <div className="space-y-2">
+                {TYPE_SCALE.map((item) => (
+                  <div
+                    key={item.id}
+                    className="grid gap-2 rounded-xl border border-[color:var(--line)] bg-[color:var(--surface)] p-3"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-sm font-semibold text-[color:var(--ink)]">{item.label}</p>
+                      <p className="text-xs text-[color:var(--muted)]">{item.spec}</p>
+                    </div>
+                    <p className={item.sampleClassName}>{item.sampleText}</p>
+                  </div>
+                ))}
+              </div>
             </div>
           </CardContent>
         </Card>

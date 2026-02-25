@@ -105,6 +105,14 @@ The PM agent is the scheduler. Only PM changes task state.
 | UI-023 | Implement student 2-step onboarding with class/section tap grids and stepper | UI | UI-022 | DONE | stepper flow added with Next/Start test CTAs, icon-only back button, and `Class N - Section X` serialization |
 | QA-016 | Validate onboarding layout/serialization regression gates | QA | UI-023 | DONE | type/lint/build pass; payload format and entry/internal state behavior validated |
 | PM-DS-016 | Final signoff and release recommendation for header/onboarding refresh | PM | QA-016 | DONE | signoff complete; frontend-only UX refresh accepted with no backend/db schema impact |
+| PM-DS-017 | Queue entry viewport/copy polish execution | PM | PM-002 | DONE | queued student/teacher entry centering, form-width cap, title/copy updates, and onboarding subtitle adjustments |
+| UI-024 | Implement entry centering, form-width cap, title/copy updates, and onboarding subtitle rules | UI | PM-DS-017 | DONE | entry states centered with 450px card max width and 24px lockup gap; student/teacher heading copy updated; onboarding progress bar removed |
+| QA-017 | Validate entry viewport alignment and onboarding copy/state regression gates | QA | UI-024 | DONE | type/lint/build pass; student step subtitles, entry centering, and active attempt behavior verified |
+| PM-DS-018 | Final signoff for entry viewport/copy polish | PM | QA-017 | DONE | signoff complete; frontend-only polish accepted with no backend/API/schema changes |
+| PM-DS-019 | Queue design-system type scale detail execution | PM | PM-002 | DONE | queued foundations typography enhancement to document full type scale roles and specs |
+| UI-025 | Add type scale details to design-system foundations typography section | UI | PM-DS-019 | DONE | added `Type Scale` panel with role labels, specs, and live samples under typography card |
+| QA-018 | Validate design-system type scale rendering and regression gates | QA | UI-025 | DONE | type/lint/build pass; `/designsystem` typography now includes type scale details block |
+| PM-DS-020 | Final signoff for design-system type scale detail rollout | PM | QA-018 | DONE | signoff complete; documentation-only frontend update accepted |
 | PM-QA-010 | Queue post-push release-gate validation and CI checkpoint closure | PM | PM-002 | DONE | scoped QA harness alignment and rerun of `qa:after-deploy` after main push |
 | QA-010 | Align matrix harness with audio-end submit gate and rerun release gate | QA | PM-QA-010 | DONE | updated submit selector + mock audio `onended`; `qa:matrix` and `qa:after-deploy` passed |
 | PM-QA-011 | Sign off post-push QA recovery and checkpoint closure | PM | QA-010 | DONE | verified green after-deploy report and cleared CP-07 via GitHub secrets |

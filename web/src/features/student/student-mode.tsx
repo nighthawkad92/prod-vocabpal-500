@@ -261,12 +261,22 @@ export function StudentMode({
     : audioGateLocked
       ? (audioBusy ? "Waiting for Audio" : audioPlaying ? "Audio playing" : "Waiting for Audio")
       : "Submit Answer";
-  const onboardingProgressPercent = step === 1 ? 50 : 100;
   const stepOneComplete = firstName.trim().length > 0 && lastName.trim().length > 0;
   const stepTwoComplete = Boolean(classNumber && sectionLetter);
+  const entrySubtitle =
+    step === 1
+      ? "Step 1 of 2: Enter your full name"
+      : "Step 2 of 2: Choose your class and section";
 
   return (
-    <section className="space-y-4" aria-label="student-mode">
+    <section
+      className={
+        attemptId
+          ? "space-y-4"
+          : "flex min-h-[calc(100vh-10rem)] flex-col items-center justify-center gap-6"
+      }
+      aria-label="student-mode"
+    >
       {!attemptId && (
         <div className="flex flex-col items-center gap-2 px-2 text-center">
           <img src={logoVocabPal} alt="VocabPal" className="h-auto w-[250px] max-w-full" />
@@ -274,21 +284,19 @@ export function StudentMode({
         </div>
       )}
 
-      <Card>
+      <Card className={!attemptId ? "w-full max-w-[450px]" : undefined}>
         <CardHeader className={attemptId ? "space-y-2" : "space-y-3"}>
           {attemptId ? (
             <>
               <CardTitle className="text-4xl">Student Baseline Test</CardTitle>
               <CardDescription>
-                Complete each question carefully. Audio must be played before submit.
+                Audio must be played before submit.
               </CardDescription>
             </>
           ) : (
             <>
-              <CardTitle className="text-center text-4xl">Vocabulary Baseline Test</CardTitle>
-              <CardDescription className="text-center">
-                Complete each question carefully.
-              </CardDescription>
+              <CardTitle className="text-left text-4xl">Baseline Test</CardTitle>
+              <CardDescription className="text-left">{entrySubtitle}</CardDescription>
             </>
           )}
         </CardHeader>
@@ -303,14 +311,6 @@ export function StudentMode({
                 setStep(2);
               } : startAttempt}
             >
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm font-semibold text-[color:var(--ink)]">
-                  <span>{`Step ${step} of 2`}</span>
-                  <span>{`${onboardingProgressPercent}% complete`}</span>
-                </div>
-                <Progress value={onboardingProgressPercent} />
-              </div>
-
               {step === 1 ? (
                 <div className="grid gap-3">
                   <Label htmlFor="student-first-name">First Name</Label>
