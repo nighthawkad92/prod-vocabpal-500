@@ -326,15 +326,23 @@ export function StudentMode({ motionPolicy, playSound }: StudentModeProps) {
                             <MotionButton
                               key={option}
                               type="button"
-                              variant={selected ? "default" : "secondary"}
+                              variant="secondary"
                               motionPolicy={motionPolicy}
-                              className={`option justify-start ${selected ? "selected" : ""}`}
+                              className={`option justify-start gap-3 ${selected ? "border-[color:var(--primary)] bg-[color:var(--secondary)]" : "bg-transparent"}`}
                               onClick={() => {
                                 setAnswer(option);
                                 void playSound("tap", { fromInteraction: true });
                               }}
                             >
-                              {option}
+                              <span
+                                aria-hidden="true"
+                                className={`inline-flex h-5 w-5 items-center justify-center rounded-full border border-[color:var(--border)] shadow-[var(--shadow-2xs)] ${selected ? "bg-[color:var(--secondary)]" : "bg-transparent"}`}
+                              >
+                                <span
+                                  className={`h-2.5 w-2.5 rounded-full border border-[color:var(--border)] ${selected ? "bg-[color:var(--primary)]" : "bg-transparent"}`}
+                                />
+                              </span>
+                              <span>{option}</span>
                             </MotionButton>
                           );
                         })}

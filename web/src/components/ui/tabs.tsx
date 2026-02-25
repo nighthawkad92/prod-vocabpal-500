@@ -30,7 +30,7 @@ export function TabsList({ className, ...props }: HTMLAttributes<HTMLDivElement>
   return (
     <div
       className={cn(
-        "inline-flex items-center rounded-full border border-[color:var(--line)] bg-white p-1",
+        "inline-flex items-center rounded-[var(--radius-xl)] border border-[color:var(--border)] bg-transparent p-1",
         className,
       )}
       {...props}
@@ -59,10 +59,10 @@ export function TabsTrigger({
     <button
       type="button"
       className={cn(
-        "rounded-full px-5 py-2 text-sm font-semibold transition-colors",
+        "rounded-[var(--radius-xl)] border border-transparent px-5 py-2 text-sm font-semibold transition-colors",
         isActive
-          ? "bg-[color:var(--brand-600)] text-white"
-          : "text-[color:var(--ink)] hover:bg-[color:var(--surface-2)]",
+          ? "border-[color:var(--border)] bg-[color:var(--secondary)] text-[color:var(--secondary-foreground)] shadow-[var(--shadow-2xs)]"
+          : "bg-transparent text-[color:var(--foreground)] hover:bg-[color:var(--secondary)]",
         className,
       )}
       onClick={() => context.onValueChange(value)}

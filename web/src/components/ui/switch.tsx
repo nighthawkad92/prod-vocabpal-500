@@ -18,8 +18,8 @@ export function Switch({
       role="switch"
       aria-checked={checked}
       className={cn(
-        "relative inline-flex h-7 w-12 items-center rounded-full border border-[color:var(--line)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ring)]",
-        checked ? "bg-[color:var(--brand-600)]" : "bg-[#d6e2ea]",
+        "relative inline-flex h-7 w-12 items-center rounded-[var(--radius-xl)] border border-[color:var(--border)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ring)]",
+        checked ? "bg-[color:var(--secondary)] shadow-[var(--shadow-2xs)]" : "bg-transparent",
         className,
       )}
       onClick={() => onCheckedChange(!checked)}
@@ -27,7 +27,7 @@ export function Switch({
     >
       <span
         className={cn(
-          "inline-block h-5 w-5 rounded-full bg-white transition-transform",
+          "inline-block h-5 w-5 rounded-full border border-[color:var(--border)] bg-[color:var(--background)] shadow-[var(--shadow-2xs)] transition-transform",
           checked ? "translate-x-6" : "translate-x-1",
         )}
       />

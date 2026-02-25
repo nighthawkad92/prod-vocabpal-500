@@ -3,14 +3,14 @@ import type { HTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
 
 const alertVariants = cva(
-  "rounded-xl border px-4 py-3 text-sm",
+  "rounded-[var(--radius-xl)] border px-4 py-3 text-sm",
   {
     variants: {
       variant: {
         default:
           "border-[color:var(--line)] bg-white text-[color:var(--ink)]",
         success:
-          "border-[#b7dfc2] bg-[#edf9f1] text-[#16502c]",
+          "border-[color:var(--line)] bg-[color:var(--surface-2)] text-[color:var(--ink)]",
         destructive:
           "border-[#f0b8b4] bg-[#fdecea] text-[#812019]",
       },

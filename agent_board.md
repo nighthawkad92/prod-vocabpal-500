@@ -83,6 +83,10 @@ The PM agent is the scheduler. Only PM changes task state.
 | UI-016 | Remove transient audio notice and enforce submit unlock only after audio end | UI | PM-DS-005 | DONE | replaced alert toggle with stable submit-label states and stricter audio gate |
 | QA-009 | Validate no vertical shift in student question audio gate state changes | QA | UI-016 | DONE | type/lint/build pass + mocked headless UX check confirms stable layout behavior |
 | PM-DS-006 | Final signoff for layout-stability audio gate change | PM | QA-009 | DONE | signoff complete with no backend/API impact |
+| PM-DS-007 | Define and queue fresh-lime non-typography theme adoption | PM | PM-002 | DONE | kickoff converted to execution-ready artifact; collision fixed (`QA-010` -> `QA-012`) |
+| UI-017 | Apply fresh-lime non-typography token mapping across app + design system | UI | PM-DS-007 | DONE | fresh-lime token mapping shipped with typography preserved; shared primitives normalized to token-backed radius/shadows |
+| QA-012 | Verify fresh-lime rollout, typography invariance, and visual regression gates | QA | UI-017 | DONE | type/lint/build + `qa:remote` passed; local screenshots captured for `/` and `/designsystem` |
+| PM-DS-008 | Final signoff and release recommendation for fresh-lime adoption | PM | QA-012 | DONE | signoff approved for UI-only rollout; no backend/db impact and local preview confirmed |
 | PM-QA-010 | Queue post-push release-gate validation and CI checkpoint closure | PM | PM-002 | DONE | scoped QA harness alignment and rerun of `qa:after-deploy` after main push |
 | QA-010 | Align matrix harness with audio-end submit gate and rerun release gate | QA | PM-QA-010 | DONE | updated submit selector + mock audio `onended`; `qa:matrix` and `qa:after-deploy` passed |
 | PM-QA-011 | Sign off post-push QA recovery and checkpoint closure | PM | QA-010 | DONE | verified green after-deploy report and cleared CP-07 via GitHub secrets |

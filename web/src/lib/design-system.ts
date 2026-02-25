@@ -6,18 +6,18 @@ import type {
 import { SFX_CONFIG, type SfxEvent } from "@/lib/sfx";
 
 const COLOR_VARIABLES: Array<{ name: string; fallback: string; description?: string }> = [
-  { name: "--bg-a", fallback: "#fff8ea", description: "Warm gradient anchor" },
-  { name: "--bg-b", fallback: "#edf7ff", description: "Cool gradient anchor" },
-  { name: "--ink", fallback: "#182538", description: "Primary text color" },
-  { name: "--muted", fallback: "#5b6f82", description: "Secondary text color" },
-  { name: "--line", fallback: "#c9d9e5", description: "Border and divider color" },
-  { name: "--surface", fallback: "#fefeffd9", description: "Card surface color" },
-  { name: "--surface-2", fallback: "#f3f7fb", description: "Muted surface color" },
-  { name: "--brand-600", fallback: "#0f7f94", description: "Primary action color" },
-  { name: "--brand-700", fallback: "#0a6374", description: "Primary hover color" },
-  { name: "--accent", fallback: "#eab63f", description: "Accent highlight" },
+  { name: "--bg-a", fallback: "oklch(0.967 0.067 122.328)", description: "Warm lime gradient anchor" },
+  { name: "--bg-b", fallback: "oklch(0.959 0.046 146.81)", description: "Cool lime gradient anchor" },
+  { name: "--ink", fallback: "oklch(0.274 0.072 132.109)", description: "Primary text color" },
+  { name: "--muted", fallback: "oklch(0.488 0.06 132.109)", description: "Secondary text color" },
+  { name: "--line", fallback: "oklch(0.872 0.031 128.981)", description: "Border and divider color" },
+  { name: "--surface", fallback: "oklch(0.99 0.011 120.757 / 0.9)", description: "Card surface color" },
+  { name: "--surface-2", fallback: "oklch(0.967 0.067 122.328 / 0.58)", description: "Muted surface color" },
+  { name: "--brand-600", fallback: "oklch(0.79 0.233 130.85)", description: "Primary action color" },
+  { name: "--brand-700", fallback: "oklch(0.72 0.205 130.85)", description: "Primary hover color" },
+  { name: "--accent", fallback: "oklch(0.95 0.03 120.757)", description: "Accent highlight" },
   { name: "--danger", fallback: "#b8453f", description: "Destructive state color" },
-  { name: "--ring", fallback: "#6ca2ff", description: "Focus ring color" },
+  { name: "--ring", fallback: "oklch(0.79 0.233 130.85)", description: "Focus ring color" },
 ];
 
 const SPACING_TOKENS: DesignToken[] = [
@@ -29,25 +29,21 @@ const SPACING_TOKENS: DesignToken[] = [
   { name: "space-8", value: "2rem", category: "spacing" },
 ];
 
-const RADIUS_TOKENS: DesignToken[] = [
-  { name: "radius-sm", value: "0.5rem", category: "radius" },
-  { name: "radius-md", value: "0.75rem", category: "radius" },
-  { name: "radius-lg", value: "1rem", category: "radius" },
-  { name: "radius-xl", value: "1.5rem", category: "radius" },
-  { name: "radius-2xl", value: "2rem", category: "radius" },
+const RADIUS_VARIABLES: Array<{ name: string; cssVar: string; fallback: string }> = [
+  { name: "radius-sm", cssVar: "--radius-sm", fallback: "0.375rem" },
+  { name: "radius-md", cssVar: "--radius-md", fallback: "0.5rem" },
+  { name: "radius-lg", cssVar: "--radius-lg", fallback: "0.625rem" },
+  { name: "radius-xl", cssVar: "--radius-xl", fallback: "0.875rem" },
+  { name: "radius-2xl", cssVar: "--radius-2xl", fallback: "1.125rem" },
+  { name: "radius-3xl", cssVar: "--radius-3xl", fallback: "1.375rem" },
+  { name: "radius-4xl", cssVar: "--radius-4xl", fallback: "1.625rem" },
 ];
 
-const SHADOW_TOKENS: DesignToken[] = [
-  {
-    name: "card-shadow",
-    value: "0 16px 36px rgba(9,34,58,0.1)",
-    category: "shadow",
-  },
-  {
-    name: "surface-shadow",
-    value: "0 10px 24px rgba(13,44,74,0.08)",
-    category: "shadow",
-  },
+const SHADOW_VARIABLES: Array<{ name: string; cssVar: string; fallback: string }> = [
+  { name: "shadow-2xs", cssVar: "--shadow-2xs", fallback: "0 1px 2px rgba(0,0,0,0.14)" },
+  { name: "shadow-sm", cssVar: "--shadow-sm", fallback: "0 4px 10px rgba(0,0,0,0.16)" },
+  { name: "shadow-md", cssVar: "--shadow-md", fallback: "0 10px 20px rgba(0,0,0,0.2)" },
+  { name: "shadow-lg", cssVar: "--shadow-lg", fallback: "0 16px 32px rgba(0,0,0,0.22)" },
 ];
 
 const MOTION_TOKENS: DesignToken[] = [
@@ -160,11 +156,23 @@ export function getDesignTokens(): DesignToken[] {
     description: variable.description,
   }));
 
+  const radiusTokens: DesignToken[] = RADIUS_VARIABLES.map((token) => ({
+    name: token.name,
+    value: readCssVariable(token.cssVar, token.fallback),
+    category: "radius",
+  }));
+
+  const shadowTokens: DesignToken[] = SHADOW_VARIABLES.map((token) => ({
+    name: token.name,
+    value: readCssVariable(token.cssVar, token.fallback),
+    category: "shadow",
+  }));
+
   return [
     ...colorTokens,
     ...SPACING_TOKENS,
-    ...RADIUS_TOKENS,
-    ...SHADOW_TOKENS,
+    ...radiusTokens,
+    ...shadowTokens,
     ...MOTION_TOKENS,
   ];
 }

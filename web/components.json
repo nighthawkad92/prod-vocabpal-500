@@ -9,11 +9,15 @@
     "baseColor": "slate",
     "cssVariables": true
   },
+  "iconLibrary": "radix",
   "aliases": {
     "components": "@/components",
     "utils": "@/lib/utils",
     "ui": "@/components/ui",
-    "hooks": "@/hooks",
-    "lib": "@/lib"
+    "lib": "@/lib",
+    "hooks": "@/hooks"
+  },
+  "registries": {
+    "@shadcndesign": "https://shadcndesign-free.vercel.app/r/{name}.json"
   }
 }
