@@ -300,7 +300,7 @@ export function StudentMode({
     <section
       className={
         attemptId
-          ? "space-y-4"
+          ? "pt-8"
           : "flex min-h-[calc(100vh-10rem)] flex-col items-center justify-center gap-12"
       }
       aria-label="student-mode"
@@ -313,9 +313,24 @@ export function StudentMode({
       )}
 
       {attemptId && question && (
-        <div className="space-y-2">
-          <div className="flex items-center justify-end">
+        <div className="mb-12 space-y-2">
+          <div className="flex items-center gap-3">
             <Badge data-testid="question-counter">{`Question ${question.displayOrder} of ${TOTAL_QUESTION_COUNT}`}</Badge>
+            <div aria-hidden="true" className="h-5 w-px bg-[color:var(--line)]" />
+            <div className="inline-flex items-center gap-2 rounded-[var(--radius-xl)] border border-[color:var(--line)] bg-white px-3 py-1.5 shadow-[var(--shadow-2xs)]">
+              <span
+                aria-hidden="true"
+                className="inline-block"
+                style={{
+                  width: "1rem",
+                  height: "1rem",
+                  backgroundColor: "var(--ink)",
+                  WebkitMask: `url(${starIcon}) center / contain no-repeat`,
+                  mask: `url(${starIcon}) center / contain no-repeat`,
+                }}
+              />
+              <span className="text-sm font-semibold text-[color:var(--ink)]">{`Collect ${answeredItems}`}</span>
+            </div>
           </div>
           <Progress value={progressPercent} />
         </div>
@@ -624,7 +639,7 @@ export function StudentMode({
         )}
       </Card>
 
-      {error && <Alert variant="destructive">{error}</Alert>}
+      {error && <Alert variant="destructive" className={attemptId ? "mt-4" : undefined}>{error}</Alert>}
     </section>
   );
 }
