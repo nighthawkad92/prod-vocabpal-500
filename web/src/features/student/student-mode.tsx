@@ -369,14 +369,14 @@ export function StudentMode({
         isCompletionView
           ? "flex min-h-[calc(100vh-10rem)] flex-col items-center justify-center"
           : attemptId
-            ? "pt-8"
-          : "flex min-h-[calc(100vh-10rem)] flex-col items-center justify-center gap-12"
+            ? "mx-auto w-full max-w-[850px] pt-8"
+            : "flex min-h-[calc(100vh-10rem)] flex-col items-center justify-center gap-12"
       }
       aria-label="student-mode"
     >
       {!attemptId && (
         <div className="flex flex-col items-center gap-[8px] px-2 text-center">
-          <img src={logoVocabPal} alt="VocabPal" className="h-auto w-[250px] max-w-full" />
+          <img src={logoVocabPal} alt="VocabPal" className="h-auto w-[350px] max-w-full" />
           <p className="text-base font-semibold text-[color:var(--ink)]">English Vocabulary Revision</p>
         </div>
       )}

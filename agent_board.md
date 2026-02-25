@@ -215,6 +215,10 @@ The PM agent is the scheduler. Only PM changes task state.
 | UI-051 | Refactor teacher dashboard layout, filters, sticky detail, and archive flow | UI | BE-010 | DONE | removed averages/session/reopen cards, added paused/in-progress toggle, search+class filter, sticky detail, class visual analytics, and archive confirmation |
 | QA-043 | Validate teacher dashboard refactor and static regression gates | QA | UI-051 | DONE | typecheck/lint/build pass after backend+UI refactor |
 | PM-DS-070 | Final signoff for teacher dashboard refactor rollout | PM | QA-043 | DONE | signoff complete; requested teacher dashboard behavior delivered with no schema migration impact |
+| PM-DS-071 | Queue student question width cap and entry logo scale increase | PM | PM-002 | DONE | queued student-only sizing update: question surfaces max width 850px and entry logo width 350px |
+| UI-052 | Apply 850px max-width for question screens and 350px entry logo width | UI | PM-DS-071 | DONE | constrained student active-question container to 850px (utility row unchanged) and updated entry logo width to 350px |
+| QA-044 | Validate question-width/logo-size update and static regression gates | QA | UI-052 | DONE | typecheck/lint/build pass after sizing change |
+| PM-DS-072 | Final signoff for question-width/logo-size update | PM | QA-044 | DONE | signoff complete; frontend-only sizing update accepted with no backend/API/schema impact |
 | PM-QA-010 | Queue post-push release-gate validation and CI checkpoint closure | PM | PM-002 | DONE | scoped QA harness alignment and rerun of `qa:after-deploy` after main push |
 | QA-010 | Align matrix harness with audio-end submit gate and rerun release gate | QA | PM-QA-010 | DONE | updated submit selector + mock audio `onended`; `qa:matrix` and `qa:after-deploy` passed |
 | PM-QA-011 | Sign off post-push QA recovery and checkpoint closure | PM | QA-010 | DONE | verified green after-deploy report and cleared CP-07 via GitHub secrets |
