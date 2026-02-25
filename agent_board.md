@@ -87,6 +87,10 @@ The PM agent is the scheduler. Only PM changes task state.
 | UI-017 | Apply fresh-lime non-typography token mapping across app + design system | UI | PM-DS-007 | DONE | fresh-lime token mapping shipped with typography preserved; shared primitives normalized to token-backed radius/shadows |
 | QA-012 | Verify fresh-lime rollout, typography invariance, and visual regression gates | QA | UI-017 | DONE | type/lint/build + `qa:remote` passed; local screenshots captured for `/` and `/designsystem` |
 | PM-DS-008 | Final signoff and release recommendation for fresh-lime adoption | PM | QA-012 | DONE | signoff approved for UI-only rollout; no backend/db impact and local preview confirmed |
+| PM-DS-009 | Queue design-system radio-option parity and deployed QA gate | PM | PM-002 | DONE | task packet created for reusable `RadioOption`, DS playground tab, and prod verification |
+| UI-018 | Add reusable `RadioOption` primitive and `/designsystem` playground coverage | UI | PM-DS-009 | DONE | shared UI primitive added; student MCQ migrated; design-system catalog/playground now includes radio-option state controls |
+| QA-013 | Run post-push `qa:after-deploy` and verify prod route/data regressions | QA | UI-018 | DONE | `qa:after-deploy` passed against `https://prod-vocabpal-500.vercel.app` (smoke + matrix + after-deploy all green) |
+| PM-DS-010 | Final signoff for radio-option parity rollout | PM | QA-013 | DONE | signoff complete; rollout confirmed in prod with no backend/db contract impact |
 | PM-QA-010 | Queue post-push release-gate validation and CI checkpoint closure | PM | PM-002 | DONE | scoped QA harness alignment and rerun of `qa:after-deploy` after main push |
 | QA-010 | Align matrix harness with audio-end submit gate and rerun release gate | QA | PM-QA-010 | DONE | updated submit selector + mock audio `onended`; `qa:matrix` and `qa:after-deploy` passed |
 | PM-QA-011 | Sign off post-push QA recovery and checkpoint closure | PM | QA-010 | DONE | verified green after-deploy report and cleared CP-07 via GitHub secrets |
