@@ -804,7 +804,9 @@ export function TeacherMode({
 
               <div className="xl:max-h-[calc(100vh-23rem)] xl:overflow-y-auto xl:pr-1">
                 <div className="grid gap-2 pb-16">
-                  {attempts.length === 0 ? (
+                  {filteredAttemptsTotal === 0 ? (
+                    <Alert>No attempts recorded.</Alert>
+                  ) : attempts.length === 0 ? (
                     <Alert>No attempts match this search/filter combination.</Alert>
                   ) : (
                     attempts.map((attempt) => {
