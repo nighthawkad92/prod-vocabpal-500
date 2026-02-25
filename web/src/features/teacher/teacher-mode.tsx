@@ -645,8 +645,8 @@ export function TeacherMode({
         </div>
       ) : null}
 
-      <Card>
-        <CardHeader className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <div className="space-y-4 px-2">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <CardTitle className="text-4xl">Teacher Dashboard</CardTitle>
             <CardDescription>
@@ -691,32 +691,30 @@ export function TeacherMode({
               Logout
             </MotionButton>
           </div>
-        </CardHeader>
+        </div>
 
-        <CardContent>
-          {summary && summary.classBreakdown.length > 0 ? (
-            <div className="overflow-x-auto pb-1">
-              <div className="flex min-w-max items-stretch gap-3 pr-1">
-              {summary.classBreakdown.map((classSummary) => (
-                <ClassPerformanceRow
-                  key={classSummary.className}
-                  summary={classSummary}
-                  isActive={classFilter === classSummary.className}
-                  onSelect={(selectedClassName) => {
-                    const nextFilter = classFilter === selectedClassName ? "all" : selectedClassName;
-                    setClassFilter(nextFilter);
-                    setAttemptPage(1);
-                    void playSound("tap", { fromInteraction: true });
-                  }}
-                />
-              ))}
-              </div>
+        {summary && summary.classBreakdown.length > 0 ? (
+          <div className="overflow-x-auto pb-1">
+            <div className="flex min-w-max items-stretch gap-3 pr-1">
+            {summary.classBreakdown.map((classSummary) => (
+              <ClassPerformanceRow
+                key={classSummary.className}
+                summary={classSummary}
+                isActive={classFilter === classSummary.className}
+                onSelect={(selectedClassName) => {
+                  const nextFilter = classFilter === selectedClassName ? "all" : selectedClassName;
+                  setClassFilter(nextFilter);
+                  setAttemptPage(1);
+                  void playSound("tap", { fromInteraction: true });
+                }}
+              />
+            ))}
             </div>
-          ) : (
-            <p className="text-sm text-[color:var(--muted)]">No attempts available yet.</p>
-          )}
-        </CardContent>
-      </Card>
+          </div>
+        ) : (
+          <p className="text-sm text-[color:var(--muted)]">No attempts available yet.</p>
+        )}
+      </div>
 
       <motion.div
         className="grid items-start gap-4 xl:grid-cols-[1fr_1.08fr]"
