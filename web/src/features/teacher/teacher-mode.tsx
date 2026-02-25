@@ -772,34 +772,6 @@ export function TeacherMode({
               </p>
 
               <div className="flex flex-wrap items-center gap-2">
-                <MotionButton
-                  motionPolicy={motionPolicy}
-                  variant="secondary"
-                  size="sm"
-                  disabled={busy || attemptPage <= 1}
-                  onClick={() => {
-                    setAttemptPage((current) => Math.max(1, current - 1));
-                    void playSound("tap", { fromInteraction: true });
-                  }}
-                >
-                  Previous
-                </MotionButton>
-                <Badge>Page {attemptPage} of {totalPages}</Badge>
-                <MotionButton
-                  motionPolicy={motionPolicy}
-                  variant="secondary"
-                  size="sm"
-                  disabled={busy || filteredAttemptsTotal === 0 || attemptPage >= totalPages}
-                  onClick={() => {
-                    setAttemptPage((current) => Math.min(totalPages, current + 1));
-                    void playSound("tap", { fromInteraction: true });
-                  }}
-                >
-                  Next
-                </MotionButton>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2">
                 <Badge>{selectedAttemptIds.length} selected</Badge>
                 <MotionButton
                   motionPolicy={motionPolicy}
@@ -830,60 +802,90 @@ export function TeacherMode({
                 </MotionButton>
               </div>
 
-              <div className="grid gap-2 xl:max-h-[calc(100vh-23rem)] xl:overflow-y-auto xl:pr-1">
-                {attempts.length === 0 ? (
-                  <Alert>No attempts match this search/filter combination.</Alert>
-                ) : (
-                  attempts.map((attempt) => {
-                    const className = attempt.student.className ?? "Unknown";
-                    const fullStudentName = [attempt.student.firstName, attempt.student.lastName]
-                      .filter(Boolean)
-                      .join(" ") || "Unknown student";
-                    const isSelected = selectedAttemptIdSet.has(attempt.id);
+              <div className="xl:max-h-[calc(100vh-23rem)] xl:overflow-y-auto xl:pr-1">
+                <div className="grid gap-2 pb-16">
+                  {attempts.length === 0 ? (
+                    <Alert>No attempts match this search/filter combination.</Alert>
+                  ) : (
+                    attempts.map((attempt) => {
+                      const className = attempt.student.className ?? "Unknown";
+                      const fullStudentName = [attempt.student.firstName, attempt.student.lastName]
+                        .filter(Boolean)
+                        .join(" ") || "Unknown student";
+                      const isSelected = selectedAttemptIdSet.has(attempt.id);
 
-                    return (
-                      <div key={attempt.id} className="flex items-stretch gap-2">
-                        <label className="flex w-9 items-center justify-center rounded-[var(--radius-lg)] border border-[color:var(--line)] bg-white shadow-[var(--shadow-2xs)]">
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={(event) => {
-                              toggleAttemptSelection(attempt.id, event.target.checked);
+                      return (
+                        <div key={attempt.id} className="flex items-stretch gap-2">
+                          <label className="flex w-9 items-center justify-center rounded-[var(--radius-lg)] border border-[color:var(--line)] bg-white shadow-[var(--shadow-2xs)]">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={(event) => {
+                                toggleAttemptSelection(attempt.id, event.target.checked);
+                                void playSound("tap", { fromInteraction: true });
+                              }}
+                              aria-label={`Select attempt for ${fullStudentName}`}
+                              className="h-4 w-4 accent-[color:var(--brand-600)]"
+                            />
+                          </label>
+
+                          <MotionButton
+                            variant="secondary"
+                            motionPolicy={motionPolicy}
+                            className={`h-auto flex-1 justify-start px-3 py-3 text-left !bg-white hover:!bg-white ${
+                              attempt.id === selectedAttemptId
+                                ? "ring-2 ring-[color:var(--ring)]"
+                                : ""
+                            }`}
+                            onClick={() => {
+                              setSelectedAttemptId(attempt.id);
                               void playSound("tap", { fromInteraction: true });
                             }}
-                            aria-label={`Select attempt for ${fullStudentName}`}
-                            className="h-4 w-4 accent-[color:var(--brand-600)]"
-                          />
-                        </label>
+                          >
+                            <div className="grid w-full gap-1 sm:grid-cols-[1fr_auto] sm:items-center">
+                              <div>
+                                <p className="text-sm font-semibold text-[color:var(--ink)]">{fullStudentName}</p>
+                                <p className="text-xs text-[color:var(--muted)]">{className}</p>
+                              </div>
+                              <div className="text-right text-xs font-semibold text-[color:var(--ink)]">
+                                <p>Score {attempt.totalScore10}/10</p>
+                                <p>{formatDateTimeCompact(attempt.startedAt)}</p>
+                              </div>
+                            </div>
+                          </MotionButton>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
 
-                        <MotionButton
-                          variant="secondary"
-                          motionPolicy={motionPolicy}
-                          className={`h-auto flex-1 justify-start px-3 py-3 text-left !bg-white hover:!bg-white ${
-                            attempt.id === selectedAttemptId
-                              ? "ring-2 ring-[color:var(--ring)]"
-                              : ""
-                          }`}
-                          onClick={() => {
-                            setSelectedAttemptId(attempt.id);
-                            void playSound("tap", { fromInteraction: true });
-                          }}
-                        >
-                          <div className="grid w-full gap-1 sm:grid-cols-[1fr_auto] sm:items-center">
-                            <div>
-                              <p className="text-sm font-semibold text-[color:var(--ink)]">{fullStudentName}</p>
-                              <p className="text-xs text-[color:var(--muted)]">{className}</p>
-                            </div>
-                            <div className="text-right text-xs font-semibold text-[color:var(--ink)]">
-                              <p>Score {attempt.totalScore10}/10</p>
-                              <p>{formatDateTimeCompact(attempt.startedAt)}</p>
-                            </div>
-                          </div>
-                        </MotionButton>
-                      </div>
-                    );
-                  })
-                )}
+                <div className="sticky bottom-0 z-10 mt-2 flex flex-wrap items-center gap-2 bg-[color:var(--surface)]/95 py-2 backdrop-blur-[2px]">
+                  <MotionButton
+                    motionPolicy={motionPolicy}
+                    variant="secondary"
+                    size="sm"
+                    disabled={busy || attemptPage <= 1}
+                    onClick={() => {
+                      setAttemptPage((current) => Math.max(1, current - 1));
+                      void playSound("tap", { fromInteraction: true });
+                    }}
+                  >
+                    Previous
+                  </MotionButton>
+                  <Badge>Page {attemptPage} of {totalPages}</Badge>
+                  <MotionButton
+                    motionPolicy={motionPolicy}
+                    variant="secondary"
+                    size="sm"
+                    disabled={busy || filteredAttemptsTotal === 0 || attemptPage >= totalPages}
+                    onClick={() => {
+                      setAttemptPage((current) => Math.min(totalPages, current + 1));
+                      void playSound("tap", { fromInteraction: true });
+                    }}
+                  >
+                    Next
+                  </MotionButton>
+                </div>
               </div>
             </div>
           </CardContent>
