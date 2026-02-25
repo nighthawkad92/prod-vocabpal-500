@@ -135,7 +135,7 @@ const COMPONENT_CATALOG: ComponentCatalogItem[] = [
     id: "radio-option",
     name: "RadioOption",
     description: "Answer-option control used by student MCQ questions and design-system demos.",
-    variants: ["selected", "unselected"],
+    variants: ["default", "tile", "selected", "unselected"],
     states: ["selected", "unselected", "disabled"],
   },
   {

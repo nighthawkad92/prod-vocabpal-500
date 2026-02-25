@@ -16,6 +16,8 @@ import type { Question, StudentComplete } from "@/features/shared/types";
 import { DICTATION_IMAGE_BY_ORDER, TOTAL_QUESTION_COUNT } from "@/features/student/dictation-images";
 import logoVocabPal from "@/assets/branding/logo-vocabpal.png";
 import arrowLeftIcon from "@/assets/icons/arrow-left.svg";
+import playIcon from "@/assets/icons/play.svg";
+import starIcon from "@/assets/icons/star.svg";
 
 type StudentModeProps = {
   motionPolicy: MotionPolicy;
@@ -274,7 +276,7 @@ export function StudentMode({
     ? "Submitting..."
     : audioGateLocked
       ? (audioBusy ? "Waiting for Audio" : audioPlaying ? "Audio playing" : "Waiting for Audio")
-      : "Submit Answer";
+      : "Submit answer";
   const stepOneComplete = firstName.trim().length > 0 && lastName.trim().length > 0;
   const stepTwoComplete = Boolean(classNumber && sectionLetter);
   const entryStepMeta =
@@ -302,29 +304,29 @@ export function StudentMode({
         </div>
       )}
 
+      {attemptId && question && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-end">
+            <Badge data-testid="question-counter">{`Question ${question.displayOrder} of ${TOTAL_QUESTION_COUNT}`}</Badge>
+          </div>
+          <Progress value={progressPercent} />
+        </div>
+      )}
+
       <Card className={!attemptId ? "w-full max-w-[450px]" : undefined}>
-        <CardHeader className={attemptId ? "space-y-2" : "space-y-3"}>
-          {attemptId ? (
-            <>
-              <CardTitle className="text-4xl">Student Baseline Test</CardTitle>
-              <CardDescription>
-                Audio must be played before submit.
-              </CardDescription>
-            </>
-          ) : (
-            <>
-              <CardTitle className="text-left text-2xl">Baseline Test</CardTitle>
-              <CardDescription className="text-left text-[color:var(--ink)]">
-                <span className="text-base font-semibold leading-6 text-[color:var(--ink)]">
-                  {entryStepMeta}
-                </span>{" "}
-                <span className="text-base font-semibold leading-6 text-[color:var(--ink)]">
-                  {entryStepAction}
-                </span>
-              </CardDescription>
-            </>
-          )}
-        </CardHeader>
+        {!attemptId && (
+          <CardHeader className="space-y-3">
+            <CardTitle className="text-left text-2xl">Baseline Test</CardTitle>
+            <CardDescription className="text-left text-[color:var(--ink)]">
+              <span className="text-base font-semibold leading-6 text-[color:var(--ink)]">
+                {entryStepMeta}
+              </span>{" "}
+              <span className="text-base font-semibold leading-6 text-[color:var(--ink)]">
+                {entryStepAction}
+              </span>
+            </CardDescription>
+          </CardHeader>
+        )}
 
         {!attemptId && (
           <CardContent>
@@ -461,16 +463,9 @@ export function StudentMode({
                 onSubmit={submitAnswer}
                 {...questionTransition}
               >
-                <div className="meta-row flex items-center justify-between gap-3 text-sm text-[color:var(--muted)]">
-                  <span>{`Question ${question.displayOrder} / ${TOTAL_QUESTION_COUNT}`}</span>
-                  <Badge>{`${answeredItems}/${TOTAL_QUESTION_COUNT} answered`}</Badge>
-                </div>
-
-                <Progress value={progressPercent} />
-
                 {question.itemType === "mcq" && (
                   <>
-                    <p className="prompt rounded-xl border-l-4 border-[color:var(--accent)] bg-white px-4 py-3 text-base text-[color:var(--ink)]">
+                    <p className="prompt rounded-xl border-l-4 border-[color:var(--accent)] bg-white px-4 py-3 font-['Fraunces',serif] text-2xl leading-tight text-[color:var(--ink)]">
                       {question.promptText}
                     </p>
 
@@ -479,25 +474,35 @@ export function StudentMode({
                         type="button"
                         variant="secondary"
                         motionPolicy={motionPolicy}
-                        className="secondary"
+                        className="secondary w-fit"
+                        data-testid="question-audio-button"
                         onClick={() => {
                           void playSound("tap", { fromInteraction: true });
                           void playQuestionAudio("manual");
                         }}
                         disabled={audioBusy || audioPlaying}
                       >
-                        {audioBusy ? "Loading audio..." : "Play Audio"}
+                        {!audioBusy && (
+                          <img src={playIcon} alt="" aria-hidden="true" className="h-4 w-4" />
+                        )}
+                        {audioBusy ? "Loading audio..." : "Play audio"}
                       </MotionButton>
                     )}
 
                     {question.options && (
-                      <div className="option-grid grid gap-2" role="radiogroup" aria-label="Answer options">
+                      <div
+                        className="option-grid grid gap-2"
+                        role="radiogroup"
+                        aria-label="Answer options"
+                        style={{ gridTemplateColumns: `repeat(${question.options.length}, minmax(0, 1fr))` }}
+                      >
                         {question.options.map((option) => {
                           const selected = answer === option;
                           return (
                             <RadioOption
                               key={option}
                               motionPolicy={motionPolicy}
+                              variant="tile"
                               selected={selected}
                               label={option}
                               onSelect={() => {
@@ -514,7 +519,7 @@ export function StudentMode({
 
                 {question.itemType === "dictation" && (
                   <>
-                    <p className="prompt rounded-xl border-l-4 border-[color:var(--accent)] bg-white px-4 py-3 text-base text-[color:var(--ink)]">
+                    <p className="prompt rounded-xl border-l-4 border-[color:var(--accent)] bg-white px-4 py-3 font-['Fraunces',serif] text-2xl leading-tight text-[color:var(--ink)]">
                       Listen to the word and type what you hear.
                     </p>
                     <div className="dictation-grid grid gap-3 md:grid-cols-[minmax(190px,36%)_1fr]">
@@ -532,14 +537,18 @@ export function StudentMode({
                             type="button"
                             variant="secondary"
                             motionPolicy={motionPolicy}
-                            className="secondary"
+                            className="secondary w-fit"
+                            data-testid="question-audio-button"
                             onClick={() => {
                               void playSound("tap", { fromInteraction: true });
                               void playQuestionAudio("manual");
                             }}
                             disabled={audioBusy || audioPlaying}
                           >
-                            {audioBusy ? "Loading audio..." : "Play Audio"}
+                            {!audioBusy && (
+                              <img src={playIcon} alt="" aria-hidden="true" className="h-4 w-4" />
+                            )}
+                            {audioBusy ? "Loading audio..." : "Play audio"}
                           </MotionButton>
                         )}
 
@@ -547,6 +556,7 @@ export function StudentMode({
                         <Input
                           id="dictation-answer"
                           value={answer}
+                          className="text-base font-semibold leading-6"
                           onChange={(event) => setAnswer(event.target.value)}
                           required
                         />
@@ -555,17 +565,22 @@ export function StudentMode({
                   </>
                 )}
 
-                <MotionButton
-                  motionPolicy={motionPolicy}
-                  type="submit"
-                  disabled={
-                    busy ||
-                    !answer.trim() ||
-                    audioGateLocked
-                  }
-                >
-                  {submitLabel}
-                </MotionButton>
+                <div className="flex justify-end">
+                  <MotionButton
+                    motionPolicy={motionPolicy}
+                    type="submit"
+                    data-testid="question-submit-button"
+                    className="ml-auto w-auto px-5 font-['Fraunces',serif] text-2xl leading-tight"
+                    disabled={
+                      busy ||
+                      !answer.trim() ||
+                      audioGateLocked
+                    }
+                  >
+                    <img src={starIcon} alt="" aria-hidden="true" className="h-4 w-4" />
+                    {submitLabel}
+                  </MotionButton>
+                </div>
               </motion.form>
             </AnimatePresence>
           </CardContent>

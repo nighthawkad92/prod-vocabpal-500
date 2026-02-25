@@ -48,6 +48,7 @@ export function ComponentsSection({
     tabsValue: "student",
     radioSelected: "option-a",
     radioDisabled: false,
+    radioVariant: "default",
     radioOptionA: "sand",
     radioOptionB: "cat",
     motionPolicy: defaultMotionPolicy,
@@ -123,6 +124,12 @@ export function ComponentsSection({
       ],
       radio: [
         {
+          id: "radioVariant",
+          label: "Variant",
+          kind: "select",
+          options: ["default", "tile"],
+        },
+        {
           id: "radioSelected",
           label: "Selected Option",
           kind: "select",
@@ -160,6 +167,7 @@ export function ComponentsSection({
   const alertVariant = String(playground.alertVariant) as "default" | "success" | "destructive";
   const progressValue = Math.max(0, Math.min(100, Number(playground.progressValue ?? 0)));
   const radioSelected = String(playground.radioSelected);
+  const radioVariant = String(playground.radioVariant) as "default" | "tile";
   const radioOptionA = String(playground.radioOptionA || "sand");
   const radioOptionB = String(playground.radioOptionB || "cat");
   const selectedRadioLabel =
@@ -342,12 +350,17 @@ export function ComponentsSection({
               <PlaygroundControls controls={controlsByTab.radio} values={playground} onChange={update} />
               <div className="ds-preview-panel max-w-xl">
                 <p className="text-sm font-semibold text-[color:var(--ink)]">Student answer option style</p>
-                <div className="grid gap-2" role="radiogroup" aria-label="Design system radio options">
+                <div
+                  className={radioVariant === "tile" ? "grid grid-cols-2 gap-2" : "grid gap-2"}
+                  role="radiogroup"
+                  aria-label="Design system radio options"
+                >
                   <RadioOption
                     label={radioOptionA}
                     selected={radioSelected === "option-a"}
                     disabled={Boolean(playground.radioDisabled)}
                     motionPolicy={motionPolicy}
+                    variant={radioVariant}
                     onSelect={() => update("radioSelected", "option-a")}
                   />
                   <RadioOption
@@ -355,6 +368,7 @@ export function ComponentsSection({
                     selected={radioSelected === "option-b"}
                     disabled={Boolean(playground.radioDisabled)}
                     motionPolicy={motionPolicy}
+                    variant={radioVariant}
                     onSelect={() => update("radioSelected", "option-b")}
                   />
                 </div>

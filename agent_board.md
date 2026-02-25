@@ -141,6 +141,11 @@ The PM agent is the scheduler. Only PM changes task state.
 | UI-032 | Increase utility-row Sound-to-mode horizontal spacing to 24px | UI | PM-DS-033 | DONE | utility row now uses `gap-x-6` with `gap-y-2`, preserving wrap behavior while setting 24px horizontal spacing |
 | QA-025 | Validate utility-row 24px gap update and static regression gates | QA | UI-032 | DONE | type/lint/build pass; horizontal spacing class reflects 24px requirement |
 | PM-DS-034 | Final signoff for utility-row 24px gap update | PM | QA-025 | DONE | signoff complete; frontend spacing-only update accepted |
+| PM-DS-035 | Queue question-screen visual refresh execution | PM | PM-002 | DONE | queued question-screen copy removal, counter/progress relocation, iconography update, and MCQ tile-option styling |
+| UI-033 | Apply question-screen layout/copy/type-scale/icon updates | UI | PM-DS-035 | DONE | active question screens updated: header copy removed, progress shell moved above card, counter now `Question N of 10`, play/star icons wired, submit right-aligned content-fit with `Submit answer` |
+| UI-034 | Implement MCQ big-square one-row answer variant and design-system sync | UI | UI-033 | DONE | `RadioOption` now supports `tile` variant; MCQ options render in one row tile controls; design-system playground/catalog updated with variant support |
+| QA-026 | Validate question-screen UX regression and QA harness alignment | QA | UI-034 | DONE | type/lint/build pass; QA matrix selectors/regex aligned to new counter and button hooks |
+| PM-DS-036 | Final signoff and release recommendation for question-screen refresh | PM | QA-026 | DONE | signoff complete; frontend-only changes accepted with no backend/db contract impact |
 | PM-QA-010 | Queue post-push release-gate validation and CI checkpoint closure | PM | PM-002 | DONE | scoped QA harness alignment and rerun of `qa:after-deploy` after main push |
 | QA-010 | Align matrix harness with audio-end submit gate and rerun release gate | QA | PM-QA-010 | DONE | updated submit selector + mock audio `onended`; `qa:matrix` and `qa:after-deploy` passed |
 | PM-QA-011 | Sign off post-push QA recovery and checkpoint closure | PM | QA-010 | DONE | verified green after-deploy report and cleared CP-07 via GitHub secrets |

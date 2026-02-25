@@ -245,8 +245,8 @@ async function answerCurrentQuestion(page, answerValue) {
 }
 
 async function getQuestionNumber(page) {
-  const label = await page.locator(".meta-row span").first().textContent();
-  const match = /Question\s+(\d+)\s*\/\s*10/i.exec(label ?? "");
+  const label = await page.locator("[data-testid='question-counter']").first().textContent();
+  const match = /Question\s+(\d+)\s+(?:of|\/)\s+10/i.exec(label ?? "");
   if (!match) {
     throw new Error(`Could not parse question number from label: ${label ?? "(empty)"}`);
   }
@@ -256,9 +256,9 @@ async function getQuestionNumber(page) {
 async function waitForQuestionNumber(page, minQuestionNo) {
   await page.waitForFunction(
     (minNo) => {
-      const el = document.querySelector(".meta-row span");
+      const el = document.querySelector("[data-testid='question-counter']");
       if (!el || !el.textContent) return false;
-      const match = /Question\s+(\d+)\s*\/\s*10/i.exec(el.textContent);
+      const match = /Question\s+(\d+)\s+(?:of|\/)\s+10/i.exec(el.textContent);
       if (!match) return false;
       return Number(match[1]) >= minNo;
     },
@@ -274,7 +274,7 @@ async function unlockSubmitByPlayingAudio(page, submitButton, maxClicks = 8) {
     if (!(await submitButton.isDisabled())) {
       return { unlocked: true, clicks };
     }
-    const playButtons = page.locator("form.card button.secondary");
+    const playButtons = page.locator("[data-testid='question-audio-button']");
     if ((await playButtons.count()) === 0) {
       break;
     }
@@ -297,9 +297,9 @@ async function submitTwoQuestions(page) {
   const stepResults = [];
 
   for (let i = 0; i < 2; i += 1) {
-    await page.locator(".meta-row").first().waitFor({ timeout: RESPONSE_TIMEOUT_MS });
+    await page.locator("[data-testid='question-counter']").first().waitFor({ timeout: RESPONSE_TIMEOUT_MS });
     const currentQuestionNo = await getQuestionNumber(page);
-    const submitButton = page.locator("form.card button[type='submit']").first();
+    const submitButton = page.locator("[data-testid='question-submit-button']").first();
     await submitButton.waitFor({ timeout: UI_TIMEOUT_MS });
 
     const answerMode = await answerCurrentQuestion(page, `matrix-${currentQuestionNo}`);
