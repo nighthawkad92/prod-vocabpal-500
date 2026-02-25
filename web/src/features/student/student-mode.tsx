@@ -24,6 +24,7 @@ import {
   type QuestionReadingPrelude,
 } from "@/features/student/reading-preludes";
 import logoVocabPal from "@/assets/branding/logo-vocabpal.png";
+import imageComplete from "@/assets/complete/image-complete.png";
 import arrowLeftIcon from "@/assets/icons/arrow-left.svg";
 import playIcon from "@/assets/icons/play.svg";
 import starIcon from "@/assets/icons/star.svg";
@@ -306,6 +307,7 @@ export function StudentMode({
   const showReadySubmitIcon = !busy && !audioGateLocked;
   const stepOneComplete = firstName.trim().length > 0 && lastName.trim().length > 0;
   const stepTwoComplete = Boolean(classNumber && sectionLetter);
+  const isCompletionView = Boolean(attemptId && completion && !question);
   const entryStepMeta =
     step === 1
       ? "Step 1 of 2:"
@@ -352,11 +354,22 @@ export function StudentMode({
     }
   }, [playQuestionAudio, playSound, question]);
 
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    document.body.classList.toggle("student-complete-bg", isCompletionView);
+
+    return () => {
+      document.body.classList.remove("student-complete-bg");
+    };
+  }, [isCompletionView]);
+
   return (
     <section
       className={
-        attemptId
-          ? "pt-8"
+        isCompletionView
+          ? "flex min-h-[calc(100vh-10rem)] flex-col items-center justify-center"
+          : attemptId
+            ? "pt-8"
           : "flex min-h-[calc(100vh-10rem)] flex-col items-center justify-center gap-12"
       }
       aria-label="student-mode"
@@ -387,7 +400,7 @@ export function StudentMode({
         </div>
       )}
 
-      <Card className={!attemptId ? "w-full max-w-[450px]" : undefined}>
+      <Card className={!attemptId || isCompletionView ? "w-full max-w-[450px]" : undefined}>
         {!attemptId && (
           <CardHeader className="space-y-3">
             <CardTitle className="text-left text-2xl">Baseline Test</CardTitle>
@@ -631,7 +644,11 @@ export function StudentMode({
                         <p className="prompt font-['Fraunces',serif] text-2xl leading-tight text-[color:var(--ink)]">
                           {`Q${question.displayOrder}: Listen to the word and type what you hear.`}
                         </p>
-                        {question.displayOrder === 2 || question.displayOrder === 4 || question.displayOrder === 8 ? (
+                        {question.displayOrder === 2 ||
+                        question.displayOrder === 4 ||
+                        question.displayOrder === 6 ||
+                        question.displayOrder === 8 ||
+                        question.displayOrder === 10 ? (
                           <div className="grid gap-3">
                             {question.ttsText && (
                               <MotionButton
@@ -737,16 +754,31 @@ export function StudentMode({
         {completion && (
           <CardContent>
             <motion.div
-              className="card border-l-4 border-l-[#2f8b58]"
+              className="card items-center justify-items-center gap-4 text-center"
               initial={motionPolicy === "full" ? { opacity: 0, y: 10 } : false}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: motionPolicy === "full" ? 0.24 : 0.01 }}
             >
-              <h3 className="font-['Fraunces',serif] text-2xl">Test Complete</h3>
-              <p>Stars Collected: {completion.stars}</p>
-              <p>Score: {completion.totalScore10} / 10</p>
-              <p>Placement Stage: {completion.placementStage}</p>
-              <p>Instructional Need: {completion.instructionalNeed}</p>
+              <img
+                src={imageComplete}
+                alt="Baseline complete"
+                loading="lazy"
+                className="h-auto w-full max-w-[260px]"
+              />
+              <h3 className="font-['Fraunces',serif] text-4xl leading-tight">Baseline Complete</h3>
+              <p className="text-base font-semibold text-[color:var(--ink)]">
+                The only way to go from here is UP!
+              </p>
+              <div className="inline-flex items-center gap-2 text-2xl font-semibold leading-tight text-[color:var(--ink)]">
+                <img
+                  src={starIcon}
+                  alt=""
+                  aria-hidden="true"
+                  className="h-6 w-6 shrink-0"
+                  style={{ filter: "brightness(0)" }}
+                />
+                {`Collected: ${completion.stars}`}
+              </div>
             </motion.div>
           </CardContent>
         )}

@@ -91,6 +91,14 @@ body::before {
   z-index: 0;
 }
 
+body.student-complete-bg::before {
+  background-image: url("./assets/backgrounds/bg-complete.svg");
+  background-size: auto;
+  background-repeat: repeat;
+  background-position: top left;
+  opacity: 1;
+}
+
 #root {
   position: relative;
   z-index: 1;

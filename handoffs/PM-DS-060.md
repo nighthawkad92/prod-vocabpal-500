@@ -1,0 +1,56 @@
+# Handoff: PM-DS-060 Final Signoff for Q6 No-Image Single-Column Rollout
+
+## 1. Metadata
+1. Task ID: PM-DS-060
+2. Title: Final signoff for Q6 no-image single-column rollout
+3. Owner Agent: PM
+4. Handoff Date: 2026-02-25
+5. Proposed Next State: `REVIEW`
+
+## 2. Summary of Work
+1. What was completed:
+1. Reviewed UI and QA evidence for Q6 no-image single-column implementation.
+2. Confirmed requirement scope completed with no cross-system impact.
+3. Confirmed no backend/API/schema changes.
+2. What was intentionally not done:
+1. no deployment action in signoff step.
+
+## 3. Files and Artifacts
+1. Files changed:
+1. `agent_board.md`
+2. New files:
+1. `handoffs/PM-DS-060.md`
+3. Commands executed:
+1. PM evidence review.
+
+## 4. Validation Evidence
+1. Tests run:
+1. accepted QA evidence:
+1. `npm --prefix web run typecheck` -> pass
+2. `npm --prefix web run lint` -> pass
+3. `npm --prefix web run build` -> pass
+2. Test results:
+1. static gates pass.
+3. Manual checks:
+1. Q6 no-image single-column behavior confirmed by implementation branch.
+
+## 5. Downstream Impact
+1. Tasks unblocked:
+1. none mandatory.
+2. Interfaces changed:
+1. none.
+3. Migration or deployment impacts:
+1. none.
+
+## 6. Open Issues
+1. Known issues:
+1. none blocking.
+2. Risks:
+1. none critical.
+3. Follow-up required:
+1. commit/push if requested.
+
+## 7. Requested PM Action
+1. Mark as `DONE`
+2. Return to `RUNNING` with rework scope
+3. Move to `BLOCKED` pending checkpoint id
