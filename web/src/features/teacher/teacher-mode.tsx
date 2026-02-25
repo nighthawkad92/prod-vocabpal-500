@@ -1005,7 +1005,6 @@ function AttemptDetailBody({ detail }: AttemptDetailBodyProps) {
       <div className="space-y-2">
         {detail.responses.map((response, index) => {
           const prompt = response.promptText?.trim() || `Question ${response.displayOrder ?? index + 1}`;
-          const likes = response.isCorrect ? 1 : 0;
 
           return (
             <div
@@ -1013,9 +1012,8 @@ function AttemptDetailBody({ detail }: AttemptDetailBodyProps) {
               className="rounded-[var(--radius-lg)] border border-[color:var(--line)] bg-white px-3 py-2"
             >
               <p className="text-sm font-semibold text-[color:var(--ink)]">{prompt}</p>
-              <div className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                 <MetricChip label="Result" value={response.isCorrect ? "Correct" : "Wrong"} />
-                <MetricChip label="Likes" value={likes} />
                 <MetricChip label="Time" value={formatDurationMs(response.responseTimeMs)} />
                 <MetricChip label="Answer" value={response.submittedAnswer} />
               </div>
