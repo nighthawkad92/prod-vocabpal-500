@@ -48,7 +48,7 @@ export function AppShell({
           ) : null}
         </div>
 
-        <div className="ml-auto flex flex-wrap items-center justify-end gap-4">
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-x-6 gap-y-2">
           <div className="flex items-center gap-3">
             <span className="text-sm font-semibold text-[color:var(--ink)]">Sound</span>
             <div className="flex items-center gap-2">

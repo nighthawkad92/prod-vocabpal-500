@@ -137,6 +137,10 @@ The PM agent is the scheduler. Only PM changes task state.
 | UI-031 | Remove utility-row white containers and set Sound-to-mode gap to 16px | UI | PM-DS-031 | DONE | outer wrappers removed; controls retained and parent gap set to `gap-4` (16px) |
 | QA-024 | Validate utility-row container removal and spacing regression gates | QA | UI-031 | DONE | type/lint/build pass; utility controls render without wrappers and maintain expected interactions |
 | PM-DS-032 | Final signoff for utility-row container removal and spacing alignment | PM | QA-024 | DONE | signoff complete; frontend-only utility-row visual update accepted |
+| PM-DS-033 | Queue utility-row horizontal gap increase to 24px | PM | PM-002 | DONE | queued update to raise Sound-to-mode horizontal spacing from 16px to 24px |
+| UI-032 | Increase utility-row Sound-to-mode horizontal spacing to 24px | UI | PM-DS-033 | DONE | utility row now uses `gap-x-6` with `gap-y-2`, preserving wrap behavior while setting 24px horizontal spacing |
+| QA-025 | Validate utility-row 24px gap update and static regression gates | QA | UI-032 | DONE | type/lint/build pass; horizontal spacing class reflects 24px requirement |
+| PM-DS-034 | Final signoff for utility-row 24px gap update | PM | QA-025 | DONE | signoff complete; frontend spacing-only update accepted |
 | PM-QA-010 | Queue post-push release-gate validation and CI checkpoint closure | PM | PM-002 | DONE | scoped QA harness alignment and rerun of `qa:after-deploy` after main push |
 | QA-010 | Align matrix harness with audio-end submit gate and rerun release gate | QA | PM-QA-010 | DONE | updated submit selector + mock audio `onended`; `qa:matrix` and `qa:after-deploy` passed |
 | PM-QA-011 | Sign off post-push QA recovery and checkpoint closure | PM | QA-010 | DONE | verified green after-deploy report and cleared CP-07 via GitHub secrets |
