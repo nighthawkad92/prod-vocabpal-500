@@ -788,33 +788,35 @@ export function TeacherMode({
                     </motion.div>
                   ) : null}
                 </AnimatePresence>
-                <MotionButton
-                  motionPolicy={motionPolicy}
-                  variant="secondary"
-                  size="sm"
-                  disabled={busy || attempts.length === 0}
-                  onClick={() => {
-                    const nextSelectAll = !allFilteredSelected;
-                    toggleSelectAllFiltered(nextSelectAll);
-                    void playSound("tap", { fromInteraction: true });
-                  }}
-                >
-                  {allFilteredSelected ? "Clear visible" : "Select visible"}
-                </MotionButton>
-                <MotionButton
-                  motionPolicy={motionPolicy}
-                  variant="secondary"
-                  size="sm"
-                  disabled={busy || selectedAttemptIds.length === 0}
-                  title={ARCHIVE_CONFIRMATION_MESSAGE}
-                  onClick={() => {
-                    void playSound("tap", { fromInteraction: true });
-                    archiveSelectedAttempts();
-                  }}
-                >
-                  <Archive className="h-4 w-4" />
-                  Archive selected
-                </MotionButton>
+                <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+                  <MotionButton
+                    motionPolicy={motionPolicy}
+                    variant="secondary"
+                    size="sm"
+                    disabled={busy || attempts.length === 0}
+                    onClick={() => {
+                      const nextSelectAll = !allFilteredSelected;
+                      toggleSelectAllFiltered(nextSelectAll);
+                      void playSound("tap", { fromInteraction: true });
+                    }}
+                  >
+                    {allFilteredSelected ? "Clear visible" : "Select visible"}
+                  </MotionButton>
+                  <MotionButton
+                    motionPolicy={motionPolicy}
+                    variant="secondary"
+                    size="sm"
+                    disabled={busy || selectedAttemptIds.length === 0}
+                    title={ARCHIVE_CONFIRMATION_MESSAGE}
+                    onClick={() => {
+                      void playSound("tap", { fromInteraction: true });
+                      archiveSelectedAttempts();
+                    }}
+                  >
+                    <Archive className="h-4 w-4" />
+                    Archive selected
+                  </MotionButton>
+                </div>
               </motion.div>
 
               <div className="xl:max-h-[calc(100vh-23rem)] xl:overflow-y-auto xl:pr-1">
