@@ -61,6 +61,13 @@ function parseSectionLetter(value: string): SectionLetter | null {
     : null;
 }
 
+function toSentenceCase(value: string): string {
+  if (!value) return value;
+  const trimmed = value.trim();
+  if (!trimmed) return value;
+  return `${trimmed.charAt(0).toUpperCase()}${trimmed.slice(1).toLowerCase()}`;
+}
+
 export function StudentMode({
   motionPolicy,
   playSound,
@@ -277,6 +284,7 @@ export function StudentMode({
     : audioGateLocked
       ? (audioBusy ? "Waiting for Audio" : audioPlaying ? "Audio playing" : "Waiting for Audio")
       : "Submit answer";
+  const showReadySubmitIcon = !busy && !audioGateLocked;
   const stepOneComplete = firstName.trim().length > 0 && lastName.trim().length > 0;
   const stepTwoComplete = Boolean(classNumber && sectionLetter);
   const entryStepMeta =
@@ -465,8 +473,8 @@ export function StudentMode({
               >
                 {question.itemType === "mcq" && (
                   <>
-                    <p className="prompt rounded-xl border-l-4 border-[color:var(--accent)] bg-white px-4 py-3 font-['Fraunces',serif] text-2xl leading-tight text-[color:var(--ink)]">
-                      {question.promptText}
+                    <p className="prompt font-['Fraunces',serif] text-2xl leading-tight text-[color:var(--ink)]">
+                      {`Q${question.displayOrder}: ${question.promptText}`}
                     </p>
 
                     {question.ttsText && (
@@ -504,7 +512,7 @@ export function StudentMode({
                               motionPolicy={motionPolicy}
                               variant="tile"
                               selected={selected}
-                              label={option}
+                              label={toSentenceCase(option)}
                               onSelect={() => {
                                 setAnswer(option);
                                 void playSound("tap", { fromInteraction: true });
@@ -519,8 +527,8 @@ export function StudentMode({
 
                 {question.itemType === "dictation" && (
                   <>
-                    <p className="prompt rounded-xl border-l-4 border-[color:var(--accent)] bg-white px-4 py-3 font-['Fraunces',serif] text-2xl leading-tight text-[color:var(--ink)]">
-                      Listen to the word and type what you hear.
+                    <p className="prompt font-['Fraunces',serif] text-2xl leading-tight text-[color:var(--ink)]">
+                      {`Q${question.displayOrder}: Listen to the word and type what you hear.`}
                     </p>
                     <div className="dictation-grid grid gap-3 md:grid-cols-[minmax(190px,36%)_1fr]">
                       <div className="dictation-visual flex min-h-[190px] items-center justify-center rounded-2xl border border-[color:var(--line)] bg-white p-3">
@@ -570,14 +578,26 @@ export function StudentMode({
                     motionPolicy={motionPolicy}
                     type="submit"
                     data-testid="question-submit-button"
-                    className="ml-auto w-auto px-5 font-['Fraunces',serif] text-2xl leading-tight"
+                    className="ml-auto h-auto w-auto px-5 py-3 font-['Fraunces',serif] text-2xl leading-tight"
                     disabled={
                       busy ||
                       !answer.trim() ||
                       audioGateLocked
                     }
                   >
-                    <img src={starIcon} alt="" aria-hidden="true" className="h-4 w-4" />
+                    {showReadySubmitIcon && (
+                      <span
+                        aria-hidden="true"
+                        className="inline-block"
+                        style={{
+                          width: "1.65rem",
+                          height: "1.65rem",
+                          backgroundColor: "var(--ink)",
+                          WebkitMask: `url(${starIcon}) center / contain no-repeat`,
+                          mask: `url(${starIcon}) center / contain no-repeat`,
+                        }}
+                      />
+                    )}
                     {submitLabel}
                   </MotionButton>
                 </div>
