@@ -299,7 +299,8 @@ async function submitTwoQuestions(page) {
   for (let i = 0; i < 2; i += 1) {
     await page.locator(".meta-row").first().waitFor({ timeout: RESPONSE_TIMEOUT_MS });
     const currentQuestionNo = await getQuestionNumber(page);
-    const submitButton = page.getByRole("button", { name: "Submit Answer" });
+    const submitButton = page.locator("form.card button[type='submit']").first();
+    await submitButton.waitFor({ timeout: UI_TIMEOUT_MS });
 
     const answerMode = await answerCurrentQuestion(page, `matrix-${currentQuestionNo}`);
     await page.waitForTimeout(150);
@@ -470,9 +471,17 @@ async function runUiCase(browser, deviceProfile, networkProfile, student, caseId
         constructor(src) {
           this.src = src;
           this.currentTime = 0;
+          this.onended = null;
+          this.onerror = null;
         }
         play() {
-          return Promise.resolve();
+          return Promise.resolve().then(() => {
+            setTimeout(() => {
+              if (typeof this.onended === "function") {
+                this.onended();
+              }
+            }, 150);
+          });
         }
         pause() {}
       }
