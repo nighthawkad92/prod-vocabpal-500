@@ -30,9 +30,6 @@ export function AppShell({
   utilityLogoSrc,
   children,
 }: AppShellProps) {
-  const utilityCardClass =
-    "rounded-2xl border border-[color:var(--line)] bg-white px-3 py-2 shadow-[var(--shadow-sm)]";
-
   return (
     <main
       className="mx-auto w-full max-w-6xl space-y-4 px-4 pb-8 pt-5 text-[color:var(--ink)] md:px-6"
@@ -51,33 +48,29 @@ export function AppShell({
           ) : null}
         </div>
 
-        <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
-          <div className={utilityCardClass}>
-            <div className="flex items-center gap-3">
-              <span className="text-sm font-semibold text-[color:var(--ink)]">Sound</span>
-              <div className="flex items-center gap-2">
-                {soundEnabled ? (
-                  <Volume2 className="h-4 w-4 text-[color:var(--brand-700)]" />
-                ) : (
-                  <VolumeX className="h-4 w-4 text-[color:var(--ink)]" />
-                )}
-                <Switch checked={soundEnabled} onCheckedChange={onSoundToggle} />
-              </div>
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-4">
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-semibold text-[color:var(--ink)]">Sound</span>
+            <div className="flex items-center gap-2">
+              {soundEnabled ? (
+                <Volume2 className="h-4 w-4 text-[color:var(--brand-700)]" />
+              ) : (
+                <VolumeX className="h-4 w-4 text-[color:var(--ink)]" />
+              )}
+              <Switch checked={soundEnabled} onCheckedChange={onSoundToggle} />
             </div>
           </div>
 
-          <div className={utilityCardClass}>
-            <Tabs
-              value={mode}
-              onValueChange={(nextMode) => onModeChange(nextMode as AppMode)}
-              className="space-y-0"
-            >
-              <TabsList className="border-none bg-transparent p-0 shadow-none">
-                <TabsTrigger value="student">Student</TabsTrigger>
-                <TabsTrigger value="teacher">Teacher</TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </div>
+          <Tabs
+            value={mode}
+            onValueChange={(nextMode) => onModeChange(nextMode as AppMode)}
+            className="space-y-0"
+          >
+            <TabsList className="border-none bg-transparent p-0 shadow-none">
+              <TabsTrigger value="student">Student</TabsTrigger>
+              <TabsTrigger value="teacher">Teacher</TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
       </motion.div>
 

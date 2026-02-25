@@ -133,6 +133,10 @@ The PM agent is the scheduler. Only PM changes task state.
 | UI-030 | Apply entry lockup spacing refinement on student and teacher entry states | UI | PM-DS-029 | DONE | entry layout gap raised to 48px and lockup internal gap set explicitly to 8px in student/teacher entry screens |
 | QA-023 | Validate entry spacing refinement and static regression gates | QA | UI-030 | DONE | type/lint/build pass; spacing updates verified with no functional regressions |
 | PM-DS-030 | Final signoff for entry lockup spacing refinement | PM | QA-023 | DONE | signoff complete; frontend spacing polish accepted |
+| PM-DS-031 | Queue utility-row container removal and spacing alignment | PM | PM-002 | DONE | queued removal of white wrappers around Sound and mode toggle with explicit 16px horizontal spacing |
+| UI-031 | Remove utility-row white containers and set Sound-to-mode gap to 16px | UI | PM-DS-031 | DONE | outer wrappers removed; controls retained and parent gap set to `gap-4` (16px) |
+| QA-024 | Validate utility-row container removal and spacing regression gates | QA | UI-031 | DONE | type/lint/build pass; utility controls render without wrappers and maintain expected interactions |
+| PM-DS-032 | Final signoff for utility-row container removal and spacing alignment | PM | QA-024 | DONE | signoff complete; frontend-only utility-row visual update accepted |
 | PM-QA-010 | Queue post-push release-gate validation and CI checkpoint closure | PM | PM-002 | DONE | scoped QA harness alignment and rerun of `qa:after-deploy` after main push |
 | QA-010 | Align matrix harness with audio-end submit gate and rerun release gate | QA | PM-QA-010 | DONE | updated submit selector + mock audio `onended`; `qa:matrix` and `qa:after-deploy` passed |
 | PM-QA-011 | Sign off post-push QA recovery and checkpoint closure | PM | QA-010 | DONE | verified green after-deploy report and cleared CP-07 via GitHub secrets |
