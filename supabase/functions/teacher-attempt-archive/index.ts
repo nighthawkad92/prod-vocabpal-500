@@ -11,6 +11,7 @@ import { getBaselineTest } from "../_shared/student.ts";
 
 type ArchiveAttemptRequest = {
   attemptId?: string;
+  attemptIds?: string[];
 };
 
 type AttemptStudentRow = {
@@ -30,6 +31,24 @@ type AttemptRow = {
   students: AttemptStudentRow | null;
 };
 
+function normalizeAttemptIds(body: ArchiveAttemptRequest): string[] {
+  const rawIds: Array<string> = [];
+
+  if (typeof body.attemptId === "string") {
+    rawIds.push(body.attemptId);
+  }
+
+  if (Array.isArray(body.attemptIds)) {
+    for (const value of body.attemptIds) {
+      if (typeof value === "string") {
+        rawIds.push(value);
+      }
+    }
+  }
+
+  return Array.from(new Set(rawIds.map((id) => id.trim()).filter(Boolean)));
+}
+
 Deno.serve(async (req) => {
   try {
     if (req.method === "OPTIONS") {
@@ -40,9 +59,9 @@ Deno.serve(async (req) => {
     }
 
     const body = (await req.json()) as ArchiveAttemptRequest;
-    const attemptId = (body.attemptId ?? "").trim();
-    if (!attemptId) {
-      return json(req, 400, { error: "attemptId is required" });
+    const attemptIds = normalizeAttemptIds(body);
+    if (attemptIds.length === 0) {
+      return json(req, 400, { error: "attemptId or attemptIds[] is required" });
     }
 
     const client = createAdminClient();
@@ -65,45 +84,73 @@ Deno.serve(async (req) => {
           )
         )
       `)
-      .eq("id", attemptId)
-      .maybeSingle<AttemptRow>();
+      .in("id", attemptIds);
 
     if (attemptResult.error) {
       throw new Error(`Failed to load attempt for archiving: ${attemptResult.error.message}`);
     }
-    if (!attemptResult.data) {
-      return json(req, 404, { error: "Attempt not found" });
+
+    const attempts = (attemptResult.data ?? []) as AttemptRow[];
+    const foundIds = new Set(attempts.map((attempt) => attempt.id));
+    if (foundIds.size !== attemptIds.length) {
+      const missingAttemptIds = attemptIds.filter((id) => !foundIds.has(id));
+      return json(req, 404, {
+        error: "One or more attempts were not found",
+        missingAttemptIds,
+      });
     }
-    if (attemptResult.data.test_id !== baselineTest.id) {
+
+    if (attempts.some((attempt) => attempt.test_id !== baselineTest.id)) {
       return json(req, 400, { error: "Only baseline attempts can be archived" });
     }
 
     const deleteResult = await client
       .from("attempts")
       .delete()
-      .eq("id", attemptId);
+      .in("id", attemptIds);
 
     if (deleteResult.error) {
       throw new Error(`Failed to archive attempt: ${deleteResult.error.message}`);
     }
 
+    const studentMap = new Map<string, {
+      id: string;
+      firstName: string;
+      lastName: string;
+      className: string | null;
+    }>();
+
+    for (const attempt of attempts) {
+      const student = attempt.students;
+      if (!student?.id) continue;
+      studentMap.set(student.id, {
+        id: student.id,
+        firstName: student.first_name,
+        lastName: student.last_name,
+        className: student.classes?.name ?? null,
+      });
+    }
+
+    const students = Array.from(studentMap.values());
+
     await logTeacherEvent(client, teacherSession.teacher_name, "attempt_archived", {
-      attemptId,
-      studentId: attemptResult.data.student_id,
-      className: attemptResult.data.students?.classes?.name ?? null,
-      previousStatus: attemptResult.data.status,
+      attemptIds,
+      archivedCount: attempts.length,
+      studentCount: students.length,
+      previousStatuses: attempts.map((attempt) => ({
+        attemptId: attempt.id,
+        status: attempt.status,
+      })),
       reopenMode: "archive_unlocked",
     });
 
     return json(req, 200, {
       archived: true,
       reopened: true,
-      student: {
-        id: attemptResult.data.students?.id ?? null,
-        firstName: attemptResult.data.students?.first_name ?? null,
-        lastName: attemptResult.data.students?.last_name ?? null,
-        className: attemptResult.data.students?.classes?.name ?? null,
-      },
+      archivedCount: attempts.length,
+      archivedAttemptIds: attemptIds,
+      students,
+      student: students[0] ?? null,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";

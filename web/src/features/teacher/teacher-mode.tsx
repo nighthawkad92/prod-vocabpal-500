@@ -24,6 +24,8 @@ import logoVocabPal from "@/assets/branding/logo-vocabpal.png";
 
 const TOKEN_KEY = "vocabpal.teacher.token";
 const NAME_KEY = "vocabpal.teacher.name";
+const ARCHIVE_CONFIRMATION_MESSAGE =
+  "Archiving this attempt will reopen the baseline test for this student. Do you want to continue?";
 
 type TeacherModeProps = {
   motionPolicy: MotionPolicy;
@@ -101,6 +103,7 @@ export function TeacherMode({
   const [windowState, setWindowState] = useState<TeacherWindowState | null>(null);
   const [attempts, setAttempts] = useState<TeacherAttempt[]>([]);
   const [selectedAttemptId, setSelectedAttemptId] = useState<string | null>(null);
+  const [selectedAttemptIds, setSelectedAttemptIds] = useState<string[]>([]);
   const [detail, setDetail] = useState<TeacherAttemptDetail | null>(null);
   const [searchText, setSearchText] = useState("");
   const [classFilter, setClassFilter] = useState("all");
@@ -186,6 +189,11 @@ export function TeacherMode({
   }, [loadAttempt, selectedAttemptId, token]);
 
   useEffect(() => {
+    const validAttemptIds = new Set(attempts.map((attempt) => attempt.id));
+    setSelectedAttemptIds((current) => current.filter((attemptId) => validAttemptIds.has(attemptId)));
+  }, [attempts]);
+
+  useEffect(() => {
     onAuthStateChange?.(Boolean(token));
   }, [onAuthStateChange, token]);
 
@@ -242,6 +250,14 @@ export function TeacherMode({
     }
   }, [filteredAttempts, selectedAttemptId]);
 
+  const selectedAttemptIdSet = useMemo(() => new Set(selectedAttemptIds), [selectedAttemptIds]);
+  const allFilteredSelected = useMemo(
+    () =>
+      filteredAttempts.length > 0 &&
+      filteredAttempts.every((attempt) => selectedAttemptIdSet.has(attempt.id)),
+    [filteredAttempts, selectedAttemptIdSet],
+  );
+
   const login = useCallback(
     async (event: FormEvent) => {
       event.preventDefault();
@@ -264,6 +280,7 @@ export function TeacherMode({
         setPasscode("");
         setSearchText("");
         setClassFilter("all");
+        setSelectedAttemptIds([]);
         void playSound("submit", { fromInteraction: true });
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to sign in");
@@ -287,6 +304,7 @@ export function TeacherMode({
       setWindowState(null);
       setAttempts([]);
       setSelectedAttemptId(null);
+      setSelectedAttemptIds([]);
       setDetail(null);
       setSearchText("");
       setClassFilter("all");
@@ -343,50 +361,95 @@ export function TeacherMode({
     [playSound, refresh, token, windowState?.window?.id],
   );
 
-  const archiveAttempt = useCallback(async () => {
-    if (!token || !detail) return;
+  const archiveAttempts = useCallback(
+    async (attemptIds: string[]) => {
+      if (!token || attemptIds.length === 0) return;
 
-    const shouldArchive = window.confirm(
-      "Archiving this attempt will reopen the baseline test for this student. Do you want to continue?",
-    );
-    if (!shouldArchive) {
-      return;
-    }
+      const uniqueAttemptIds = Array.from(new Set(attemptIds));
+      const shouldArchive = window.confirm(ARCHIVE_CONFIRMATION_MESSAGE);
+      if (!shouldArchive) {
+        return;
+      }
 
-    setBusy(true);
-    setError(null);
-    setNotice(null);
+      setBusy(true);
+      setError(null);
+      setNotice(null);
 
-    try {
-      const response = await callFunction<{
-        archived: boolean;
-        reopened: boolean;
-        student: {
-          firstName: string | null;
-          lastName: string | null;
-        };
-      }>("teacher-attempt-archive", {
-        method: "POST",
-        token,
-        body: {
-          attemptId: detail.attempt.id,
-        },
-      });
+      try {
+        const response = await callFunction<{
+          archived: boolean;
+          reopened: boolean;
+          archivedCount: number;
+          students: Array<{
+            firstName: string | null;
+            lastName: string | null;
+          }>;
+        }>("teacher-attempt-archive", {
+          method: "POST",
+          token,
+          body: {
+            attemptIds: uniqueAttemptIds,
+          },
+        });
 
-      const studentName = [response.student.firstName, response.student.lastName]
-        .filter(Boolean)
-        .join(" ") || "student";
-      setNotice(`Attempt archived for ${studentName}. Baseline test reopened.`);
+        const archivedCount = response.archivedCount ?? uniqueAttemptIds.length;
+        if (archivedCount === 1 && response.students[0]) {
+          const studentName = [response.students[0].firstName, response.students[0].lastName]
+            .filter(Boolean)
+            .join(" ") || "student";
+          setNotice(`Attempt archived for ${studentName}. Baseline test reopened.`);
+        } else {
+          setNotice(`${archivedCount} attempts archived. Baseline test reopened for selected students.`);
+        }
 
-      await refresh(token);
-      void playSound("submit", { fromInteraction: true });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to archive attempt");
-      void playSound("error", { fromInteraction: true });
-    } finally {
-      setBusy(false);
-    }
-  }, [detail, playSound, refresh, token]);
+        setSelectedAttemptIds((current) =>
+          current.filter((attemptId) => !uniqueAttemptIds.includes(attemptId))
+        );
+        await refresh(token);
+        void playSound("submit", { fromInteraction: true });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to archive attempts");
+        void playSound("error", { fromInteraction: true });
+      } finally {
+        setBusy(false);
+      }
+    },
+    [playSound, refresh, token],
+  );
+
+  const archiveAttempt = useCallback(() => {
+    if (!detail) return;
+    void archiveAttempts([detail.attempt.id]);
+  }, [archiveAttempts, detail]);
+
+  const archiveSelectedAttempts = useCallback(() => {
+    if (selectedAttemptIds.length === 0) return;
+    void archiveAttempts(selectedAttemptIds);
+  }, [archiveAttempts, selectedAttemptIds]);
+
+  const toggleAttemptSelection = useCallback((attemptId: string, shouldSelect: boolean) => {
+    setSelectedAttemptIds((current) => {
+      const next = new Set(current);
+      if (shouldSelect) {
+        next.add(attemptId);
+      } else {
+        next.delete(attemptId);
+      }
+      return Array.from(next);
+    });
+  }, []);
+
+  const toggleSelectAllFiltered = useCallback((shouldSelectAll: boolean) => {
+    setSelectedAttemptIds((current) => {
+      const next = new Set(current);
+      if (shouldSelectAll) {
+        filteredAttempts.forEach((attempt) => next.add(attempt.id));
+      } else {
+        filteredAttempts.forEach((attempt) => next.delete(attempt.id));
+      }
+      return Array.from(next);
+    });
+  }, [filteredAttempts]);
 
   if (!token) {
     return (
@@ -546,6 +609,37 @@ export function TeacherMode({
                 Showing {filteredAttempts.length} of {attempts.length} attempts
               </p>
 
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge>{selectedAttemptIds.length} selected</Badge>
+                <MotionButton
+                  motionPolicy={motionPolicy}
+                  variant="secondary"
+                  size="sm"
+                  disabled={busy || filteredAttempts.length === 0}
+                  onClick={() => {
+                    const nextSelectAll = !allFilteredSelected;
+                    toggleSelectAllFiltered(nextSelectAll);
+                    void playSound("tap", { fromInteraction: true });
+                  }}
+                >
+                  {allFilteredSelected ? "Clear visible" : "Select visible"}
+                </MotionButton>
+                <MotionButton
+                  motionPolicy={motionPolicy}
+                  variant="secondary"
+                  size="sm"
+                  disabled={busy || selectedAttemptIds.length === 0}
+                  title={ARCHIVE_CONFIRMATION_MESSAGE}
+                  onClick={() => {
+                    void playSound("tap", { fromInteraction: true });
+                    archiveSelectedAttempts();
+                  }}
+                >
+                  <Archive className="h-4 w-4" />
+                  Archive selected
+                </MotionButton>
+              </div>
+
               <div className="grid gap-2 xl:max-h-[calc(100vh-23rem)] xl:overflow-y-auto xl:pr-1">
                 {filteredAttempts.length === 0 ? (
                   <Alert>No attempts match this search/filter combination.</Alert>
@@ -555,33 +649,48 @@ export function TeacherMode({
                     const fullStudentName = [attempt.student.firstName, attempt.student.lastName]
                       .filter(Boolean)
                       .join(" ") || "Unknown student";
+                    const isSelected = selectedAttemptIdSet.has(attempt.id);
 
                     return (
-                      <MotionButton
-                        key={attempt.id}
-                        variant="secondary"
-                        motionPolicy={motionPolicy}
-                        className={`h-auto justify-start px-3 py-3 text-left ${
-                          attempt.id === selectedAttemptId
-                            ? "ring-2 ring-[color:var(--ring)]"
-                            : ""
-                        }`}
-                        onClick={() => {
-                          setSelectedAttemptId(attempt.id);
-                          void playSound("tap", { fromInteraction: true });
-                        }}
-                      >
-                        <div className="grid w-full gap-1 sm:grid-cols-[1fr_auto] sm:items-center">
-                          <div>
-                            <p className="text-sm font-semibold text-[color:var(--ink)]">{fullStudentName}</p>
-                            <p className="text-xs text-[color:var(--muted)]">{className}</p>
+                      <div key={attempt.id} className="flex items-stretch gap-2">
+                        <label className="flex w-9 items-center justify-center rounded-[var(--radius-lg)] border border-[color:var(--line)] bg-white shadow-[var(--shadow-2xs)]">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={(event) => {
+                              toggleAttemptSelection(attempt.id, event.target.checked);
+                              void playSound("tap", { fromInteraction: true });
+                            }}
+                            aria-label={`Select attempt for ${fullStudentName}`}
+                            className="h-4 w-4 accent-[color:var(--brand-600)]"
+                          />
+                        </label>
+
+                        <MotionButton
+                          variant="secondary"
+                          motionPolicy={motionPolicy}
+                          className={`h-auto flex-1 justify-start px-3 py-3 text-left ${
+                            attempt.id === selectedAttemptId
+                              ? "ring-2 ring-[color:var(--ring)]"
+                              : ""
+                          }`}
+                          onClick={() => {
+                            setSelectedAttemptId(attempt.id);
+                            void playSound("tap", { fromInteraction: true });
+                          }}
+                        >
+                          <div className="grid w-full gap-1 sm:grid-cols-[1fr_auto] sm:items-center">
+                            <div>
+                              <p className="text-sm font-semibold text-[color:var(--ink)]">{fullStudentName}</p>
+                              <p className="text-xs text-[color:var(--muted)]">{className}</p>
+                            </div>
+                            <div className="text-right text-xs font-semibold text-[color:var(--ink)]">
+                              <p>Score {attempt.totalScore10}/10</p>
+                              <p>{formatDateTimeCompact(attempt.startedAt)}</p>
+                            </div>
                           </div>
-                          <div className="text-right text-xs font-semibold text-[color:var(--ink)]">
-                            <p>Score {attempt.totalScore10}/10</p>
-                            <p>{formatDateTimeCompact(attempt.startedAt)}</p>
-                          </div>
-                        </div>
-                      </MotionButton>
+                        </MotionButton>
+                      </div>
                     );
                   })
                 )}
@@ -613,10 +722,10 @@ export function TeacherMode({
                   variant="secondary"
                   className="self-start"
                   disabled={busy}
-                  title="Archiving this attempt will reopen the baseline test for this student."
+                  title={ARCHIVE_CONFIRMATION_MESSAGE}
                   onClick={() => {
                     void playSound("tap", { fromInteraction: true });
-                    void archiveAttempt();
+                    archiveAttempt();
                   }}
                 >
                   <Archive className="h-4 w-4" />

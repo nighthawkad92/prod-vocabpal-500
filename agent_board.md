@@ -219,6 +219,11 @@ The PM agent is the scheduler. Only PM changes task state.
 | UI-052 | Apply 850px max-width for question screens and 350px entry logo width | UI | PM-DS-071 | DONE | constrained student active-question container to 850px (utility row unchanged) and updated entry logo width to 350px |
 | QA-044 | Validate question-width/logo-size update and static regression gates | QA | UI-052 | DONE | typecheck/lint/build pass after sizing change |
 | PM-DS-072 | Final signoff for question-width/logo-size update | PM | QA-044 | DONE | signoff complete; frontend-only sizing update accepted with no backend/API/schema impact |
+| PM-DS-073 | Queue multi-select archive workflow for teacher attempts | PM | PM-002 | DONE | queued backend+UI+QA rollout for multi-select archive with confirmation dialog and dashboard-metric refresh |
+| BE-011 | Extend archive API to support one-or-many attempt IDs | Backend | PM-DS-073 | DONE | `teacher-attempt-archive` now accepts `attemptIds[]` and archives in bulk with student summary in response |
+| UI-053 | Add attempts multi-select + archive-selected controls in teacher dashboard | UI | BE-011 | DONE | added checkbox selection per attempt, select-visible/clear-visible controls, and archive-selected CTA with same confirmation dialog |
+| QA-045 | Validate multi-select archive flow and dashboard metric refresh behavior | QA | UI-053 | DONE | typecheck/lint/build pass; archive paths trigger refresh so counts/averages/class visuals recompute from latest data |
+| PM-DS-074 | Final signoff for teacher multi-select archive rollout | PM | QA-045 | DONE | signoff complete; requested bulk archive behavior delivered with no schema migration impact |
 | PM-QA-010 | Queue post-push release-gate validation and CI checkpoint closure | PM | PM-002 | DONE | scoped QA harness alignment and rerun of `qa:after-deploy` after main push |
 | QA-010 | Align matrix harness with audio-end submit gate and rerun release gate | QA | PM-QA-010 | DONE | updated submit selector + mock audio `onended`; `qa:matrix` and `qa:after-deploy` passed |
 | PM-QA-011 | Sign off post-push QA recovery and checkpoint closure | PM | QA-010 | DONE | verified green after-deploy report and cleared CP-07 via GitHub secrets |
