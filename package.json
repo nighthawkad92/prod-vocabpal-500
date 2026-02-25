@@ -13,7 +13,10 @@
     "typecheck": "npm --prefix web run typecheck",
     "qa:remote": "node qa/remote_smoke.mjs",
     "qa:matrix": "node qa/matrix_ui_network.mjs",
+    "qa:data": "node qa/data_integrity_audit.mjs",
     "qa:after-deploy": "node qa/run_after_deploy.mjs",
+    "qa:release-gate": "node qa/release_gate.mjs",
+    "qa:load-500": "node qa/load_profile_500.mjs",
     "supabase": "npx supabase"
   },
   "devDependencies": {

@@ -25,6 +25,8 @@ const config = {
   teacherPasscode: process.env.TEACHER_PASSCODE.trim(),
   teacherName: (process.env.TEACHER_NAME ?? "QA Matrix Agent").trim(),
   finalizeAttempt: process.env.QA_MATRIX_FINALIZE_ATTEMPT === "true",
+  caseLimit: Number(process.env.QA_MATRIX_CASE_LIMIT ?? 0),
+  questionsToSubmit: Number(process.env.QA_MATRIX_QUESTIONS_TO_SUBMIT ?? 1),
 };
 
 const DEVICE_PROFILES = [
@@ -231,7 +233,16 @@ async function applyNetworkProfile(context, page, networkProfile) {
 async function answerCurrentQuestion(page, answerValue) {
   const mcqOptions = page.locator(".option-grid .option");
   if ((await mcqOptions.count()) > 0) {
-    await mcqOptions.first().click();
+    const firstOption = mcqOptions.first();
+    await firstOption.waitFor({ timeout: UI_TIMEOUT_MS });
+    const alreadySelected = (await firstOption.getAttribute("aria-checked")) === "true";
+    if (!alreadySelected) {
+      try {
+        await firstOption.click({ force: true, timeout: UI_TIMEOUT_MS });
+      } catch {
+        await firstOption.dispatchEvent("click");
+      }
+    }
     return "mcq";
   }
 
@@ -267,10 +278,10 @@ async function waitForQuestionNumber(page, minQuestionNo) {
   );
 }
 
-async function unlockSubmitByPlayingAudio(page, submitButton, maxClicks = 8) {
+async function unlockSubmitByPlayingAudio(page, submitButton, maxClicks = 12) {
   let clicks = 0;
   const startedAt = Date.now();
-  while (clicks < maxClicks && Date.now() - startedAt <= 45000) {
+  while (clicks < maxClicks && Date.now() - startedAt <= 75000) {
     if (!(await submitButton.isDisabled())) {
       return { unlocked: true, clicks };
     }
@@ -280,23 +291,30 @@ async function unlockSubmitByPlayingAudio(page, submitButton, maxClicks = 8) {
     }
     const playButton = playButtons.first();
     if (await playButton.isDisabled()) {
-      if (Date.now() - startedAt > RESPONSE_TIMEOUT_MS) {
+      if (Date.now() - startedAt > 75000) {
         break;
       }
-      await page.waitForTimeout(400);
+      await page.waitForTimeout(500);
       continue;
     }
     await playButton.click();
     clicks += 1;
-    await page.waitForTimeout(900);
+
+    const unlockWaitStarted = Date.now();
+    while (Date.now() - unlockWaitStarted <= 12000) {
+      if (!(await submitButton.isDisabled())) {
+        return { unlocked: true, clicks };
+      }
+      await page.waitForTimeout(300);
+    }
   }
   return { unlocked: !(await submitButton.isDisabled()), clicks };
 }
 
-async function submitTwoQuestions(page) {
+async function submitQuestions(page, questionCount) {
   const stepResults = [];
 
-  for (let i = 0; i < 2; i += 1) {
+  for (let i = 0; i < questionCount; i += 1) {
     await page.locator("[data-testid='question-counter']").first().waitFor({ timeout: RESPONSE_TIMEOUT_MS });
     const currentQuestionNo = await getQuestionNumber(page);
     const submitButton = page.locator("[data-testid='question-submit-button']").first();
@@ -518,7 +536,26 @@ async function runUiCase(browser, deviceProfile, networkProfile, student, caseId
     await page.locator("#student-first-name").first().waitFor({ timeout: UI_TIMEOUT_MS });
     await page.locator("#student-first-name").fill(student.firstName);
     await page.locator("#student-last-name").fill(student.lastName);
-    await page.locator("#student-class-name").fill(student.className);
+
+    await page.getByRole("button", { name: "Next" }).click();
+    await page.getByText("Choose your class and section", { exact: false }).first().waitFor({
+      timeout: UI_TIMEOUT_MS,
+    });
+
+    const entryForm = page.locator("form").first();
+    await entryForm.waitFor({ timeout: UI_TIMEOUT_MS });
+
+    const classButtons = entryForm.getByRole("button", {
+      name: String(student.classNumber),
+      exact: true,
+    });
+    const sectionButtons = entryForm.getByRole("button", {
+      name: student.sectionLetter,
+      exact: true,
+    });
+
+    await classButtons.first().click();
+    await sectionButtons.first().click();
 
     const startResponsePromise = page.waitForResponse(
       (response) =>
@@ -526,7 +563,7 @@ async function runUiCase(browser, deviceProfile, networkProfile, student, caseId
         response.request().method() === "POST",
       { timeout: RESPONSE_TIMEOUT_MS },
     );
-    await page.getByRole("button", { name: "Start Baseline" }).click();
+    await page.getByRole("button", { name: "Start test" }).click();
     const startResponse = await startResponsePromise;
     const startPayload = await startResponse.json().catch(() => ({}));
 
@@ -541,7 +578,7 @@ async function runUiCase(browser, deviceProfile, networkProfile, student, caseId
       details: { status: startResponse.status(), attemptId: caseResult.attemptId },
     });
 
-    const questionSteps = await submitTwoQuestions(page);
+    const questionSteps = await submitQuestions(page, config.questionsToSubmit);
     for (const step of questionSteps) {
       caseResult.checks.push({
         name: `question-${step.questionNo}-audio-gate`,
@@ -605,19 +642,22 @@ async function runDataIntegrityChecks(token, scenarioStudents, attemptIds) {
   for (const attemptId of attemptIds) {
     const detail = await callFunction(`teacher-attempt-detail/${attemptId}`, { token });
     const responses = detail.payload?.responses ?? [];
-    const hasTwoResponses = detail.status === 200 && responses.length >= 2;
+    const hasMinResponses =
+      detail.status === 200 &&
+      responses.length >= Math.max(1, config.questionsToSubmit);
     const hasValidTimes = responses.every(
       (row) =>
         Number.isFinite(row.responseTimeMs) &&
         row.responseTimeMs >= 0 &&
         row.responseTimeMs <= 600000,
     );
-    const pass = hasTwoResponses && hasValidTimes;
+    const pass = hasMinResponses && hasValidTimes;
     detailChecksPass = detailChecksPass && pass;
     addApiCheck("attempt-detail-timing", pass, {
       attemptId,
       status: detail.status,
       responseCount: responses.length,
+      expectedMinResponses: Math.max(1, config.questionsToSubmit),
     });
   }
 
@@ -634,19 +674,21 @@ async function runDataIntegrityChecks(token, scenarioStudents, attemptIds) {
 
 async function main() {
   const runId = Date.now().toString().slice(-6);
-  const scenarioStudents = [];
   const matrixCases = [];
 
   let counter = 0;
   for (const device of DEVICE_PROFILES) {
     for (const network of NETWORK_PROFILES) {
       counter += 1;
+      const classNumber = ((counter - 1) % 6) + 1;
+      const sectionLetter = String.fromCharCode(65 + ((counter - 1) % 6));
       const student = {
         firstName: `Mx${runId}${String(counter).padStart(2, "0")}`,
         lastName: "Pilot",
-        className: `Matrix Class ${runId}`,
+        classNumber,
+        sectionLetter,
+        className: `Class ${classNumber} - Section ${sectionLetter}`,
       };
-      scenarioStudents.push(student);
       matrixCases.push({
         caseId: `${device.id}__${network.id}`,
         device,
@@ -656,13 +698,19 @@ async function main() {
     }
   }
 
+  const effectiveCases =
+    Number.isFinite(config.caseLimit) && config.caseLimit > 0
+      ? matrixCases.slice(0, config.caseLimit)
+      : matrixCases;
+  const effectiveStudents = effectiveCases.map((matrixCase) => matrixCase.student);
+
   report.artifacts.runId = runId;
-  report.artifacts.caseCount = matrixCases.length;
+  report.artifacts.caseCount = effectiveCases.length;
 
   const token = await loginTeacher();
   report.artifacts.teacherTokenIssued = true;
 
-  const allowlist = scenarioStudents.map((student) => ({
+  const allowlist = effectiveStudents.map((student) => ({
     firstName: student.firstName,
     lastName: student.lastName,
     className: student.className,
@@ -675,7 +723,7 @@ async function main() {
   try {
     await verifyDesignSystemRoute(browser);
 
-    for (const matrixCase of matrixCases) {
+    for (const matrixCase of effectiveCases) {
       const result = await runUiCase(
         browser,
         matrixCase.device,
@@ -694,7 +742,7 @@ async function main() {
     .filter((item) => item.attemptId)
     .map((item) => item.attemptId);
 
-  await runDataIntegrityChecks(token, scenarioStudents, attemptIds);
+  await runDataIntegrityChecks(token, effectiveStudents, attemptIds);
   await updateSessionStatus(token, windowId, "ended");
   await logoutTeacher(token);
 

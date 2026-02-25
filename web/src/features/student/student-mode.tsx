@@ -466,6 +466,7 @@ export function StudentMode({
                         setClassNumber(next);
                         void playSound("tap", { fromInteraction: true });
                       }}
+                      data-testid="onboarding-class-tabs"
                       className="space-y-0"
                     >
                       <TabsList className="grid w-full grid-cols-3 gap-2 border-none bg-transparent p-0 shadow-none md:grid-cols-6">
@@ -492,6 +493,7 @@ export function StudentMode({
                         setSectionLetter(next);
                         void playSound("tap", { fromInteraction: true });
                       }}
+                      data-testid="onboarding-section-tabs"
                       className="space-y-0"
                     >
                       <TabsList className="grid w-full grid-cols-3 gap-2 border-none bg-transparent p-0 shadow-none md:grid-cols-6">

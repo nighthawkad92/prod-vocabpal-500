@@ -230,6 +230,13 @@ The PM agent is the scheduler. Only PM changes task state.
 | PM-QA-012 | Queue CI lockfile remediation after remote workflow failure | PM | PM-QA-011 | DONE | isolated GitHub failure to `npm ci` lockfile drift and routed lock sync fix |
 | QA-011 | Sync workspace lockfile for CI parity and rerun after-deploy gate | QA | PM-QA-012 | DONE | refreshed root lockfile via `npm install`; local `npm ci` and `qa:after-deploy` passed |
 | PM-QA-013 | Final signoff for remote CI status-check recovery | PM | QA-011 | DONE | GitHub `QA After Deploy` run `22375759854` passed; required status-check path recovered |
+| PM-QA-014 | Define comprehensive hard-gate QA execution path | PM | PM-002 | DONE | comprehensive QA program execution packet completed (hard-gate + phased load) |
+| QA-046 | Expand automated gate coverage across UI/UX/data/code paths | QA | PM-QA-014 | DONE | added `qa:release-gate`, updated matrix onboarding flow, and after-deploy data-audit stage |
+| QA-047 | Add UX stability and visual consistency checks | QA | QA-046 | DONE | matrix suite now validates current student 2-step onboarding and core interaction stability |
+| QA-048 | Add data-integrity audit pack for attempts/classes/archive/reopen/time invariants | QA | QA-046 | DONE | implemented `qa/data_integrity_audit.mjs` and integrated report artifacts |
+| QA-049 | Integrate hard release gate policy into CI and local release checklist | QA | QA-046, QA-047, QA-048 | DONE | QA workflow now runs `qa:release-gate`; README and report schema coverage updated |
+| QA-050 | Implement phased 500-student load validation track with weekly cadence | QA | QA-049 | DONE | added `qa:load-500` script and scheduled weekly GitHub Actions workflow |
+| PM-QA-015 | Final QA signoff and pilot readiness recommendation | PM | QA-050 | DONE | PM review completed with hard-gate and weekly-load governance in place |
 | REL-001 | Vercel deployment wiring | PM/Backend/UI | UI-003, QA-003 | DONE | main push + auto-deploy + after-deploy QA gate passed |
 | REL-002 | Pilot readiness checklist signoff | PM | QA-004, UXR-002 | TODO | final go/no-go |
 
