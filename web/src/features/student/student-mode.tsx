@@ -539,25 +539,27 @@ export function StudentMode({
               >
                 {showReadingPrelude && readingPrelude ? (
                   <>
-                    <div className="grid gap-3 md:grid-cols-[minmax(190px,36%)_1fr]">
-                      <div className="dictation-visual flex min-h-[190px] items-center justify-center rounded-2xl border border-[color:var(--line)] bg-white p-3">
+                    <div className="grid gap-4">
+                      <div className="dictation-visual aspect-[16/9] overflow-hidden rounded-2xl border border-[color:var(--line)] bg-white">
                         <img
                           src={readingPrelude.imageSrc}
                           alt={`Question ${question.displayOrder} sentence illustration`}
                           loading="lazy"
-                          className="h-auto w-full max-w-[220px]"
+                          className="h-full w-full object-cover"
                         />
                       </div>
-
-                      <div className="grid content-center gap-3">
-                        <p className="font-['Fraunces',serif] text-3xl leading-tight text-[color:var(--ink)]">
-                          {readingPrelude.sentence}
-                        </p>
-                      </div>
+                      <p className="font-['Fraunces',serif] text-2xl leading-tight text-[color:var(--ink)]">
+                        {`Q${question.displayOrder}. Read this sentence: ${readingPrelude.sentence}`}
+                      </p>
                     </div>
 
-                    <div className="flex justify-end">
-                      <MotionButton motionPolicy={motionPolicy} type="button" onClick={revealQuestion}>
+                    <div className="flex justify-start">
+                      <MotionButton
+                        motionPolicy={motionPolicy}
+                        type="button"
+                        className="h-auto w-auto px-5 py-3 font-['Fraunces',serif] text-2xl leading-tight"
+                        onClick={revealQuestion}
+                      >
                         Show question
                       </MotionButton>
                     </div>
@@ -629,7 +631,7 @@ export function StudentMode({
                         <p className="prompt font-['Fraunces',serif] text-2xl leading-tight text-[color:var(--ink)]">
                           {`Q${question.displayOrder}: Listen to the word and type what you hear.`}
                         </p>
-                        {question.displayOrder === 2 || question.displayOrder === 8 ? (
+                        {question.displayOrder === 2 || question.displayOrder === 4 || question.displayOrder === 8 ? (
                           <div className="grid gap-3">
                             {question.ttsText && (
                               <MotionButton
@@ -651,8 +653,11 @@ export function StudentMode({
                               </MotionButton>
                             )}
 
-                            {question.displayOrder === 2
-                              ? renderQuestionVisual("Question 2 illustration", "full-width")
+                            {question.displayOrder === 2 || question.displayOrder === 4
+                              ? renderQuestionVisual(
+                                  `Question ${question.displayOrder} illustration`,
+                                  "full-width",
+                                )
                               : null}
 
                             <Label htmlFor="dictation-answer">Your answer</Label>
