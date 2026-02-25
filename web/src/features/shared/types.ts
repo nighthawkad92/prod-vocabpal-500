@@ -27,7 +27,22 @@ export type TeacherSummary = {
   attemptsTotal: number;
   completedAttempts: number;
   avgScore10: number;
-  classBreakdown: Array<{ className: string; attempts: number; avgScore10: number }>;
+  classBreakdown: Array<{
+    className: string;
+    attempts: number;
+    completedAttempts: number;
+    inProgressAttempts: number;
+    avgScore10: number;
+    completionRate: number;
+  }>;
+};
+
+export type TeacherWindowState = {
+  hasWindow: boolean;
+  status: SessionStatus;
+  window: {
+    id: string;
+  } | null;
 };
 
 export type TeacherAttempt = {
@@ -72,8 +87,13 @@ export type TeacherAttemptDetail = {
     stageNo: number;
     itemNo: number;
     promptText: string | null;
+    questionItemId: string | null;
+    itemType: "mcq" | "dictation" | null;
+    displayOrder: number | null;
     submittedAnswer: string;
     isCorrect: boolean;
     responseTimeMs: number;
+    shownAt: string | null;
+    answeredAt: string | null;
   }>;
 };

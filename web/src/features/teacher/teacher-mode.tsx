@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { motion } from "motion/react";
-import { RefreshCw } from "lucide-react";
+import { Archive, RefreshCw } from "lucide-react";
 import { MotionButton } from "@/components/motion-button";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -9,11 +9,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Textarea } from "@/components/ui/textarea";
 import type { MotionPolicy } from "@/hooks/use-motion-policy";
-import type { SessionStatus, TeacherAttempt, TeacherAttemptDetail, TeacherSummary } from "@/features/shared/types";
+import type {
+  SessionStatus,
+  TeacherAttempt,
+  TeacherAttemptDetail,
+  TeacherSummary,
+  TeacherWindowState,
+} from "@/features/shared/types";
 import { callFunction } from "@/lib/env";
-import { formatDate, formatDurationMs, formatSessionStatus } from "@/lib/format";
+import { formatDurationMs, formatSessionStatus } from "@/lib/format";
 import type { SfxEvent } from "@/lib/sfx";
 import logoVocabPal from "@/assets/branding/logo-vocabpal.png";
 
@@ -26,16 +31,9 @@ type TeacherModeProps = {
   onAuthStateChange?: (active: boolean) => void;
 };
 
-type CreateWindowResponse = {
+type WindowMutationResponse = {
   status: SessionStatus;
-  window: {
-    id: string;
-  };
-};
-
-type UpdateWindowResponse = {
-  status: SessionStatus;
-  usedLatest: boolean;
+  usedLatest?: boolean;
   window: {
     id: string;
   };
@@ -46,6 +44,51 @@ const cardMotion = {
   animate: { opacity: 1, y: 0 },
 };
 
+function formatDateOnly(value: string | null): string {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleDateString();
+}
+
+function formatTimeOnly(value: string | null): string {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function formatDateTimeCompact(value: string | null): string {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function parseClassSection(className: string | null): { classLabel: string; sectionLabel: string } {
+  if (!className) {
+    return { classLabel: "-", sectionLabel: "-" };
+  }
+
+  const parts = className.split("-").map((part) => part.trim()).filter(Boolean);
+  if (parts.length >= 2) {
+    return {
+      classLabel: parts[0],
+      sectionLabel: parts.slice(1).join(" - "),
+    };
+  }
+
+  return { classLabel: className, sectionLabel: "-" };
+}
+
 export function TeacherMode({
   motionPolicy,
   playSound,
@@ -55,20 +98,15 @@ export function TeacherMode({
   const [passcode, setPasscode] = useState("");
   const [token, setToken] = useState(localStorage.getItem(TOKEN_KEY));
   const [summary, setSummary] = useState<TeacherSummary | null>(null);
+  const [windowState, setWindowState] = useState<TeacherWindowState | null>(null);
   const [attempts, setAttempts] = useState<TeacherAttempt[]>([]);
+  const [selectedAttemptId, setSelectedAttemptId] = useState<string | null>(null);
   const [detail, setDetail] = useState<TeacherAttemptDetail | null>(null);
-
-  const [windowScope, setWindowScope] = useState<"all" | "allowlist">("all");
-  const [createWindowStatus, setCreateWindowStatus] = useState<SessionStatus>("in_progress");
-  const [allowlistText, setAllowlistText] = useState("Ria,Patel,Class A");
-  const [statusWindowId, setStatusWindowId] = useState("");
-  const [nextWindowStatus, setNextWindowStatus] = useState<SessionStatus>("paused");
-  const [reopenFirstName, setReopenFirstName] = useState("");
-  const [reopenLastName, setReopenLastName] = useState("");
-  const [reopenClassName, setReopenClassName] = useState("Class A");
-  const [reopenReason, setReopenReason] = useState("Pilot retake approved");
+  const [searchText, setSearchText] = useState("");
+  const [classFilter, setClassFilter] = useState("all");
 
   const [busy, setBusy] = useState(false);
+  const [detailBusy, setDetailBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -78,34 +116,57 @@ export function TeacherMode({
 
       setBusy(true);
       setError(null);
-      setNotice(null);
 
       try {
-        const [sum, list] = await Promise.all([
+        const [nextSummary, list, nextWindowState] = await Promise.all([
           callFunction<TeacherSummary>("teacher-dashboard-summary", { token: authToken }),
-          callFunction<{ attempts: TeacherAttempt[] }>("teacher-dashboard-list?limit=30", {
+          callFunction<{ attempts: TeacherAttempt[] }>("teacher-dashboard-list?limit=120", {
             token: authToken,
           }),
+          callFunction<TeacherWindowState>("teacher-windows", { token: authToken }),
         ]);
 
-        setSummary(sum);
+        setSummary(nextSummary);
         setAttempts(list.attempts);
+        setWindowState(nextWindowState);
 
-        if (list.attempts.length > 0) {
-          const firstAttemptId = list.attempts[0].id;
-          const firstDetail = await callFunction<TeacherAttemptDetail>(
-            `teacher-attempt-detail/${firstAttemptId}`,
-            { token: authToken },
-          );
-          setDetail(firstDetail);
-        } else {
-          setDetail(null);
-        }
+        setSelectedAttemptId((currentAttemptId) => {
+          if (list.attempts.length === 0) {
+            return null;
+          }
+          if (currentAttemptId && list.attempts.some((attempt) => attempt.id === currentAttemptId)) {
+            return currentAttemptId;
+          }
+          return list.attempts[0].id;
+        });
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load dashboard");
         void playSound("error", { fromInteraction: true });
       } finally {
         setBusy(false);
+      }
+    },
+    [playSound, token],
+  );
+
+  const loadAttempt = useCallback(
+    async (attemptId: string, authToken = token ?? undefined) => {
+      if (!authToken || !attemptId) return;
+
+      setDetailBusy(true);
+      setError(null);
+
+      try {
+        const nextDetail = await callFunction<TeacherAttemptDetail>(
+          `teacher-attempt-detail/${attemptId}`,
+          { token: authToken },
+        );
+        setDetail(nextDetail);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to load attempt detail");
+        void playSound("error", { fromInteraction: true });
+      } finally {
+        setDetailBusy(false);
       }
     },
     [playSound, token],
@@ -117,6 +178,14 @@ export function TeacherMode({
   }, [token, refresh]);
 
   useEffect(() => {
+    if (!token || !selectedAttemptId) {
+      setDetail(null);
+      return;
+    }
+    void loadAttempt(selectedAttemptId, token);
+  }, [loadAttempt, selectedAttemptId, token]);
+
+  useEffect(() => {
     onAuthStateChange?.(Boolean(token));
   }, [onAuthStateChange, token]);
 
@@ -125,6 +194,53 @@ export function TeacherMode({
       onAuthStateChange?.(false);
     };
   }, [onAuthStateChange]);
+
+  const classOptions = useMemo(() => {
+    return Array.from(
+      new Set(
+        attempts
+          .map((attempt) => attempt.student.className)
+          .filter((value): value is string => Boolean(value)),
+      ),
+    ).sort((a, b) => a.localeCompare(b));
+  }, [attempts]);
+
+  const filteredAttempts = useMemo(() => {
+    const search = searchText.trim().toLowerCase();
+
+    return attempts.filter((attempt) => {
+      const className = attempt.student.className ?? "Unknown";
+      if (classFilter !== "all" && className !== classFilter) {
+        return false;
+      }
+
+      if (!search) {
+        return true;
+      }
+
+      const searchable = [
+        attempt.student.firstName ?? "",
+        attempt.student.lastName ?? "",
+        className,
+      ]
+        .join(" ")
+        .toLowerCase();
+
+      return searchable.includes(search);
+    });
+  }, [attempts, classFilter, searchText]);
+
+  useEffect(() => {
+    if (filteredAttempts.length === 0) {
+      setSelectedAttemptId(null);
+      setDetail(null);
+      return;
+    }
+
+    if (!selectedAttemptId || !filteredAttempts.some((attempt) => attempt.id === selectedAttemptId)) {
+      setSelectedAttemptId(filteredAttempts[0].id);
+    }
+  }, [filteredAttempts, selectedAttemptId]);
 
   const login = useCallback(
     async (event: FormEvent) => {
@@ -146,7 +262,8 @@ export function TeacherMode({
         localStorage.setItem(TOKEN_KEY, response.token);
         localStorage.setItem(NAME_KEY, response.teacherName);
         setPasscode("");
-        await refresh(response.token);
+        setSearchText("");
+        setClassFilter("all");
         void playSound("submit", { fromInteraction: true });
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to sign in");
@@ -155,7 +272,7 @@ export function TeacherMode({
         setBusy(false);
       }
     },
-    [fullName, passcode, playSound, refresh],
+    [fullName, passcode, playSound],
   );
 
   const logout = useCallback(async () => {
@@ -167,64 +284,22 @@ export function TeacherMode({
       localStorage.removeItem(TOKEN_KEY);
       setToken(null);
       setSummary(null);
+      setWindowState(null);
       setAttempts([]);
+      setSelectedAttemptId(null);
       setDetail(null);
+      setSearchText("");
+      setClassFilter("all");
+      setNotice(null);
+      setError(null);
       void playSound("tap", { fromInteraction: true });
     }
   }, [playSound, token]);
 
-  const createSession = useCallback(
-    async (event: FormEvent) => {
-      event.preventDefault();
-      if (!token) return;
-
-      setBusy(true);
-      setError(null);
-      setNotice(null);
-
-      try {
-        const allowlist = allowlistText
-          .split("\n")
-          .map((line) => line.trim())
-          .filter(Boolean)
-          .map((line) => {
-            const [firstName, lastName, className] = line
-              .split(",")
-              .map((value) => value.trim());
-            return { firstName, lastName, className };
-          });
-
-        const response = await callFunction<CreateWindowResponse>("teacher-windows", {
-          method: "POST",
-          token,
-          body: {
-            scope: windowScope,
-            allowlist: windowScope === "allowlist" ? allowlist : [],
-            status: createWindowStatus,
-            startAt: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
-            endAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-          },
-        });
-
-        setStatusWindowId(response.window.id);
-        setNotice(
-          `Session ${response.window.id} created (${formatSessionStatus(response.status)}).`,
-        );
-        await refresh(token);
-        void playSound("submit", { fromInteraction: true });
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to create session");
-        void playSound("error", { fromInteraction: true });
-      } finally {
-        setBusy(false);
-      }
-    },
-    [allowlistText, createWindowStatus, playSound, refresh, token, windowScope],
-  );
+  const sessionStatus = windowState?.status === "in_progress" ? "in_progress" : "paused";
 
   const updateSessionStatus = useCallback(
-    async (event: FormEvent) => {
-      event.preventDefault();
+    async (nextStatus: "paused" | "in_progress") => {
       if (!token) return;
 
       setBusy(true);
@@ -232,105 +307,86 @@ export function TeacherMode({
       setNotice(null);
 
       try {
-        const response = await callFunction<UpdateWindowResponse>("teacher-windows", {
-          method: "PATCH",
-          token,
-          body: {
-            windowId: statusWindowId.trim() || undefined,
-            status: nextWindowStatus,
-          },
-        });
+        let response: WindowMutationResponse;
+        if (windowState?.window?.id) {
+          response = await callFunction<WindowMutationResponse>("teacher-windows", {
+            method: "PATCH",
+            token,
+            body: {
+              windowId: windowState.window.id,
+              status: nextStatus,
+            },
+          });
+        } else {
+          response = await callFunction<WindowMutationResponse>("teacher-windows", {
+            method: "POST",
+            token,
+            body: {
+              scope: "all",
+              status: nextStatus,
+              startAt: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+              endAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+            },
+          });
+        }
 
-        setStatusWindowId(response.window.id);
-        setNotice(
-          `Session ${response.window.id} set to ${formatSessionStatus(response.status)}${
-            response.usedLatest ? " (latest session)." : "."
-          }`,
-        );
+        setNotice(`Baseline set to ${formatSessionStatus(response.status)}.`);
         await refresh(token);
         void playSound("submit", { fromInteraction: true });
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to update session status");
+        setError(err instanceof Error ? err.message : "Failed to update baseline status");
         void playSound("error", { fromInteraction: true });
       } finally {
         setBusy(false);
       }
     },
-    [nextWindowStatus, playSound, refresh, statusWindowId, token],
+    [playSound, refresh, token, windowState?.window?.id],
   );
 
-  const loadAttempt = useCallback(
-    async (attemptId: string) => {
-      if (!token) return;
+  const archiveAttempt = useCallback(async () => {
+    if (!token || !detail) return;
 
-      setBusy(true);
-      setError(null);
-      setNotice(null);
+    const shouldArchive = window.confirm(
+      "Archiving this attempt will reopen the baseline test for this student. Do you want to continue?",
+    );
+    if (!shouldArchive) {
+      return;
+    }
 
-      try {
-        const nextDetail = await callFunction<TeacherAttemptDetail>(
-          `teacher-attempt-detail/${attemptId}`,
-          { token },
-        );
-        setDetail(nextDetail);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load attempt detail");
-        void playSound("error", { fromInteraction: true });
-      } finally {
-        setBusy(false);
-      }
-    },
-    [playSound, token],
-  );
+    setBusy(true);
+    setError(null);
+    setNotice(null);
 
-  const reopenStudent = useCallback(
-    async (event: FormEvent) => {
-      event.preventDefault();
-      if (!token) return;
+    try {
+      const response = await callFunction<{
+        archived: boolean;
+        reopened: boolean;
+        student: {
+          firstName: string | null;
+          lastName: string | null;
+        };
+      }>("teacher-attempt-archive", {
+        method: "POST",
+        token,
+        body: {
+          attemptId: detail.attempt.id,
+        },
+      });
 
-      setBusy(true);
-      setError(null);
-      setNotice(null);
+      const studentName = [response.student.firstName, response.student.lastName]
+        .filter(Boolean)
+        .join(" ") || "student";
+      setNotice(`Attempt archived for ${studentName}. Baseline test reopened.`);
 
-      try {
-        const response = await callFunction<{
-          reopened: boolean;
-          attemptsUsed: number;
-          totalReopens: number;
-          remainingAttempts: number;
-        }>("teacher-reopen", {
-          method: "POST",
-          token,
-          body: {
-            firstName: reopenFirstName,
-            lastName: reopenLastName,
-            className: reopenClassName,
-            reason: reopenReason,
-          },
-        });
-
-        setNotice(
-          `Reopen granted. Attempts used: ${response.attemptsUsed}, total reopens: ${response.totalReopens}, remaining attempts: ${response.remainingAttempts}.`,
-        );
-        await refresh(token);
-        void playSound("submit", { fromInteraction: true });
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to reopen student");
-        void playSound("error", { fromInteraction: true });
-      } finally {
-        setBusy(false);
-      }
-    },
-    [
-      playSound,
-      refresh,
-      reopenClassName,
-      reopenFirstName,
-      reopenLastName,
-      reopenReason,
-      token,
-    ],
-  );
+      await refresh(token);
+      void playSound("submit", { fromInteraction: true });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to archive attempt");
+      void playSound("error", { fromInteraction: true });
+    } finally {
+      setBusy(false);
+    }
+  }, [detail, playSound, refresh, token]);
 
   if (!token) {
     return (
@@ -389,12 +445,24 @@ export function TeacherMode({
   return (
     <section className="space-y-4" aria-label="teacher-mode">
       <Card>
-        <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <CardHeader className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <CardTitle className="text-4xl">Teacher Dashboard</CardTitle>
-            <CardDescription>Monitor attempts, session state, and retake controls.</CardDescription>
+            <CardDescription>
+              Track class performance, inspect attempts, and control baseline availability.
+            </CardDescription>
           </div>
-          <div className="flex flex-wrap gap-2">
+
+          <div className="flex flex-wrap items-center gap-2">
+            <SessionStatusToggle
+              status={sessionStatus}
+              disabled={busy}
+              onChange={(nextStatus) => {
+                void playSound("tap", { fromInteraction: true });
+                void updateSessionStatus(nextStatus);
+              }}
+            />
+            <Badge>{formatSessionStatus(sessionStatus)}</Badge>
             <MotionButton
               motionPolicy={motionPolicy}
               variant="secondary"
@@ -417,249 +485,151 @@ export function TeacherMode({
           </div>
         </CardHeader>
 
-        {summary && (
-          <CardContent>
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <Stat label="Attempts Today" value={summary.attemptsToday} />
-              <Stat label="Total Attempts" value={summary.attemptsTotal} />
-              <Stat label="Completed" value={summary.completedAttempts} />
-              <Stat label="Avg Score" value={summary.avgScore10} />
-            </div>
-            {summary.classBreakdown.length > 0 && (
-              <>
-                <Separator className="my-4" />
-                <div className="flex flex-wrap gap-2">
-                  {summary.classBreakdown.map((item) => (
-                    <Badge key={item.className}>
-                      {item.className}: {item.attempts} attempts, avg {item.avgScore10}
-                    </Badge>
-                  ))}
-                </div>
-              </>
-            )}
-          </CardContent>
-        )}
-      </Card>
-
-      <motion.div
-        className="grid gap-4 xl:grid-cols-2"
-        {...(motionPolicy === "full" ? cardMotion : { initial: false, animate: { opacity: 1, y: 0 } })}
-      >
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-3xl">Create Baseline Session</CardTitle>
-            <CardDescription>
-              Set who can take the baseline and choose session state.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form className="space-y-3" onSubmit={createSession}>
-              <Label htmlFor="window-scope">Scope</Label>
-              <Select
-                id="window-scope"
-                value={windowScope}
-                onChange={(event) => {
-                  setWindowScope(event.target.value as "all" | "allowlist");
-                  void playSound("tap", { fromInteraction: true });
-                }}
-              >
-                <option value="all">All Students</option>
-                <option value="allowlist">Allowlist Only</option>
-              </Select>
-
-              <Label htmlFor="create-window-status">Initial Status</Label>
-              <Select
-                id="create-window-status"
-                value={createWindowStatus}
-                onChange={(event) => {
-                  setCreateWindowStatus(event.target.value as SessionStatus);
-                  void playSound("tap", { fromInteraction: true });
-                }}
-              >
-                <option value="in_progress">In Progress</option>
-                <option value="paused">Paused</option>
-                <option value="ended">Ended</option>
-              </Select>
-
-              {windowScope === "allowlist" && (
-                <>
-                  <Label htmlFor="allowlist-text">Allowlist (one per line: First,Last,Class)</Label>
-                  <Textarea
-                    id="allowlist-text"
-                    rows={4}
-                    value={allowlistText}
-                    onChange={(event) => setAllowlistText(event.target.value)}
-                  />
-                </>
-              )}
-
-              <MotionButton motionPolicy={motionPolicy} type="submit" disabled={busy}>
-                Create Session
-              </MotionButton>
-            </form>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-3xl">Update Session Status</CardTitle>
-            <CardDescription>
-              Keep session open, pause intake, or end the session.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form className="space-y-3" onSubmit={updateSessionStatus}>
-              <Label htmlFor="status-window-id">Session ID (optional)</Label>
-              <Input
-                id="status-window-id"
-                value={statusWindowId}
-                onChange={(event) => setStatusWindowId(event.target.value)}
-                placeholder="Leave blank to target latest session"
-              />
-
-              <Label htmlFor="next-window-status">Status</Label>
-              <Select
-                id="next-window-status"
-                value={nextWindowStatus}
-                onChange={(event) => {
-                  setNextWindowStatus(event.target.value as SessionStatus);
-                  void playSound("tap", { fromInteraction: true });
-                }}
-              >
-                <option value="in_progress">In Progress</option>
-                <option value="paused">Paused</option>
-                <option value="ended">Ended</option>
-              </Select>
-
-              <MotionButton motionPolicy={motionPolicy} type="submit" disabled={busy}>
-                Update Status
-              </MotionButton>
-            </form>
-          </CardContent>
-        </Card>
-      </motion.div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-3xl">Reopen Student Baseline</CardTitle>
-          <CardDescription>
-            Grant a controlled retake for a specific student identity.
-          </CardDescription>
-        </CardHeader>
         <CardContent>
-          <form className="grid gap-3 md:grid-cols-2 xl:grid-cols-5" onSubmit={reopenStudent}>
-            <div className="space-y-1">
-              <Label htmlFor="reopen-first">First Name</Label>
-              <Input
-                id="reopen-first"
-                value={reopenFirstName}
-                onChange={(event) => setReopenFirstName(event.target.value)}
-                required
-              />
+          {summary && summary.classBreakdown.length > 0 ? (
+            <div className="space-y-3">
+              {summary.classBreakdown.map((classSummary) => (
+                <ClassPerformanceRow key={classSummary.className} summary={classSummary} />
+              ))}
             </div>
-
-            <div className="space-y-1">
-              <Label htmlFor="reopen-last">Last Name</Label>
-              <Input
-                id="reopen-last"
-                value={reopenLastName}
-                onChange={(event) => setReopenLastName(event.target.value)}
-                required
-              />
-            </div>
-
-            <div className="space-y-1">
-              <Label htmlFor="reopen-class">Class</Label>
-              <Input
-                id="reopen-class"
-                value={reopenClassName}
-                onChange={(event) => setReopenClassName(event.target.value)}
-                required
-              />
-            </div>
-
-            <div className="space-y-1 xl:col-span-2">
-              <Label htmlFor="reopen-reason">Reason</Label>
-              <Input
-                id="reopen-reason"
-                value={reopenReason}
-                onChange={(event) => setReopenReason(event.target.value)}
-                required
-              />
-            </div>
-
-            <div className="xl:col-span-5">
-              <MotionButton motionPolicy={motionPolicy} type="submit" disabled={busy}>
-                Grant Reopen
-              </MotionButton>
-            </div>
-          </form>
+          ) : (
+            <p className="text-sm text-[color:var(--muted)]">No attempts available yet.</p>
+          )}
         </CardContent>
       </Card>
 
       <motion.div
-        className="grid gap-4 xl:grid-cols-[1fr_1.2fr]"
+        className="grid items-start gap-4 xl:grid-cols-[1fr_1.08fr]"
         {...(motionPolicy === "full" ? cardMotion : { initial: false, animate: { opacity: 1, y: 0 } })}
       >
         <Card>
           <CardHeader>
             <CardTitle className="text-3xl">Attempts</CardTitle>
-            <CardDescription>Click any record to inspect detailed response timing.</CardDescription>
+            <CardDescription>
+              Search by student name and filter by class before selecting an attempt.
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="attempt-list grid gap-2">
-              {attempts.map((attempt) => (
-                <MotionButton
-                  key={attempt.id}
-                  variant="secondary"
-                  motionPolicy={motionPolicy}
-                  className="attempt-item grid h-auto grid-cols-[1fr_auto_auto] gap-2 text-left"
-                  onClick={() => {
-                    void playSound("tap", { fromInteraction: true });
-                    void loadAttempt(attempt.id);
-                  }}
-                >
-                  <span>{attempt.student.firstName} {attempt.student.lastName} ({attempt.student.className})</span>
-                  <span>{attempt.totalScore10}/10</span>
-                  <span>{attempt.status}</span>
-                </MotionButton>
-              ))}
+            <div className="space-y-3">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <Label htmlFor="attempt-search">Search</Label>
+                  <Input
+                    id="attempt-search"
+                    placeholder="Search by name"
+                    value={searchText}
+                    onChange={(event) => setSearchText(event.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <Label htmlFor="attempt-class-filter">Filter by class</Label>
+                  <Select
+                    id="attempt-class-filter"
+                    value={classFilter}
+                    onChange={(event) => {
+                      setClassFilter(event.target.value);
+                      void playSound("tap", { fromInteraction: true });
+                    }}
+                  >
+                    <option value="all">All classes</option>
+                    {classOptions.map((className) => (
+                      <option key={className} value={className}>
+                        {className}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+              </div>
+
+              <p className="text-xs font-semibold text-[color:var(--muted)]">
+                Showing {filteredAttempts.length} of {attempts.length} attempts
+              </p>
+
+              <div className="grid gap-2 xl:max-h-[calc(100vh-23rem)] xl:overflow-y-auto xl:pr-1">
+                {filteredAttempts.length === 0 ? (
+                  <Alert>No attempts match this search/filter combination.</Alert>
+                ) : (
+                  filteredAttempts.map((attempt) => {
+                    const className = attempt.student.className ?? "Unknown";
+                    const fullStudentName = [attempt.student.firstName, attempt.student.lastName]
+                      .filter(Boolean)
+                      .join(" ") || "Unknown student";
+
+                    return (
+                      <MotionButton
+                        key={attempt.id}
+                        variant="secondary"
+                        motionPolicy={motionPolicy}
+                        className={`h-auto justify-start px-3 py-3 text-left ${
+                          attempt.id === selectedAttemptId
+                            ? "ring-2 ring-[color:var(--ring)]"
+                            : ""
+                        }`}
+                        onClick={() => {
+                          setSelectedAttemptId(attempt.id);
+                          void playSound("tap", { fromInteraction: true });
+                        }}
+                      >
+                        <div className="grid w-full gap-1 sm:grid-cols-[1fr_auto] sm:items-center">
+                          <div>
+                            <p className="text-sm font-semibold text-[color:var(--ink)]">{fullStudentName}</p>
+                            <p className="text-xs text-[color:var(--muted)]">{className}</p>
+                          </div>
+                          <div className="text-right text-xs font-semibold text-[color:var(--ink)]">
+                            <p>Score {attempt.totalScore10}/10</p>
+                            <p>{formatDateTimeCompact(attempt.startedAt)}</p>
+                          </div>
+                        </div>
+                      </MotionButton>
+                    );
+                  })
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        {detail && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-3xl">Attempt Detail</CardTitle>
-              <CardDescription>
-                {detail.attempt.student.firstName} {detail.attempt.student.lastName} ({detail.attempt.student.className})
-              </CardDescription>
-            </CardHeader>
+        <Card className="h-fit xl:sticky xl:top-6">
+          {!detail ? (
             <CardContent>
-              <div className="space-y-2 text-sm text-[color:var(--muted)]">
-                <p>Started: {formatDate(detail.attempt.startedAt)}</p>
-                <p>Ended: {formatDate(detail.attempt.endedAt)}</p>
-                <p>
-                  Score: {detail.attempt.totalScore10}/10 | Stars: {detail.attempt.stars}
-                </p>
-                <p>Total Time: {formatDurationMs(detail.attempt.totalResponseTimeMs)}</p>
-              </div>
-
-              <Separator className="my-3" />
-
-              <div className="response-table grid gap-2 text-sm">
-                {detail.responses.map((response) => (
-                  <div key={response.id} className="response-row grid grid-cols-[1fr_auto_auto] gap-2 rounded-lg bg-white px-3 py-2">
-                    <span>S{response.stageNo} I{response.itemNo}</span>
-                    <span>{response.isCorrect ? "Correct" : "Wrong"}</span>
-                    <span>{formatDurationMs(response.responseTimeMs)}</span>
-                  </div>
-                ))}
-              </div>
+              <p className="text-sm text-[color:var(--muted)]">
+                {detailBusy
+                  ? "Loading attempt detail..."
+                  : "Select an attempt to review detailed performance."}
+              </p>
             </CardContent>
-          </Card>
-        )}
+          ) : (
+            <>
+              <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <CardTitle className="text-3xl">Attempt Detail</CardTitle>
+                  <CardDescription>
+                    Review timing, correctness, and question-level outcomes.
+                  </CardDescription>
+                </div>
+                <MotionButton
+                  motionPolicy={motionPolicy}
+                  variant="secondary"
+                  className="self-start"
+                  disabled={busy}
+                  title="Archiving this attempt will reopen the baseline test for this student."
+                  onClick={() => {
+                    void playSound("tap", { fromInteraction: true });
+                    void archiveAttempt();
+                  }}
+                >
+                  <Archive className="h-4 w-4" />
+                  Archive
+                </MotionButton>
+              </CardHeader>
+
+              <CardContent>
+                <AttemptDetailBody detail={detail} />
+              </CardContent>
+            </>
+          )}
+        </Card>
       </motion.div>
 
       {notice && <Alert variant="success">{notice}</Alert>}
@@ -668,16 +638,230 @@ export function TeacherMode({
   );
 }
 
-type StatProps = {
-  label: string;
-  value: number;
+type SessionStatusToggleProps = {
+  status: "paused" | "in_progress";
+  disabled?: boolean;
+  onChange: (status: "paused" | "in_progress") => void;
 };
 
-function Stat({ label, value }: StatProps) {
+function SessionStatusToggle({ status, disabled = false, onChange }: SessionStatusToggleProps) {
   return (
-    <div className="rounded-2xl border border-[color:var(--line)] bg-white p-3">
-      <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[color:var(--muted)]">{label}</p>
-      <p className="text-2xl font-bold text-[color:var(--ink)]">{value}</p>
+    <div className="inline-flex items-center rounded-[var(--radius-xl)] border border-[color:var(--line)] bg-white p-1 shadow-[var(--shadow-2xs)]">
+      <button
+        type="button"
+        className={`rounded-[var(--radius-lg)] px-3 py-1.5 text-sm font-semibold transition-colors ${
+          status === "paused"
+            ? "bg-[color:var(--secondary)] text-[color:var(--ink)]"
+            : "bg-transparent text-[color:var(--muted)]"
+        }`}
+        disabled={disabled}
+        onClick={() => onChange("paused")}
+      >
+        Paused
+      </button>
+      <button
+        type="button"
+        className={`rounded-[var(--radius-lg)] px-3 py-1.5 text-sm font-semibold transition-colors ${
+          status === "in_progress"
+            ? "bg-[color:var(--secondary)] text-[color:var(--ink)]"
+            : "bg-transparent text-[color:var(--muted)]"
+        }`}
+        disabled={disabled}
+        onClick={() => onChange("in_progress")}
+      >
+        In Progress
+      </button>
+    </div>
+  );
+}
+
+type ClassSummaryRow = TeacherSummary["classBreakdown"][number];
+
+type ClassPerformanceRowProps = {
+  summary: ClassSummaryRow;
+};
+
+function ClassPerformanceRow({ summary }: ClassPerformanceRowProps) {
+  return (
+    <div className="rounded-[var(--radius-xl)] border border-[color:var(--line)] bg-white p-3 shadow-[var(--shadow-2xs)]">
+      <div className="grid gap-3 lg:grid-cols-[1fr_1.2fr] lg:items-center">
+        <div className="space-y-2">
+          <p className="text-sm font-semibold uppercase tracking-[0.08em] text-[color:var(--muted)]">{summary.className}</p>
+          <div className="grid grid-cols-2 gap-2 text-sm text-[color:var(--ink)]">
+            <MetricChip label="Attempts" value={summary.attempts} />
+            <MetricChip label="Completed" value={summary.completedAttempts} />
+            <MetricChip label="In Progress" value={summary.inProgressAttempts} />
+            <MetricChip label="Avg Score" value={summary.avgScore10} />
+          </div>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
+          <div className="space-y-1.5">
+            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[color:var(--muted)]">
+              Average score graph
+            </p>
+            <div className="h-3 w-full overflow-hidden rounded-full bg-[color:var(--surface-2)]">
+              <div
+                className="h-full rounded-full bg-[color:var(--brand-600)]"
+                style={{ width: `${Math.max(0, Math.min(100, (summary.avgScore10 / 10) * 100))}%` }}
+              />
+            </div>
+          </div>
+
+          <CompletionPie
+            label="Completion"
+            completedAttempts={summary.completedAttempts}
+            totalAttempts={summary.attempts}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+type CompletionPieProps = {
+  label: string;
+  completedAttempts: number;
+  totalAttempts: number;
+};
+
+function CompletionPie({ label, completedAttempts, totalAttempts }: CompletionPieProps) {
+  const completionPercent = totalAttempts > 0 ? (completedAttempts / totalAttempts) * 100 : 0;
+  const boundedCompletion = Math.max(0, Math.min(100, completionPercent));
+
+  return (
+    <div className="flex items-center gap-2">
+      <div
+        className="relative h-12 w-12 rounded-full border border-[color:var(--line)]"
+        style={{
+          background: `conic-gradient(var(--brand-600) ${boundedCompletion}%, var(--surface-2) ${boundedCompletion}% 100%)`,
+        }}
+      >
+        <div className="absolute inset-[0.3rem] rounded-full bg-white" />
+      </div>
+      <div className="text-xs font-semibold text-[color:var(--ink)]">
+        <p>{label}</p>
+        <p>{Math.round(boundedCompletion)}%</p>
+      </div>
+    </div>
+  );
+}
+
+type MetricChipProps = {
+  label: string;
+  value: string | number;
+};
+
+function MetricChip({ label, value }: MetricChipProps) {
+  return (
+    <div className="rounded-[var(--radius-lg)] border border-[color:var(--line)] bg-[color:var(--surface)] px-2 py-1.5">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-[color:var(--muted)]">{label}</p>
+      <p className="text-sm font-semibold text-[color:var(--ink)]">{value}</p>
+    </div>
+  );
+}
+
+type AttemptDetailBodyProps = {
+  detail: TeacherAttemptDetail;
+};
+
+function AttemptDetailBody({ detail }: AttemptDetailBodyProps) {
+  const studentName = [detail.attempt.student.firstName, detail.attempt.student.lastName]
+    .filter(Boolean)
+    .join(" ") || "-";
+
+  const { classLabel, sectionLabel } = parseClassSection(detail.attempt.student.className);
+
+  const average = detail.responses.length > 0
+    ? `${((detail.attempt.totalCorrect / detail.responses.length) * 100).toFixed(1)}%`
+    : "-";
+
+  const correctResponses = detail.responses.filter((response) => response.isCorrect).length;
+  const wrongResponses = detail.responses.length - correctResponses;
+  const maxResponseTime = Math.max(
+    ...detail.responses.map((response) => response.responseTimeMs),
+    1,
+  );
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+        <MetricChip label="Full Name" value={studentName} />
+        <MetricChip label="Class" value={classLabel} />
+        <MetricChip label="Section" value={sectionLabel} />
+        <MetricChip label="Start Date" value={formatDateOnly(detail.attempt.startedAt)} />
+        <MetricChip label="End Date" value={formatDateOnly(detail.attempt.endedAt)} />
+        <MetricChip label="Start Time" value={formatTimeOnly(detail.attempt.startedAt)} />
+        <MetricChip label="End Time" value={formatTimeOnly(detail.attempt.endedAt)} />
+        <MetricChip label="Total Score" value={`${detail.attempt.totalScore10}/10`} />
+        <MetricChip label="Total Time" value={formatDurationMs(detail.attempt.totalResponseTimeMs)} />
+        <MetricChip label="Average" value={average} />
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[auto_1fr]">
+        <div className="rounded-[var(--radius-xl)] border border-[color:var(--line)] bg-white p-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[color:var(--muted)]">
+            Result Pie
+          </p>
+          <div className="mt-3">
+            <CompletionPie
+              label="Correct"
+              completedAttempts={correctResponses}
+              totalAttempts={Math.max(detail.responses.length, 1)}
+            />
+          </div>
+          <p className="mt-2 text-xs font-semibold text-[color:var(--ink)]">
+            Correct {correctResponses} | Wrong {wrongResponses}
+          </p>
+        </div>
+
+        <div className="rounded-[var(--radius-xl)] border border-[color:var(--line)] bg-white p-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[color:var(--muted)]">
+            Time Graph (per question)
+          </p>
+          <div className="mt-3 space-y-2">
+            {detail.responses.map((response, index) => {
+              const width = (response.responseTimeMs / maxResponseTime) * 100;
+              return (
+                <div key={response.id} className="grid grid-cols-[auto_1fr_auto] items-center gap-2 text-xs">
+                  <span className="w-8 font-semibold text-[color:var(--ink)]">Q{response.displayOrder ?? index + 1}</span>
+                  <div className="h-2 rounded-full bg-[color:var(--surface-2)]">
+                    <div
+                      className="h-full rounded-full bg-[color:var(--brand-600)]"
+                      style={{ width: `${Math.max(width, 4)}%` }}
+                    />
+                  </div>
+                  <span className="font-semibold text-[color:var(--ink)]">{formatDurationMs(response.responseTimeMs)}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      <Separator className="my-3" />
+
+      <div className="space-y-2">
+        {detail.responses.map((response, index) => {
+          const prompt = response.promptText?.trim() || `Question ${response.displayOrder ?? index + 1}`;
+          const likes = response.isCorrect ? 1 : 0;
+
+          return (
+            <div
+              key={response.id}
+              className="rounded-[var(--radius-lg)] border border-[color:var(--line)] bg-white px-3 py-2"
+            >
+              <p className="text-sm font-semibold text-[color:var(--ink)]">{prompt}</p>
+              <div className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                <MetricChip label="Result" value={response.isCorrect ? "Correct" : "Wrong"} />
+                <MetricChip label="Likes" value={likes} />
+                <MetricChip label="Time" value={formatDurationMs(response.responseTimeMs)} />
+                <MetricChip label="Answer" value={response.submittedAnswer} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

@@ -30,9 +30,11 @@ export function AppShell({
   utilityLogoSrc,
   children,
 }: AppShellProps) {
+  const widthClass = mode === "teacher" ? "max-w-[85vw]" : "max-w-6xl";
+
   return (
     <main
-      className="mx-auto w-full max-w-6xl space-y-4 px-4 pb-8 pt-5 text-[color:var(--ink)] md:px-6"
+      className={`mx-auto w-full ${widthClass} space-y-4 px-4 pb-8 pt-5 text-[color:var(--ink)] md:px-6`}
       data-motion-policy={motionPolicy}
       data-sound-enabled={soundEnabled ? "true" : "false"}
     >

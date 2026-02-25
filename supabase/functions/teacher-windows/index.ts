@@ -155,12 +155,35 @@ Deno.serve(async (req) => {
     if (req.method === "OPTIONS") {
       return handleOptions(req);
     }
-    if (req.method !== "POST" && req.method !== "PATCH") {
+    if (req.method !== "GET" && req.method !== "POST" && req.method !== "PATCH") {
       return json(req, 405, { error: "Method not allowed" });
     }
 
     const client = createAdminClient();
     const teacherSession = await requireTeacherSession(client, req);
+    if (req.method === "GET") {
+      const test = await getBaselineTest(client);
+      const latestResult = await client
+        .from("test_windows")
+        .select("id, scope, is_open, start_at, end_at, class_id")
+        .eq("test_id", test.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle<WindowRow>();
+
+      if (latestResult.error) {
+        throw new Error(`Failed to load latest baseline session: ${latestResult.error.message}`);
+      }
+
+      const latestWindow = latestResult.data ?? null;
+
+      return json(req, 200, {
+        hasWindow: Boolean(latestWindow),
+        status: latestWindow ? deriveStatus(latestWindow) : "paused",
+        window: latestWindow,
+      });
+    }
+
     if (req.method === "PATCH") {
       const test = await getBaselineTest(client);
       const body = (await req.json()) as ToggleWindowRequest;

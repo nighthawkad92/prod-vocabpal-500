@@ -75,20 +75,39 @@ Deno.serve(async (req) => {
     const todayIsoPrefix = new Date().toISOString().slice(0, 10);
     const attemptsToday = rows.filter((row) => row.started_at.startsWith(todayIsoPrefix)).length;
 
-    const classMap = new Map<string, { attempts: number; totalScore: number }>();
+    const classMap = new Map<
+      string,
+      { attempts: number; totalScore: number; completedAttempts: number; inProgressAttempts: number }
+    >();
     for (const row of rows) {
       const className = row.students?.classes?.name ?? "Unknown";
-      const current = classMap.get(className) ?? { attempts: 0, totalScore: 0 };
+      const current = classMap.get(className) ?? {
+        attempts: 0,
+        totalScore: 0,
+        completedAttempts: 0,
+        inProgressAttempts: 0,
+      };
       current.attempts += 1;
       current.totalScore += row.total_score_10;
+      if (row.status === "completed") {
+        current.completedAttempts += 1;
+      }
+      if (row.status === "in_progress") {
+        current.inProgressAttempts += 1;
+      }
       classMap.set(className, current);
     }
 
-    const classBreakdown = Array.from(classMap.entries()).map(([className, info]) => ({
-      className,
-      attempts: info.attempts,
-      avgScore10: Number((info.totalScore / info.attempts).toFixed(2)),
-    }));
+    const classBreakdown = Array.from(classMap.entries())
+      .map(([className, info]) => ({
+        className,
+        attempts: info.attempts,
+        completedAttempts: info.completedAttempts,
+        inProgressAttempts: info.inProgressAttempts,
+        avgScore10: Number((info.totalScore / info.attempts).toFixed(2)),
+        completionRate: Number(((info.completedAttempts / info.attempts) * 100).toFixed(1)),
+      }))
+      .sort((a, b) => a.className.localeCompare(b.className));
 
     return json(req, 200, {
       attemptsToday,

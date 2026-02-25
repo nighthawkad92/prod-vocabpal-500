@@ -210,6 +210,11 @@ The PM agent is the scheduler. Only PM changes task state.
 | UI-050 | Right-align collected badge and reduce icon-label gap to 4px | UI | PM-DS-067 | DONE | set collected badge to `ml-auto` for right alignment and reduced star/text gap from 8px to 4px |
 | QA-042 | Validate collected-badge alignment/spacing tweak and static regression gates | QA | UI-050 | DONE | typecheck/lint/build pass; collected badge right-aligned and icon-text spacing reduced per spec |
 | PM-DS-068 | Final signoff for collected-badge alignment/spacing update | PM | QA-042 | DONE | signoff complete; frontend-only spacing/alignment polish accepted with no backend/API/schema impact |
+| PM-DS-069 | Queue teacher dashboard simplification and analytics refactor | PM | PM-002 | DONE | queued removal of legacy session/reopen cards and replacement with status toggle, searchable attempts, sticky detail, and class-level visuals |
+| BE-010 | Add backend support for latest baseline status and attempt archive | Backend | PM-DS-069 | DONE | `teacher-windows` now supports GET; added `teacher-attempt-archive` function to archive attempt and reopen access |
+| UI-051 | Refactor teacher dashboard layout, filters, sticky detail, and archive flow | UI | BE-010 | DONE | removed averages/session/reopen cards, added paused/in-progress toggle, search+class filter, sticky detail, class visual analytics, and archive confirmation |
+| QA-043 | Validate teacher dashboard refactor and static regression gates | QA | UI-051 | DONE | typecheck/lint/build pass after backend+UI refactor |
+| PM-DS-070 | Final signoff for teacher dashboard refactor rollout | PM | QA-043 | DONE | signoff complete; requested teacher dashboard behavior delivered with no schema migration impact |
 | PM-QA-010 | Queue post-push release-gate validation and CI checkpoint closure | PM | PM-002 | DONE | scoped QA harness alignment and rerun of `qa:after-deploy` after main push |
 | QA-010 | Align matrix harness with audio-end submit gate and rerun release gate | QA | PM-QA-010 | DONE | updated submit selector + mock audio `onended`; `qa:matrix` and `qa:after-deploy` passed |
 | PM-QA-011 | Sign off post-push QA recovery and checkpoint closure | PM | QA-010 | DONE | verified green after-deploy report and cleared CP-07 via GitHub secrets |
