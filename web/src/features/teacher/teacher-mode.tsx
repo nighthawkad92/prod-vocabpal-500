@@ -26,6 +26,7 @@ const TOKEN_KEY = "vocabpal.teacher.token";
 const NAME_KEY = "vocabpal.teacher.name";
 const ARCHIVE_CONFIRMATION_MESSAGE =
   "Archiving this attempt will reopen the baseline test for this student. Do you want to continue?";
+const ATTEMPTS_PAGE_SIZE = 25;
 
 type TeacherModeProps = {
   motionPolicy: MotionPolicy;
@@ -39,6 +40,17 @@ type WindowMutationResponse = {
   window: {
     id: string;
   };
+};
+
+type TeacherAttemptListResponse = {
+  totalCount: number;
+  filteredCount: number;
+  count: number;
+  limit: number;
+  offset: number;
+  page: number;
+  totalPages: number;
+  attempts: TeacherAttempt[];
 };
 
 const cardMotion = {
@@ -124,6 +136,9 @@ export function TeacherMode({
   const [detail, setDetail] = useState<TeacherAttemptDetail | null>(null);
   const [searchText, setSearchText] = useState("");
   const [classFilter, setClassFilter] = useState("all");
+  const [attemptPage, setAttemptPage] = useState(1);
+  const [attemptsTotal, setAttemptsTotal] = useState(0);
+  const [filteredAttemptsTotal, setFilteredAttemptsTotal] = useState(0);
 
   const [busy, setBusy] = useState(false);
   const [detailBusy, setDetailBusy] = useState(false);
@@ -147,9 +162,22 @@ export function TeacherMode({
       setError(null);
 
       try {
+        const offset = (attemptPage - 1) * ATTEMPTS_PAGE_SIZE;
+        const listParams = new URLSearchParams({
+          limit: String(ATTEMPTS_PAGE_SIZE),
+          offset: String(offset),
+        });
+        const trimmedSearch = searchText.trim();
+        if (classFilter !== "all") {
+          listParams.set("className", classFilter);
+        }
+        if (trimmedSearch) {
+          listParams.set("search", trimmedSearch);
+        }
+
         const [nextSummary, list, nextWindowState] = await Promise.all([
           callFunction<TeacherSummary>("teacher-dashboard-summary", { token: authToken }),
-          callFunction<{ attempts: TeacherAttempt[] }>("teacher-dashboard-list?limit=120", {
+          callFunction<TeacherAttemptListResponse>(`teacher-dashboard-list?${listParams.toString()}`, {
             token: authToken,
           }),
           callFunction<TeacherWindowState>("teacher-windows", { token: authToken }),
@@ -157,7 +185,18 @@ export function TeacherMode({
 
         setSummary(nextSummary);
         setAttempts(list.attempts);
+        setAttemptsTotal(list.totalCount);
+        setFilteredAttemptsTotal(list.filteredCount);
         setWindowState(nextWindowState);
+
+        if (list.totalPages > 0 && attemptPage > list.totalPages) {
+          setAttemptPage(list.totalPages);
+          return;
+        }
+        if (list.totalPages === 0 && attemptPage !== 1) {
+          setAttemptPage(1);
+          return;
+        }
 
         setSelectedAttemptId((currentAttemptId) => {
           if (list.attempts.length === 0) {
@@ -182,7 +221,7 @@ export function TeacherMode({
         }
       }
     },
-    [playSound, token],
+    [attemptPage, classFilter, playSound, searchText, token],
   );
 
   const loadAttempt = useCallback(
@@ -245,6 +284,11 @@ export function TeacherMode({
   }, [notice]);
 
   const classOptions = useMemo(() => {
+    if (summary && summary.classBreakdown.length > 0) {
+      return summary.classBreakdown
+        .map((row) => row.className)
+        .sort((a, b) => a.localeCompare(b));
+    }
     return Array.from(
       new Set(
         attempts
@@ -252,51 +296,30 @@ export function TeacherMode({
           .filter((value): value is string => Boolean(value)),
       ),
     ).sort((a, b) => a.localeCompare(b));
-  }, [attempts]);
-
-  const filteredAttempts = useMemo(() => {
-    const search = searchText.trim().toLowerCase();
-
-    return attempts.filter((attempt) => {
-      const className = attempt.student.className ?? "Unknown";
-      if (classFilter !== "all" && className !== classFilter) {
-        return false;
-      }
-
-      if (!search) {
-        return true;
-      }
-
-      const searchable = [
-        attempt.student.firstName ?? "",
-        attempt.student.lastName ?? "",
-        className,
-      ]
-        .join(" ")
-        .toLowerCase();
-
-      return searchable.includes(search);
-    });
-  }, [attempts, classFilter, searchText]);
+  }, [attempts, summary]);
 
   useEffect(() => {
-    if (filteredAttempts.length === 0) {
+    if (attempts.length === 0) {
       setSelectedAttemptId(null);
       setDetail(null);
       return;
     }
 
-    if (!selectedAttemptId || !filteredAttempts.some((attempt) => attempt.id === selectedAttemptId)) {
-      setSelectedAttemptId(filteredAttempts[0].id);
+    if (!selectedAttemptId || !attempts.some((attempt) => attempt.id === selectedAttemptId)) {
+      setSelectedAttemptId(attempts[0].id);
     }
-  }, [filteredAttempts, selectedAttemptId]);
+  }, [attempts, selectedAttemptId]);
+
+  useEffect(() => {
+    setSelectedAttemptIds([]);
+  }, [attemptPage, classFilter, searchText]);
 
   const selectedAttemptIdSet = useMemo(() => new Set(selectedAttemptIds), [selectedAttemptIds]);
   const allFilteredSelected = useMemo(
     () =>
-      filteredAttempts.length > 0 &&
-      filteredAttempts.every((attempt) => selectedAttemptIdSet.has(attempt.id)),
-    [filteredAttempts, selectedAttemptIdSet],
+      attempts.length > 0 &&
+      attempts.every((attempt) => selectedAttemptIdSet.has(attempt.id)),
+    [attempts, selectedAttemptIdSet],
   );
 
   const login = useCallback(
@@ -321,6 +344,7 @@ export function TeacherMode({
         setPasscode("");
         setSearchText("");
         setClassFilter("all");
+        setAttemptPage(1);
         setSelectedAttemptIds([]);
         void playSound("submit", { fromInteraction: true });
       } catch (err) {
@@ -349,6 +373,9 @@ export function TeacherMode({
       setDetail(null);
       setSearchText("");
       setClassFilter("all");
+      setAttemptPage(1);
+      setAttemptsTotal(0);
+      setFilteredAttemptsTotal(0);
       setNotice(null);
       setError(null);
       void playSound("tap", { fromInteraction: true });
@@ -358,6 +385,13 @@ export function TeacherMode({
   const sessionStatus = windowState?.status === "in_progress" ? "in_progress" : "paused";
   const isStatusActionLoading = headerActionLoading === "status";
   const isRefreshActionLoading = headerActionLoading === "refresh";
+  const totalPages = Math.max(1, Math.ceil(filteredAttemptsTotal / ATTEMPTS_PAGE_SIZE));
+  const showingStart = filteredAttemptsTotal === 0
+    ? 0
+    : (attemptPage - 1) * ATTEMPTS_PAGE_SIZE + 1;
+  const showingEnd = filteredAttemptsTotal === 0
+    ? 0
+    : Math.min((attemptPage - 1) * ATTEMPTS_PAGE_SIZE + attempts.length, filteredAttemptsTotal);
 
   const updateSessionStatus = useCallback(
     async (nextStatus: "paused" | "in_progress") => {
@@ -496,13 +530,13 @@ export function TeacherMode({
     setSelectedAttemptIds((current) => {
       const next = new Set(current);
       if (shouldSelectAll) {
-        filteredAttempts.forEach((attempt) => next.add(attempt.id));
+        attempts.forEach((attempt) => next.add(attempt.id));
       } else {
-        filteredAttempts.forEach((attempt) => next.delete(attempt.id));
+        attempts.forEach((attempt) => next.delete(attempt.id));
       }
       return Array.from(next);
     });
-  }, [filteredAttempts]);
+  }, [attempts]);
 
   if (!token) {
     return (
@@ -628,6 +662,7 @@ export function TeacherMode({
                   onSelect={(selectedClassName) => {
                     const nextFilter = classFilter === selectedClassName ? "all" : selectedClassName;
                     setClassFilter(nextFilter);
+                    setAttemptPage(1);
                     void playSound("tap", { fromInteraction: true });
                   }}
                 />
@@ -660,7 +695,10 @@ export function TeacherMode({
                     id="attempt-search"
                     placeholder="Search by name"
                     value={searchText}
-                    onChange={(event) => setSearchText(event.target.value)}
+                    onChange={(event) => {
+                      setSearchText(event.target.value);
+                      setAttemptPage(1);
+                    }}
                   />
                 </div>
 
@@ -671,6 +709,7 @@ export function TeacherMode({
                     value={classFilter}
                     onChange={(event) => {
                       setClassFilter(event.target.value);
+                      setAttemptPage(1);
                       void playSound("tap", { fromInteraction: true });
                     }}
                   >
@@ -685,8 +724,37 @@ export function TeacherMode({
               </div>
 
               <p className="text-xs font-semibold text-[color:var(--muted)]">
-                Showing {filteredAttempts.length} of {attempts.length} attempts
+                Showing {showingStart}-{showingEnd} of {filteredAttemptsTotal} attempts
+                {attemptsTotal !== filteredAttemptsTotal ? ` (total ${attemptsTotal})` : ""}
               </p>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <MotionButton
+                  motionPolicy={motionPolicy}
+                  variant="secondary"
+                  size="sm"
+                  disabled={busy || attemptPage <= 1}
+                  onClick={() => {
+                    setAttemptPage((current) => Math.max(1, current - 1));
+                    void playSound("tap", { fromInteraction: true });
+                  }}
+                >
+                  Previous
+                </MotionButton>
+                <Badge>Page {attemptPage} of {totalPages}</Badge>
+                <MotionButton
+                  motionPolicy={motionPolicy}
+                  variant="secondary"
+                  size="sm"
+                  disabled={busy || filteredAttemptsTotal === 0 || attemptPage >= totalPages}
+                  onClick={() => {
+                    setAttemptPage((current) => Math.min(totalPages, current + 1));
+                    void playSound("tap", { fromInteraction: true });
+                  }}
+                >
+                  Next
+                </MotionButton>
+              </div>
 
               <div className="flex flex-wrap items-center gap-2">
                 <Badge>{selectedAttemptIds.length} selected</Badge>
@@ -694,7 +762,7 @@ export function TeacherMode({
                   motionPolicy={motionPolicy}
                   variant="secondary"
                   size="sm"
-                  disabled={busy || filteredAttempts.length === 0}
+                  disabled={busy || attempts.length === 0}
                   onClick={() => {
                     const nextSelectAll = !allFilteredSelected;
                     toggleSelectAllFiltered(nextSelectAll);
@@ -720,10 +788,10 @@ export function TeacherMode({
               </div>
 
               <div className="grid gap-2 xl:max-h-[calc(100vh-23rem)] xl:overflow-y-auto xl:pr-1">
-                {filteredAttempts.length === 0 ? (
+                {attempts.length === 0 ? (
                   <Alert>No attempts match this search/filter combination.</Alert>
                 ) : (
-                  filteredAttempts.map((attempt) => {
+                  attempts.map((attempt) => {
                     const className = attempt.student.className ?? "Unknown";
                     const fullStudentName = [attempt.student.firstName, attempt.student.lastName]
                       .filter(Boolean)

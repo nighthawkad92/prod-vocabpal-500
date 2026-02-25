@@ -24,6 +24,24 @@ type AttemptRow = {
   } | null;
 };
 
+function clampLimit(value: number): number {
+  if (!Number.isFinite(value)) return 25;
+  return Math.max(1, Math.min(100, Math.trunc(value)));
+}
+
+function clampOffset(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.trunc(value));
+}
+
+function escapeLike(value: string): string {
+  return value
+    .replace(/\\/g, "\\\\")
+    .replace(/%/g, "\\%")
+    .replace(/_/g, "\\_")
+    .replace(/,/g, "\\,");
+}
+
 Deno.serve(async (req) => {
   try {
     if (req.method === "OPTIONS") {
@@ -39,10 +57,123 @@ Deno.serve(async (req) => {
     const url = new URL(req.url);
     const status = (url.searchParams.get("status") ?? "").trim();
     const className = (url.searchParams.get("className") ?? "").trim();
-    const limit = Number(url.searchParams.get("limit") ?? "100");
-    const offset = Number(url.searchParams.get("offset") ?? "0");
+    const search = (url.searchParams.get("search") ?? "").trim();
+    const limit = clampLimit(Number(url.searchParams.get("limit") ?? "25"));
+    const offset = clampOffset(Number(url.searchParams.get("offset") ?? "0"));
 
-    let query = client
+    let totalCountQuery = client
+      .from("attempts")
+      .select("id", { count: "exact", head: true });
+
+    if (status) {
+      totalCountQuery = totalCountQuery.eq("status", status);
+    }
+
+    const totalCountResult = await totalCountQuery;
+    if (totalCountResult.error) {
+      throw new Error(`Failed to count attempts: ${totalCountResult.error.message}`);
+    }
+
+    let studentIds: string[] | null = null;
+    if (className || search) {
+      let classId: string | null = null;
+      if (className) {
+        const classNorm = normalizeClassName(className).toLowerCase();
+        const classResult = await client
+          .from("classes")
+          .select("id")
+          .eq("name_norm", classNorm)
+          .maybeSingle<{ id: string }>();
+        if (classResult.error) {
+          throw new Error(`Failed to resolve class filter: ${classResult.error.message}`);
+        }
+        classId = classResult.data?.id ?? null;
+        if (!classId) {
+          return json(req, 200, {
+            totalCount: totalCountResult.count ?? 0,
+            filteredCount: 0,
+            count: 0,
+            limit,
+            offset,
+            page: Math.floor(offset / limit) + 1,
+            totalPages: 0,
+            attempts: [],
+          });
+        }
+      }
+
+      let studentQuery = client
+        .from("students")
+        .select("id");
+
+      if (classId) {
+        studentQuery = studentQuery.eq("class_id", classId);
+      }
+
+      if (search) {
+        const searchLike = escapeLike(search);
+        studentQuery = studentQuery.or(
+          `first_name.ilike.%${searchLike}%,last_name.ilike.%${searchLike}%`,
+        );
+      }
+
+      const studentResult = await studentQuery;
+      if (studentResult.error) {
+        throw new Error(`Failed to resolve student filters: ${studentResult.error.message}`);
+      }
+
+      studentIds = (studentResult.data ?? [])
+        .map((row) => row.id)
+        .filter((value): value is string => typeof value === "string");
+
+      if (studentIds.length === 0) {
+        return json(req, 200, {
+          totalCount: totalCountResult.count ?? 0,
+          filteredCount: 0,
+          count: 0,
+          limit,
+          offset,
+          page: Math.floor(offset / limit) + 1,
+          totalPages: 0,
+          attempts: [],
+        });
+      }
+    }
+
+    let filteredCountQuery = client
+      .from("attempts")
+      .select("id", { count: "exact", head: true });
+
+    if (status) {
+      filteredCountQuery = filteredCountQuery.eq("status", status);
+    }
+    if (studentIds) {
+      filteredCountQuery = filteredCountQuery.in("student_id", studentIds);
+    }
+
+    const filteredCountResult = await filteredCountQuery;
+    if (filteredCountResult.error) {
+      throw new Error(`Failed to count filtered attempts: ${filteredCountResult.error.message}`);
+    }
+
+    const filteredCount = filteredCountResult.count ?? 0;
+    const page = Math.floor(offset / limit) + 1;
+    const totalPages = filteredCount === 0 ? 0 : Math.ceil(filteredCount / limit);
+
+    if (filteredCount === 0 || offset >= filteredCount) {
+      return json(req, 200, {
+        totalCount: totalCountResult.count ?? 0,
+        filteredCount,
+        count: 0,
+        limit,
+        offset,
+        page,
+        totalPages,
+        attempts: [],
+      });
+    }
+
+    let dataQuery = client
       .from("attempts")
       .select(`
         id,
@@ -68,22 +199,27 @@ Deno.serve(async (req) => {
       .range(offset, offset + Math.max(limit - 1, 0));
 
     if (status) {
-      query = query.eq("status", status);
+      dataQuery = dataQuery.eq("status", status);
+    }
+    if (studentIds) {
+      dataQuery = dataQuery.in("student_id", studentIds);
     }
 
-    const result = await query;
+    const result = await dataQuery;
     if (result.error) {
       throw new Error(`Failed to load attempts: ${result.error.message}`);
     }
 
-    let rows = (result.data ?? []) as AttemptRow[];
-    if (className) {
-      const classNorm = normalizeClassName(className).toLowerCase();
-      rows = rows.filter((row) => row.students?.classes?.name.toLowerCase() === classNorm);
-    }
+    const rows = (result.data ?? []) as AttemptRow[];
 
     return json(req, 200, {
+      totalCount: totalCountResult.count ?? 0,
+      filteredCount,
       count: rows.length,
+      limit,
+      offset,
+      page,
+      totalPages,
       attempts: rows.map((row) => ({
         id: row.id,
         status: row.status,
