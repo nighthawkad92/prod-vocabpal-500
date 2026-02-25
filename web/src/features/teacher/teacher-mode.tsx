@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
-import { motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { Archive, RefreshCw } from "lucide-react";
 import { MotionButton } from "@/components/motion-button";
 import { Alert } from "@/components/ui/alert";
@@ -769,8 +769,25 @@ export function TeacherMode({
                 {attemptsTotal !== filteredAttemptsTotal ? ` (total ${attemptsTotal})` : ""}
               </p>
 
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge>{selectedAttemptIds.length} selected</Badge>
+              <motion.div
+                layout
+                className="flex flex-wrap items-center gap-2"
+                transition={motionPolicy === "full" ? { duration: 0.18, ease: "easeOut" } : undefined}
+              >
+                <AnimatePresence initial={false}>
+                  {selectedAttemptIds.length > 0 ? (
+                    <motion.div
+                      key="selected-attempts-badge"
+                      layout
+                      initial={motionPolicy === "full" ? { opacity: 0, x: -8 } : { opacity: 0 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={motionPolicy === "full" ? { opacity: 0, x: -8 } : { opacity: 0 }}
+                      transition={motionPolicy === "full" ? { duration: 0.18, ease: "easeOut" } : undefined}
+                    >
+                      <Badge>{selectedAttemptIds.length} selected</Badge>
+                    </motion.div>
+                  ) : null}
+                </AnimatePresence>
                 <MotionButton
                   motionPolicy={motionPolicy}
                   variant="secondary"
@@ -798,7 +815,7 @@ export function TeacherMode({
                   <Archive className="h-4 w-4" />
                   Archive selected
                 </MotionButton>
-              </div>
+              </motion.div>
 
               <div className="xl:max-h-[calc(100vh-23rem)] xl:overflow-y-auto xl:pr-1">
                 <div className="grid gap-2 pb-16">
