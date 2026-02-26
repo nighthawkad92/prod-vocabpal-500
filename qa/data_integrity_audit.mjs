@@ -184,10 +184,20 @@ async function cleanupQaAttempts(token, attemptIds) {
     token,
     body: { attemptIds: uniqueAttemptIds },
   });
-  expectStatus(cleanup, 200, "teacher-attempt-archive cleanup");
+  const missingAttemptIds = Array.isArray(cleanup.payload?.missingAttemptIds)
+    ? cleanup.payload.missingAttemptIds.filter((value) => typeof value === "string")
+    : [];
+  const idempotentMissingOnly =
+    cleanup.status === 404 &&
+    missingAttemptIds.length > 0 &&
+    missingAttemptIds.length <= uniqueAttemptIds.length;
+  if (cleanup.status !== 200 && !idempotentMissingOnly) {
+    throw new Error(`teacher-attempt-archive cleanup failed with ${cleanup.status}: ${JSON.stringify(cleanup.payload)}`);
+  }
   addCheck("qa-cleanup-archived", true, {
     requested: uniqueAttemptIds.length,
-    archivedCount: cleanup.payload?.archivedCount ?? uniqueAttemptIds.length,
+    archivedCount: cleanup.payload?.archivedCount ?? Math.max(uniqueAttemptIds.length - missingAttemptIds.length, 0),
+    skippedMissing: missingAttemptIds.length,
   });
 }
 

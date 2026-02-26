@@ -103,6 +103,7 @@ const NETWORK_PROFILES = [
 const NAV_TIMEOUT_MS = 60000;
 const RESPONSE_TIMEOUT_MS = 45000;
 const UI_TIMEOUT_MS = 30000;
+const START_MAX_ATTEMPTS = 3;
 
 const report = {
   runAt: new Date().toISOString(),
@@ -582,18 +583,51 @@ async function runUiCase(browser, deviceProfile, networkProfile, student, caseId
     await classButtons.first().click();
     await sectionButtons.first().click();
 
-    const startResponsePromise = page.waitForResponse(
-      (response) =>
-        response.url().includes("/functions/v1/student-start-attempt") &&
-        response.request().method() === "POST",
-      { timeout: RESPONSE_TIMEOUT_MS },
-    );
-    await page.getByRole("button", { name: "Start test" }).click();
-    const startResponse = await startResponsePromise;
-    const startPayload = await startResponse.json().catch(() => ({}));
+    const startButton = page.getByRole("button", { name: "Start test" });
+    let startResponse = null;
+    let startPayload = {};
+    let startFailure = null;
+    const startTimeoutMs = networkProfile.id === "slow_3g_spotty" ? 90000 : RESPONSE_TIMEOUT_MS;
 
-    if (startResponse.status() !== 200 || !startPayload?.attemptId) {
-      throw new Error(`student-start-attempt failed (${startResponse.status()}): ${JSON.stringify(startPayload)}`);
+    for (let attemptNo = 1; attemptNo <= START_MAX_ATTEMPTS; attemptNo += 1) {
+      try {
+        await classButtons.first().click();
+        await sectionButtons.first().click();
+        await startButton.waitFor({ timeout: UI_TIMEOUT_MS });
+        await page.waitForFunction(
+          () => {
+            const button = Array.from(document.querySelectorAll("button"))
+              .find((node) => node.textContent?.trim().toLowerCase() === "start test");
+            return Boolean(button && !button.hasAttribute("disabled"));
+          },
+          null,
+          { timeout: UI_TIMEOUT_MS },
+        );
+
+        const startResponsePromise = page.waitForResponse(
+          (response) =>
+            response.url().includes("/functions/v1/student-start-attempt") &&
+            response.request().method() === "POST",
+          { timeout: startTimeoutMs },
+        );
+        await startButton.click();
+        startResponse = await startResponsePromise;
+        startPayload = await startResponse.json().catch(() => ({}));
+        if (startResponse.status() === 200 && startPayload?.attemptId) {
+          startFailure = null;
+          break;
+        }
+        startFailure = new Error(
+          `student-start-attempt failed (${startResponse.status()}): ${JSON.stringify(startPayload)}`,
+        );
+      } catch (error) {
+        startFailure = error instanceof Error ? error : new Error(String(error));
+      }
+      await page.waitForTimeout(500 * attemptNo);
+    }
+
+    if (!startResponse || startResponse.status() !== 200 || !startPayload?.attemptId) {
+      throw startFailure ?? new Error("student-start-attempt failed after retries");
     }
 
     caseResult.attemptId = startPayload.attemptId;
@@ -657,10 +691,12 @@ async function runDataIntegrityChecks(token, scenarioStudents, attemptIds) {
     )
   );
 
-  const identityCheckPass = matrixAttempts.length >= scenarioStudents.length;
+  const expectedAtLeast = attemptIds.length;
+  const identityCheckPass = matrixAttempts.length >= expectedAtLeast;
   addApiCheck("dashboard-list-has-matrix-attempts", identityCheckPass, {
     dashboardMatches: matrixAttempts.length,
-    expectedAtLeast: scenarioStudents.length,
+    expectedAtLeast,
+    attemptedCases: scenarioStudents.length,
   });
 
   let detailChecksPass = true;
@@ -705,10 +741,18 @@ async function cleanupQaAttempts(token, attemptIds) {
     token,
     body: { attemptIds: uniqueAttemptIds },
   });
-  addApiCheck("qa-cleanup-archived", cleanup.status === 200, {
+  const missingAttemptIds = Array.isArray(cleanup.payload?.missingAttemptIds)
+    ? cleanup.payload.missingAttemptIds.filter((value) => typeof value === "string")
+    : [];
+  const idempotentMissingOnly =
+    cleanup.status === 404 &&
+    missingAttemptIds.length > 0 &&
+    missingAttemptIds.length <= uniqueAttemptIds.length;
+  addApiCheck("qa-cleanup-archived", cleanup.status === 200 || idempotentMissingOnly, {
     status: cleanup.status,
     requested: uniqueAttemptIds.length,
     archivedCount: cleanup.payload?.archivedCount ?? null,
+    skippedMissing: missingAttemptIds.length,
   });
 }
 

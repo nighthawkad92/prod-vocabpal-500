@@ -141,29 +141,27 @@ function isLikelyQaAttempt(attempt) {
 
 async function collectLegacyQaAttempts(token) {
   const attemptIds = new Set();
-
-  for (const prefix of config.prefixes) {
-    let offset = 0;
-    const limit = 200;
-    while (true) {
-      const query = new URLSearchParams({
-        source: "all",
-        search: prefix,
-        limit: String(limit),
-        offset: String(offset),
-      });
-      const payload = await fetchAttemptsPage(token, query);
-      const attempts = Array.isArray(payload.attempts) ? payload.attempts : [];
-      attempts.forEach((attempt) => {
-        if (attempt?.id && isLikelyQaAttempt(attempt)) {
-          attemptIds.add(attempt.id);
-        }
-      });
-
-      offset += limit;
-      if (offset >= Number(payload.filteredCount ?? attempts.length ?? 0) || attempts.length === 0) {
-        break;
+  // Scan all attempts in pages and apply local QA heuristics.
+  // This avoids brittle server-side search filters on large datasets.
+  let offset = 0;
+  const limit = 200;
+  while (true) {
+    const query = new URLSearchParams({
+      source: "all",
+      limit: String(limit),
+      offset: String(offset),
+    });
+    const payload = await fetchAttemptsPage(token, query);
+    const attempts = Array.isArray(payload.attempts) ? payload.attempts : [];
+    attempts.forEach((attempt) => {
+      if (attempt?.id && isLikelyQaAttempt(attempt)) {
+        attemptIds.add(attempt.id);
       }
+    });
+
+    offset += limit;
+    if (offset >= Number(payload.filteredCount ?? attempts.length ?? 0) || attempts.length === 0) {
+      break;
     }
   }
 
@@ -187,10 +185,17 @@ async function archiveAttempts(token, attemptIds) {
       token,
       body: { attemptIds: batch },
     });
-    if (!result.ok) {
+    const missingAttemptIds = Array.isArray(result.payload?.missingAttemptIds)
+      ? result.payload.missingAttemptIds.filter((value) => typeof value === "string")
+      : [];
+    const idempotentMissingOnly =
+      result.status === 404 &&
+      missingAttemptIds.length > 0 &&
+      missingAttemptIds.length <= batch.length;
+    if (!result.ok && !idempotentMissingOnly) {
       throw new Error(`teacher-attempt-archive failed (${result.status}): ${JSON.stringify(result.payload)}`);
     }
-    archivedCount += Number(result.payload?.archivedCount ?? batch.length);
+    archivedCount += Number(result.payload?.archivedCount ?? Math.max(batch.length - missingAttemptIds.length, 0));
   }
   return archivedCount;
 }
