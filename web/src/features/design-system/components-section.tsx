@@ -14,24 +14,11 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { PlaygroundControls } from "@/features/design-system/playground-controls";
-import type { TeacherAiChartSpec } from "@/features/shared/types";
-import { TeacherAiChart } from "@/features/teacher/teacher-ai-chart";
 import type {
   ComponentCatalogItem,
   PlaygroundControl,
 } from "@/features/design-system/types";
 import type { MotionPolicy } from "@/hooks/use-motion-policy";
-
-const AI_PREVIEW_CHART: TeacherAiChartSpec = {
-  type: "stacked_bar",
-  title: "Completion vs In Progress by class",
-  labels: ["Class 1", "Class 2", "Class 3"],
-  series: [
-    { label: "Completed", data: [18, 14, 11] },
-    { label: "In Progress", data: [4, 7, 9] },
-  ],
-  yUnit: "count",
-};
 
 type ComponentsSectionProps = {
   catalog: ComponentCatalogItem[];
@@ -166,7 +153,6 @@ export function ComponentsSection({
           options: ["default", "secondary", "destructive", "ghost"],
         },
       ],
-      ai: [],
     }),
     [],
   );
@@ -245,7 +231,6 @@ export function ComponentsSection({
               <TabsTrigger value="tabs">Tabs</TabsTrigger>
               <TabsTrigger value="radio">Radio Option</TabsTrigger>
               <TabsTrigger value="motion">MotionButton</TabsTrigger>
-              <TabsTrigger value="ai">AI Copilot</TabsTrigger>
             </TabsList>
 
             <TabsContent value="button">
@@ -407,75 +392,6 @@ export function ComponentsSection({
                 <p className="text-xs text-[color:var(--muted)]">
                   Active policy: <strong>{motionPolicy}</strong>. Full uses tap-scale; reduced disables tap motion.
                 </p>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="ai">
-              <div className="space-y-3">
-                <div className="ds-preview-panel space-y-3">
-                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[color:var(--muted)]">
-                    AI filter controls
-                  </p>
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    <div className="rounded-[var(--radius-md)] border border-[color:var(--line)] bg-white px-3 py-2">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[color:var(--muted)]">
-                        Class scope
-                      </p>
-                      <p className="text-sm font-semibold text-[color:var(--ink)]">Class 1, Class 2</p>
-                    </div>
-                    <div className="rounded-[var(--radius-md)] border border-[color:var(--line)] bg-white px-3 py-2">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[color:var(--muted)]">
-                        Timeframe
-                      </p>
-                      <p className="text-sm font-semibold text-[color:var(--ink)]">Last 7 days</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid gap-3">
-                  <div className="rounded-[var(--radius-lg)] border border-[color:var(--line)] bg-white p-3">
-                    <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[color:var(--muted)]">
-                      Class snapshot
-                    </p>
-                    <p className="mt-2 text-sm font-semibold text-[color:var(--ink)]">
-                      Class 2 is trending lower on completion and needs support on dictation-heavy items.
-                    </p>
-                  </div>
-                  <div className="rounded-[var(--radius-lg)] border border-[color:var(--line)] bg-white p-3">
-                    <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[color:var(--muted)]">
-                      Support priority (stage-based)
-                    </p>
-                    <p className="mt-2 text-sm font-semibold text-[color:var(--ink)]">
-                      Stage 0: 4 students, Stage 1: 6 students, Stage 2: 8 students.
-                    </p>
-                  </div>
-                  <div className="rounded-[var(--radius-lg)] border border-[color:var(--line)] bg-white p-3">
-                    <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[color:var(--muted)]">
-                      Slow questions
-                    </p>
-                    <p className="mt-2 text-sm font-semibold text-[color:var(--ink)]">
-                      Q4 and Q7 are taking the longest average response time.
-                    </p>
-                  </div>
-                </div>
-
-                <TeacherAiChart chart={AI_PREVIEW_CHART} />
-
-                <div className="rounded-[var(--radius-lg)] border border-[color:var(--line)] bg-white p-3">
-                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[color:var(--muted)]">
-                    Source metrics table
-                  </p>
-                  <div className="mt-2 grid gap-2 text-sm text-[color:var(--ink)]">
-                    <div className="flex items-center justify-between rounded-[var(--radius-md)] border border-[color:var(--line)] px-2 py-1.5">
-                      <span>Class 1</span>
-                      <Badge>7.1/10</Badge>
-                    </div>
-                    <div className="flex items-center justify-between rounded-[var(--radius-md)] border border-[color:var(--line)] px-2 py-1.5">
-                      <span>Class 2</span>
-                      <Badge>5.8/10</Badge>
-                    </div>
-                  </div>
-                </div>
               </div>
             </TabsContent>
           </Tabs>

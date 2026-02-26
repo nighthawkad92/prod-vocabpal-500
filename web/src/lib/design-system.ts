@@ -145,34 +145,6 @@ const COMPONENT_CATALOG: ComponentCatalogItem[] = [
     variants: ["default", "secondary", "destructive", "ghost"],
     states: ["full motion", "reduced motion"],
   },
-  {
-    id: "ai-filter-controls",
-    name: "AiFilterControls",
-    description: "Class multi-select and timeframe controls used to auto-generate AI sections.",
-    variants: ["desktop-inline", "mobile-bottom-sheet"],
-    states: ["default", "loading"],
-  },
-  {
-    id: "insight-block",
-    name: "InsightSection",
-    description: "Structured AI subsection surface for summary and key insights.",
-    variants: ["class-snapshot", "support-priority", "slow-questions"],
-    states: ["default", "updating", "error"],
-  },
-  {
-    id: "ai-chart-card",
-    name: "AiChartCard",
-    description: "Lightweight teacher AI chart renderer (bar, stacked, donut, trend line).",
-    variants: ["bar", "stacked_bar", "donut", "trend_line"],
-    states: ["data", "empty"],
-  },
-  {
-    id: "ai-source-metrics-table",
-    name: "AiSourceMetricsTable",
-    description: "Structured list/table surface for evidence rows and source metrics.",
-    variants: ["rows", "metrics"],
-    states: ["with data", "empty"],
-  },
 ];
 
 function readCssVariable(name: string, fallback: string): string {

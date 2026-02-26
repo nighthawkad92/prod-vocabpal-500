@@ -266,22 +266,14 @@ The PM agent is the scheduler. Only PM changes task state.
 | UI-068 | Apply Clarity mask/unmask attributes across app shell and name fields | UI | PM-ANL-003 | DONE | added `data-clarity-unmask` at shell root and `data-clarity-mask` on student/teacher name fields and teacher name-search fields |
 | QA-061 | Validate Clarity masking behavior and static regression gates | QA | UI-068 | DONE | typecheck/lint/build pass; verified attributes present on target nodes with no runtime regressions |
 | PM-ANL-004 | Final signoff for Clarity masking policy adjustment | PM | QA-061 | DONE | signoff complete; masking policy implemented with documented Clarity input-field limitation |
-| PM-ANL-005 | Queue teacher AI copilot rollout (guided chips + structured responses) | PM | PM-002 | DONE | execution plan and board/checkpoints created; handoff `handoffs/PM-ANL-005.md` recorded |
-| BE-015 | Build `teacher-ai-query` backend contract and deterministic analytics + OpenAI patching | Backend | PM-ANL-005 | DONE | new edge function + shared analytics/OpenAI helpers added with strict schema validation and metadata-only audit logging |
-| UI-071 | Build teacher AI copilot panel with guided chips and structured response rendering | UI | BE-015 | DONE | desktop/tablet AI panel integrated into teacher dashboard with structured sections, chart renderer, and mobile fallback messaging |
-| UI-072 | Add AI copilot components and guidance to design system inventory | UI | UI-071 | DONE | AI catalog entries, playground tab examples, and design-system guidance card added |
-| QA-066 | Validate AI backend contract/auth/fallback and no-transcript persistence | QA | UI-072 | DONE | contract review completed; auth/fallback and no-transcript persistence verified in code paths |
-| QA-067 | Validate AI UX/data parity + static release gates | QA | QA-066 | DONE | typecheck/lint/build passed; `qa:release-gate` blocked locally due missing runtime env (`APP_URL`, etc.) |
-| PM-ANL-006 | Final signoff for teacher AI copilot rollout | PM | QA-067 | DONE | implementation signoff complete; function deployed and `qa:after-deploy` passed, with CP-11 cleared and CP-10 pending valid OpenAI key |
-| PM-ANL-007 | Queue tabbed AI Copilot + stage-based support-priority refactor | PM | PM-ANL-006 | DONE | queued revised IA and analytics contract: Attempts/AI tabs, fixed 3 AI sections, multi-class filters, stage-bucket support priority, and mobile parity |
-| BE-016 | Update teacher AI backend contract (multi-class, timeframe, completed-only, stage buckets) | Backend | PM-ANL-007 | DONE | reduced intents to 3, removed actions, enforced completed-only dataset, added classNames/timeframe normalization (`today`->`24h`), and stage-bucket support outputs |
-| UI-073 | Add Attempts/AI tabs above class rows and relocate AI panel into tab | UI | BE-016 | DONE | teacher dashboard now renders top tabs and shows AI panel only inside AI tab; class rows remain Attempts-tab only |
-| UI-074 | Refactor AI panel into fixed auto-generated 3 subsections | UI | UI-073 | DONE | removed chips/actions/history, added fixed Class snapshot/Support priority/Slow questions sections with section-level loading and errors |
-| UI-075 | Implement multi-select class scope + mobile bottom-sheet filter UX | UI | UI-074 | DONE | desktop class multi-select dropdown added; mobile AI filter sheet supports multi-class and timeframe controls |
-| UI-076 | Implement support-priority stage-grouped UI and remove wrong-answer exposure | UI | UI-075 | DONE | support priority now groups students by Stage 0-4 (+ Unassigned), ordered ascending, without wrong-answer counts |
-| QA-068 | Validate backend contract, completed-only enforcement, stage-bucket accuracy | QA | UI-076 | DONE | validated via code + static gates; confirmed request/response contract changes and completed-only analytics path in backend |
-| QA-069 | Validate cross-breakpoint UX (desktop/tablet/mobile) and regressions | QA | QA-068 | DONE | typecheck/lint/build passed; AI tab available on mobile with bottom-sheet filters and attempts flow preserved |
-| PM-ANL-008 | Final signoff and release recommendation | PM | QA-069 | DONE | signoff complete; PM-ANL-007 refactor accepted pending post-deploy QA with runtime env configured |
+| PM-ANL-009 | Queue full AI removal and artifact purge | PM | PM-ANL-004 | DONE | scoped and executed full AI purge across runtime code, backend functions, design system docs/catalog, env/config, and historical AI artifacts |
+| BE-017 | Remove AI backend endpoints/modules/config | Backend | PM-ANL-009 | DONE | deleted `teacher-ai-query` function and AI shared modules, and removed AI function wiring from Supabase config |
+| UI-077 | Remove AI from teacher runtime UI/state | UI | BE-017 | DONE | removed teacher AI tab/panel logic and restored attempts/detail-only IA across desktop/tablet/mobile |
+| UI-078 | Remove AI from design system/types/catalog | UI | UI-077 | DONE | removed AI component/type references and AI sections from `/designsystem` catalog/playground/guidance |
+| PM-ANL-010 | Purge AI historical artifacts from plans/handoffs/board | PM | UI-078 | DONE | deleted AI-specific plans and handoffs and removed legacy AI rows/checkpoints from board records |
+| QA-070 | Runtime regression + static gates after AI removal | QA | PM-ANL-010 | DONE | typecheck/lint/build pass and runtime search confirms no AI endpoint/UI references in active code paths |
+| QA-071 | Post-deploy verification + endpoint absence checks | QA | QA-070 | DONE | release-gate and after-deploy checks completed with no AI route usage and no teacher dashboard regressions |
+| PM-ANL-011 | Final signoff for full AI purge | PM | QA-071 | DONE | signoff complete; AI feature fully removed from runtime, docs, and in-repo historical artifacts |
 | PM-QA-016 | Queue baseline session-status stability fix for teacher dashboard | PM | PM-QA-015 | DONE | scoped production status drift fix: prefer latest non-ended window and avoid QA leaving paused latest window |
 | BE-012 | Update teacher-windows GET to prioritize latest non-ended window | Backend | PM-QA-016 | DONE | `teacher-windows` now scans recent windows and returns latest non-ended window before falling back to latest ended window |
 | QA-062 | Align remote smoke session cleanup to end (not pause) and validate static gates | QA | BE-012 | DONE | `qa/remote_smoke.mjs` now ends its QA session; typecheck/lint/build passed |
@@ -335,8 +327,6 @@ Only these checkpoints pause autonomous flow for user input/credentials.
 | CP-07-CI-SECRETS | Before enabling fully automated CI deploy | Add Supabase/Vercel secrets in GitHub Actions | REL-001 | CLEARED |
 | CP-08-CLARITY-PROJECT | Before first production Clarity collection | Create/get Microsoft Clarity project ID | PM-ANL-001 onward | PENDING |
 | CP-09-VERCEL-ENV-CLARITY | Before releasing Clarity instrumentation | Add `VITE_CLARITY_ENABLED=true` and `VITE_CLARITY_PROJECT_ID` in Vercel Production env | PM-ANL-002 | PENDING |
-| CP-10-OPENAI-SUPABASE-SECRET | Before enabling teacher AI response generation | Set Supabase secrets `OPENAI_API_KEY` and optional `OPENAI_MODEL` | BE-015, QA-066 | CLEARED |
-| CP-11-VERCEL-ENV-TEACHER-AI | Before exposing teacher AI copilot in production UI | Set `VITE_TEACHER_AI_ENABLED=true` in Vercel Production env | UI-071, PM-ANL-006 | CLEARED |
 
 ## 6. Autonomous Run Loop
 1. PM selects next `READY` task with highest dependency priority.
