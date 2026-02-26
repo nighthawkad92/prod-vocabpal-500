@@ -326,7 +326,7 @@ Only these checkpoints pause autonomous flow for user input/credentials.
 | CP-07-CI-SECRETS | Before enabling fully automated CI deploy | Add Supabase/Vercel secrets in GitHub Actions | REL-001 | CLEARED |
 | CP-08-CLARITY-PROJECT | Before first production Clarity collection | Create/get Microsoft Clarity project ID | PM-ANL-001 onward | PENDING |
 | CP-09-VERCEL-ENV-CLARITY | Before releasing Clarity instrumentation | Add `VITE_CLARITY_ENABLED=true` and `VITE_CLARITY_PROJECT_ID` in Vercel Production env | PM-ANL-002 | PENDING |
-| CP-10-OPENAI-SUPABASE-SECRET | Before enabling teacher AI response generation | Set Supabase secrets `OPENAI_API_KEY` and optional `OPENAI_MODEL` | BE-015, QA-066 | PENDING |
+| CP-10-OPENAI-SUPABASE-SECRET | Before enabling teacher AI response generation | Set Supabase secrets `OPENAI_API_KEY` and optional `OPENAI_MODEL` | BE-015, QA-066 | CLEARED |
 | CP-11-VERCEL-ENV-TEACHER-AI | Before exposing teacher AI copilot in production UI | Set `VITE_TEACHER_AI_ENABLED=true` in Vercel Production env | UI-071, PM-ANL-006 | CLEARED |
 
 ## 6. Autonomous Run Loop
