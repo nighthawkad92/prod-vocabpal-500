@@ -77,7 +77,7 @@ export function AppShell({
   children,
 }: AppShellProps) {
   const widthClass = mode === "teacher" ? "max-w-[850px]" : "max-w-6xl";
-  const paddingClass = mode === "teacher" ? "px-4" : "px-4 md:px-6";
+  const paddingClass = mode === "teacher" ? "px-2 md:px-4" : "px-2 md:px-6";
   const headerRef = useRef<HTMLDivElement | null>(null);
   const logoRef = useRef<HTMLImageElement | null>(null);
   const inlineControlsRef = useRef<HTMLDivElement | null>(null);
@@ -184,12 +184,14 @@ export function AppShell({
       onValueChange={(nextMode) => onModeChange(nextMode as AppMode)}
       className="space-y-0"
     >
-      <TabsList className="border-none bg-transparent p-0 shadow-none">
+      <TabsList
+        className={`border-none bg-transparent p-0 shadow-none ${isIconPresentation ? "gap-2" : ""}`}
+      >
         <TabsTrigger
           value="student"
           aria-label="Student mode"
           title="Student mode"
-          className={isIconPresentation ? "h-10 w-10 px-0 py-0" : undefined}
+          className={isIconPresentation ? "flex h-11 w-11 items-center justify-center px-0 py-0" : undefined}
         >
           {isIconPresentation ? (
             <img src={userIcon} alt="" aria-hidden className="h-5 w-5" />
@@ -201,7 +203,7 @@ export function AppShell({
           value="teacher"
           aria-label="Teacher mode"
           title="Teacher mode"
-          className={isIconPresentation ? "h-10 w-10 px-0 py-0" : undefined}
+          className={isIconPresentation ? "flex h-11 w-11 items-center justify-center px-0 py-0" : undefined}
         >
           {isIconPresentation ? (
             <img src={teacherIcon} alt="" aria-hidden className="h-5 w-5" />
@@ -293,7 +295,7 @@ export function AppShell({
           ) : (
             <div
               ref={inlineControlsRef}
-              className="ml-auto flex flex-wrap items-center justify-end gap-x-6 gap-y-2"
+              className={`ml-auto flex flex-wrap items-center justify-end gap-y-2 ${isIconPresentation ? "gap-x-3" : "gap-x-6"}`}
             >
               {controls}
             </div>

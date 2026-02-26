@@ -243,6 +243,11 @@ The PM agent is the scheduler. Only PM changes task state.
 | UI-061 | Wire app/state context into utility shell across student and teacher flows | UI | UI-060 | DONE | `App.tsx` now passes explicit utility context; student mode emits entry/attempt/completion state for utility variant selection |
 | QA-055 | Validate utility-bar responsiveness across 350px, 375px, tablet, and desktop states | QA | UI-061 | DONE | typecheck/lint/build passed; narrow-screen utility now renders icon/collapsed variants without wrapping regressions |
 | PM-DS-080 | Final signoff and release recommendation for adaptive utility architecture | PM | QA-055 | DONE | signoff complete; top utility contract now explicit and robust across all core app contexts |
+| PM-DS-081 | Queue mobile utility polish pass (icon alignment + spacing + filter sheet icon semantics) | PM | PM-002 | DONE | scoped narrow-screen polish for top utility and teacher filter sheet action clarity |
+| UI-062 | Fix teacher mobile filter sheet action icon semantics and pause/play icon centering | UI | PM-DS-081 | DONE | close/cancel/confirm now use distinct icons and session-status icon buttons are centered within their containers |
+| UI-063 | Apply 8px mobile shell side padding and improve top utility icon spacing/centering | UI | UI-062 | DONE | base shell mobile padding now 8px and icon-mode top utility triggers use explicit centered 44px targets with improved spacing |
+| QA-056 | Validate mobile utility and filter sheet polish across student and teacher contexts | QA | UI-063 | DONE | typecheck/lint/build passed; reviewed top utility icon alignment and filter action affordances on mobile |
+| PM-DS-082 | Final signoff for mobile utility polish pass | PM | QA-056 | DONE | signoff complete for mobile utility polish without backend/API/schema changes |
 | PM-QA-010 | Queue post-push release-gate validation and CI checkpoint closure | PM | PM-002 | DONE | scoped QA harness alignment and rerun of `qa:after-deploy` after main push |
 | QA-010 | Align matrix harness with audio-end submit gate and rerun release gate | QA | PM-QA-010 | DONE | updated submit selector + mock audio `onended`; `qa:matrix` and `qa:after-deploy` passed |
 | PM-QA-011 | Sign off post-push QA recovery and checkpoint closure | PM | QA-010 | DONE | verified green after-deploy report and cleared CP-07 via GitHub secrets |

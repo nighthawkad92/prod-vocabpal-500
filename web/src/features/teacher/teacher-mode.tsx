@@ -31,6 +31,7 @@ import pauseIcon from "@/assets/icons/pause.svg";
 import playIcon from "@/assets/icons/play.svg";
 import refreshIcon from "@/assets/icons/refresh.svg";
 import signoutIcon from "@/assets/icons/signout.svg";
+import closeIcon from "@/assets/icons/times.svg";
 
 const TOKEN_KEY = "vocabpal.teacher.token";
 const NAME_KEY = "vocabpal.teacher.name";
@@ -1212,7 +1213,7 @@ export function TeacherMode({
                     void playSound("tap", { fromInteraction: true });
                   }}
                 >
-                  <IconGlyph src={cancelIcon} alt="" />
+                  <IconGlyph src={closeIcon} alt="" />
                 </MotionButton>
               </div>
 
@@ -1366,8 +1367,10 @@ function SessionStatusToggle({
       <button
         type="button"
         className={cn(
-          "rounded-[var(--radius-lg)] font-semibold transition-colors",
-          compact ? (iconOnly ? "h-9 w-9" : "min-h-9 px-3 py-1 text-sm") : "px-3 py-1.5 text-sm",
+          "rounded-[var(--radius-lg)] font-semibold leading-none transition-colors",
+          compact
+            ? (iconOnly ? "inline-flex h-9 w-9 items-center justify-center p-0" : "min-h-9 px-3 py-1 text-sm")
+            : "px-3 py-1.5 text-sm",
           status === "paused"
             ? "bg-[color:var(--secondary)] text-[color:var(--ink)]"
             : "bg-transparent text-[color:var(--muted)]",
@@ -1382,8 +1385,10 @@ function SessionStatusToggle({
       <button
         type="button"
         className={cn(
-          "rounded-[var(--radius-lg)] font-semibold transition-colors",
-          compact ? (iconOnly ? "h-9 w-9" : "min-h-9 px-3 py-1 text-sm") : "px-3 py-1.5 text-sm",
+          "rounded-[var(--radius-lg)] font-semibold leading-none transition-colors",
+          compact
+            ? (iconOnly ? "inline-flex h-9 w-9 items-center justify-center p-0" : "min-h-9 px-3 py-1 text-sm")
+            : "px-3 py-1.5 text-sm",
           status === "in_progress"
             ? "bg-[color:var(--secondary)] text-[color:var(--ink)]"
             : "bg-transparent text-[color:var(--muted)]",
