@@ -19,6 +19,7 @@ type StartAttemptRequest = {
   firstName?: string;
   lastName?: string;
   className?: string;
+  attemptSource?: "student" | "qa";
 };
 
 Deno.serve(async (req) => {
@@ -34,6 +35,15 @@ Deno.serve(async (req) => {
     const firstName = (body.firstName ?? "").trim();
     const lastName = (body.lastName ?? "").trim();
     const className = (body.className ?? "").trim();
+    const requestedAttemptSource = body.attemptSource === "qa" ? "qa" : "student";
+    const qaSourceToken = Deno.env.get("QA_SOURCE_TOKEN");
+    const requestQaSourceToken = req.headers.get("x-vocabpal-qa-source-token");
+    const attemptSource: "student" | "qa" = requestedAttemptSource === "qa" &&
+        qaSourceToken &&
+        requestQaSourceToken &&
+        requestQaSourceToken === qaSourceToken
+      ? "qa"
+      : "student";
 
     if (!firstName || !lastName || !className) {
       return json(req, 400, { error: "firstName, lastName, and className are required" });
@@ -70,7 +80,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const attempt = await createAttempt(client, student.id, test.id, window.id);
+    const attempt = await createAttempt(client, student.id, test.id, window.id, attemptSource);
     const firstQuestion = await getQuestionByOrder(client, test.id, 1);
     if (!firstQuestion) {
       return json(req, 500, { error: "No baseline questions are configured" });

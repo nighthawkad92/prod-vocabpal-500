@@ -304,6 +304,11 @@ The PM agent is the scheduler. Only PM changes task state.
 | QA-049 | Integrate hard release gate policy into CI and local release checklist | QA | QA-046, QA-047, QA-048 | DONE | QA workflow now runs `qa:release-gate`; README and report schema coverage updated |
 | QA-050 | Implement phased 500-student load validation track with weekly cadence | QA | QA-049 | DONE | added `qa:load-500` script and scheduled weekly GitHub Actions workflow |
 | PM-QA-015 | Final QA signoff and pilot readiness recommendation | PM | QA-050 | DONE | PM review completed with hard-gate and weekly-load governance in place |
+| PM-UX-ANL-012 | Queue pilot feedback implementation bundle (audio, integrity lock, stage row, QA hygiene, canonical domain) | PM | PM-002 | DONE | execution packet accepted with locked shortlist decisions and cross-role sequencing |
+| BE-018 | Implement audio clarity tuning, prewarm trigger, attempt-source tagging, and stage summary/list contract updates | Backend | PM-UX-ANL-012 | DONE | dictation SSML+rate tuning, window prewarm on in-progress, attempt_source schema+API filters, and stage summary/list support delivered |
+| UI-079 | Implement student integrity lock/readability/input hardening and teacher stage-row + copy/style updates | UI | BE-018 | DONE | student active/completion utility controls locked, dictation anti-memory attributes + wait-state hinting, MCQ tile text scale increased, teacher stage cards/filter and `Unselect visible` + destructive bulk archive styling applied |
+| QA-072 | Enforce QA-attempt isolation/cleanup pipeline and verify canonical-domain + regression gates | QA | UI-079 | DONE | QA suites now tag attempts as `qa`, auto-cleanup run added, release/after-deploy include cleanup stage, and regression static gates verified |
+| PM-UX-ANL-013 | Final signoff for PM-UX-ANL-012 rollout | PM | QA-072 | DONE | signoff complete; pilot feedback bundle merged with no student scoring contract regression |
 | REL-001 | Vercel deployment wiring | PM/Backend/UI | UI-003, QA-003 | DONE | main push + auto-deploy + after-deploy QA gate passed |
 | REL-002 | Pilot readiness checklist signoff | PM | QA-004, UXR-002 | TODO | final go/no-go |
 

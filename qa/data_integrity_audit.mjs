@@ -21,6 +21,7 @@ const config = {
   anonKey: process.env.SUPABASE_ANON_KEY.trim(),
   teacherPasscode: process.env.TEACHER_PASSCODE.trim(),
   teacherName: (process.env.TEACHER_NAME ?? "QA Data Agent").trim(),
+  qaSourceToken: (process.env.QA_SOURCE_TOKEN ?? "").trim(),
 };
 
 const answerByDisplayOrder = {
@@ -65,6 +66,7 @@ async function callFunction(path, { method = "GET", token, body } = {}) {
       apikey: config.anonKey,
       "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(config.qaSourceToken ? { "x-vocabpal-qa-source-token": config.qaSourceToken } : {}),
     },
     body: method === "GET" ? undefined : JSON.stringify(body ?? {}),
   });
@@ -130,7 +132,7 @@ async function createWindow(token) {
 async function completeAttempt(student) {
   const start = await callFunction("student-start-attempt", {
     method: "POST",
-    body: student,
+    body: { ...student, attemptSource: "qa" },
   });
   expectStatus(start, 200, "student-start-attempt");
   const attemptId = start.payload?.attemptId;
@@ -174,6 +176,21 @@ async function completeAttempt(student) {
   };
 }
 
+async function cleanupQaAttempts(token, attemptIds) {
+  const uniqueAttemptIds = Array.from(new Set(attemptIds.filter(Boolean)));
+  if (!token || uniqueAttemptIds.length === 0) return;
+  const cleanup = await callFunction("teacher-attempt-archive", {
+    method: "POST",
+    token,
+    body: { attemptIds: uniqueAttemptIds },
+  });
+  expectStatus(cleanup, 200, "teacher-attempt-archive cleanup");
+  addCheck("qa-cleanup-archived", true, {
+    requested: uniqueAttemptIds.length,
+    archivedCount: cleanup.payload?.archivedCount ?? uniqueAttemptIds.length,
+  });
+}
+
 function sumResponseTimes(rows) {
   return rows.reduce((acc, row) => acc + (Number(row.responseTimeMs) || 0), 0);
 }
@@ -202,7 +219,7 @@ async function run() {
     classB: { attemptId: attemptB.attemptId, score: attemptB.completion?.totalScore10 ?? null },
   });
 
-  const listBeforeArchive = await callFunction("teacher-dashboard-list?limit=250", { token });
+  const listBeforeArchive = await callFunction("teacher-dashboard-list?limit=250&source=all", { token });
   expectStatus(listBeforeArchive, 200, "teacher-dashboard-list (before archive)");
 
   const matchedByIdentity = (listBeforeArchive.payload?.attempts ?? []).filter(
@@ -251,7 +268,7 @@ async function run() {
   });
   expectStatus(archive, 200, "teacher-attempt-archive");
 
-  const listAfterArchive = await callFunction("teacher-dashboard-list?limit=250", { token });
+  const listAfterArchive = await callFunction("teacher-dashboard-list?limit=250&source=all", { token });
   expectStatus(listAfterArchive, 200, "teacher-dashboard-list (after archive)");
 
   const visibleAttemptIds = new Set((listAfterArchive.payload?.attempts ?? []).map((row) => row.id));
@@ -278,13 +295,19 @@ async function run() {
     untouchedClassStatus: untouchedClassRetake.status,
   });
 
-  const summary = await callFunction("teacher-dashboard-summary", { token });
+  const summary = await callFunction("teacher-dashboard-summary?source=all", { token });
   const summaryPass = summary.status === 200 && Number.isFinite(summary.payload?.attemptsTotal);
   addCheck("summary-available", summaryPass, {
     status: summary.status,
     attemptsTotal: summary.payload?.attemptsTotal ?? null,
     attemptsToday: summary.payload?.attemptsToday ?? null,
   });
+
+  const cleanupAttemptIds = [...report.artifacts.attemptIds];
+  if (retakeAfterArchive.status === 200 && retakeAfterArchive.payload?.attemptId) {
+    cleanupAttemptIds.push(retakeAfterArchive.payload.attemptId);
+  }
+  await cleanupQaAttempts(token, cleanupAttemptIds);
 
   await callFunction("teacher-windows", {
     method: "PATCH",

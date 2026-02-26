@@ -5,6 +5,7 @@ import { normalizeClassName } from "../_shared/student.ts";
 
 type AttemptRow = {
   id: string;
+  attempt_source: "student" | "qa";
   status: string;
   started_at: string;
   ended_at: string | null;
@@ -39,13 +40,20 @@ Deno.serve(async (req) => {
     const url = new URL(req.url);
     const status = (url.searchParams.get("status") ?? "").trim();
     const className = (url.searchParams.get("className") ?? "").trim();
+    const source = (url.searchParams.get("source") ?? "student").trim().toLowerCase();
+    const stageRaw = (url.searchParams.get("stage") ?? "").trim();
+    const stage = stageRaw ? Number(stageRaw) : null;
     const limit = Number(url.searchParams.get("limit") ?? "100");
     const offset = Number(url.searchParams.get("offset") ?? "0");
+    if (stageRaw && (!Number.isFinite(stage) || stage === null || stage < 0 || stage > 4)) {
+      return json(req, 400, { error: "stage must be an integer between 0 and 4" });
+    }
 
     let query = client
       .from("attempts")
       .select(`
         id,
+        attempt_source,
         status,
         started_at,
         ended_at,
@@ -69,6 +77,14 @@ Deno.serve(async (req) => {
 
     if (status) {
       query = query.eq("status", status);
+    }
+    if (source === "student" || source === "qa") {
+      query = query.eq("attempt_source", source);
+    }
+    if (stage !== null) {
+      query = query
+        .eq("status", "completed")
+        .eq("placement_stage", Math.trunc(stage));
     }
 
     const result = await query;
@@ -94,6 +110,7 @@ Deno.serve(async (req) => {
         totalScore10: row.total_score_10,
         stars: row.stars,
         placementStage: row.placement_stage,
+        attemptSource: row.attempt_source,
         student: {
           id: row.students?.id ?? null,
           firstName: row.students?.first_name ?? null,

@@ -573,6 +573,15 @@ export function StudentMode({
   const requiresAudio = Boolean(question?.ttsText);
   const audioGateLocked =
     requiresAudio && (!audioPlayedForQuestion || audioBusy || audioPlaying);
+  const audioStateHint = !requiresAudio
+    ? ""
+    : (audioBusy
+      ? "Audio is loading. Please wait."
+      : audioPlaying
+        ? "Audio is playing. Listen fully before submitting."
+        : audioPlayedForQuestion
+          ? "Audio complete. You can submit."
+          : "Tap Play audio and wait for it to finish.");
   const submitLabel = busy
     ? "Submitting..."
     : audioGateLocked
@@ -922,13 +931,18 @@ export function StudentMode({
                                 void playQuestionAudio("manual");
                               }}
                               disabled={audioBusy || audioPlaying}
-                            >
-                              {!audioBusy && (
-                                <img src={playIcon} alt="" aria-hidden="true" className="h-4 w-4" />
-                              )}
-                              {audioBusy ? "Loading audio..." : "Play audio"}
-                            </MotionButton>
+                              >
+                                {!audioBusy && (
+                                  <img src={playIcon} alt="" aria-hidden="true" className="h-4 w-4" />
+                                )}
+                                {audioBusy ? "Loading audio..." : "Play audio"}
+                              </MotionButton>
                           )}
+                          {question.ttsText ? (
+                            <p className="min-h-5 text-xs font-semibold text-[color:var(--muted)]">
+                              {audioStateHint}
+                            </p>
+                          ) : null}
 
                           {question.displayOrder === 1 && questionVisual
                             ? renderQuestionVisual("Question 1 illustration", "full-width")
@@ -998,6 +1012,11 @@ export function StudentMode({
                                 {audioBusy ? "Loading audio..." : "Play audio"}
                               </MotionButton>
                             )}
+                            {question.ttsText ? (
+                              <p className="min-h-5 text-xs font-semibold text-[color:var(--muted)]">
+                                {audioStateHint}
+                              </p>
+                            ) : null}
 
                             {question.displayOrder === 2 || question.displayOrder === 4
                               ? renderQuestionVisual(
@@ -1009,9 +1028,16 @@ export function StudentMode({
                             <Label htmlFor="dictation-answer">Your answer</Label>
                             <Input
                               id="dictation-answer"
+                              name={`dictation-answer-${question.displayOrder}`}
                               value={answer}
                               className="text-base font-semibold leading-6"
                               onChange={(event) => handleDictationAnswerChange(event.target.value)}
+                              autoComplete="off"
+                              autoCorrect="off"
+                              autoCapitalize="none"
+                              spellCheck={false}
+                              enterKeyHint="done"
+                              data-lpignore="true"
                               required
                             />
                           </div>
@@ -1039,13 +1065,25 @@ export function StudentMode({
                                   {audioBusy ? "Loading audio..." : "Play audio"}
                                 </MotionButton>
                               )}
+                              {question.ttsText ? (
+                                <p className="min-h-5 text-xs font-semibold text-[color:var(--muted)]">
+                                  {audioStateHint}
+                                </p>
+                              ) : null}
 
                               <Label htmlFor="dictation-answer">Your answer</Label>
                               <Input
                                 id="dictation-answer"
+                                name={`dictation-answer-${question.displayOrder}`}
                                 value={answer}
                                 className="text-base font-semibold leading-6"
                                 onChange={(event) => handleDictationAnswerChange(event.target.value)}
+                                autoComplete="off"
+                                autoCorrect="off"
+                                autoCapitalize="none"
+                                spellCheck={false}
+                                enterKeyHint="done"
+                                data-lpignore="true"
                                 required
                               />
                             </div>

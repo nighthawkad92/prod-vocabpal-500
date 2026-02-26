@@ -5,10 +5,13 @@ import { createAdminClient, handleOptions, json, sha256Hex } from "../_shared/au
 const DEFAULT_BUCKET = "tts-audio";
 const DEFAULT_LANGUAGE_CODE = "en-IN";
 const DEFAULT_VOICE_NAME = "en-IN-Wavenet-A";
-const DEFAULT_SPEAKING_RATE = 1.0;
+const DEFAULT_SPEAKING_RATE = 0.9;
+const DEFAULT_DICTATION_SPEAKING_RATE = 0.78;
 
 type QuestionTtsRow = {
   id: string;
+  item_type: "mcq" | "dictation";
+  answer_key: string;
   tts_text: string | null;
   display_order: number;
 };
@@ -45,6 +48,38 @@ function decodeBase64ToBytes(base64: string): Uint8Array {
   return bytes;
 }
 
+function parseSpeakingRate(value: string | undefined, fallback: number): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(1.5, Math.max(0.6, parsed));
+}
+
+function escapeSsml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll("\"", "&quot;")
+    .replaceAll("'", "&apos;");
+}
+
+function buildSpeechInput(question: QuestionTtsRow): { input: { text?: string; ssml?: string }; cacheInput: string } {
+  if (question.item_type !== "dictation") {
+    return {
+      input: { text: question.tts_text ?? "" },
+      cacheInput: `text:${question.tts_text ?? ""}`,
+    };
+  }
+
+  const targetWord = (question.answer_key ?? question.tts_text ?? "").trim();
+  const safeWord = escapeSsml(targetWord);
+  const ssml = `<speak>Listen carefully.<break time="220ms"/><emphasis level="strong">${safeWord}</emphasis>.<break time="320ms"/>${safeWord}.</speak>`;
+  return {
+    input: { ssml },
+    cacheInput: `ssml:${ssml}`,
+  };
+}
+
 Deno.serve(async (req) => {
   try {
     if (req.method === "OPTIONS") {
@@ -62,7 +97,7 @@ Deno.serve(async (req) => {
     const client = createAdminClient();
     const questionResult = await client
       .from("question_items")
-      .select("id, tts_text, display_order")
+      .select("id, item_type, answer_key, tts_text, display_order")
       .eq("id", questionItemId)
       .maybeSingle<QuestionTtsRow>();
 
@@ -79,8 +114,19 @@ Deno.serve(async (req) => {
     const bucket = Deno.env.get("TTS_STORAGE_BUCKET") ?? DEFAULT_BUCKET;
     const languageCode = Deno.env.get("GOOGLE_TTS_LANGUAGE_CODE") ?? DEFAULT_LANGUAGE_CODE;
     const voiceName = Deno.env.get("GOOGLE_TTS_VOICE_NAME") ?? DEFAULT_VOICE_NAME;
-    const speakingRate = Number(Deno.env.get("GOOGLE_TTS_SPEAKING_RATE") ?? `${DEFAULT_SPEAKING_RATE}`);
-    const cacheKeyInput = `${languageCode}|${voiceName}|${speakingRate}|${questionResult.data.tts_text}`;
+    const speakingRate = parseSpeakingRate(
+      Deno.env.get("GOOGLE_TTS_SPEAKING_RATE"),
+      DEFAULT_SPEAKING_RATE,
+    );
+    const dictationSpeakingRate = parseSpeakingRate(
+      Deno.env.get("GOOGLE_TTS_DICTATION_SPEAKING_RATE"),
+      DEFAULT_DICTATION_SPEAKING_RATE,
+    );
+    const speechInput = buildSpeechInput(questionResult.data);
+    const resolvedSpeakingRate = questionResult.data.item_type === "dictation"
+      ? dictationSpeakingRate
+      : speakingRate;
+    const cacheKeyInput = `${languageCode}|${voiceName}|${resolvedSpeakingRate}|${speechInput.cacheInput}`;
     const cacheKey = await sha256Hex(cacheKeyInput);
     const objectPath = `baseline_v1/${cacheKey}.mp3`;
 
@@ -109,7 +155,7 @@ Deno.serve(async (req) => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          input: { text: questionResult.data.tts_text },
+          input: speechInput.input,
           voice: {
             languageCode,
             name: voiceName,
@@ -117,7 +163,7 @@ Deno.serve(async (req) => {
           },
           audioConfig: {
             audioEncoding: "MP3",
-            speakingRate,
+            speakingRate: resolvedSpeakingRate,
           },
         }),
       },

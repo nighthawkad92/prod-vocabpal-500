@@ -22,6 +22,7 @@ const config = {
   anonKey: process.env.SUPABASE_ANON_KEY.trim(),
   teacherPasscode: process.env.TEACHER_PASSCODE.trim(),
   teacherName: (process.env.TEACHER_NAME ?? "QA Load Agent").trim(),
+  qaSourceToken: (process.env.QA_SOURCE_TOKEN ?? "").trim(),
   totalStudents: Number(process.env.QA_LOAD_TOTAL_STUDENTS ?? 500),
   concurrency: Number(process.env.QA_LOAD_CONCURRENCY ?? 500),
   readBurstRequests: Number(process.env.QA_LOAD_READ_REQUESTS ?? 120),
@@ -148,6 +149,7 @@ async function callFunction(path, { method = "GET", token, body } = {}) {
         apikey: config.anonKey,
         "Content-Type": "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(config.qaSourceToken ? { "x-vocabpal-qa-source-token": config.qaSourceToken } : {}),
       },
       body: method === "GET" ? undefined : JSON.stringify(body ?? {}),
     });
@@ -271,7 +273,7 @@ async function executeLoad(token, students) {
   const startResults = await runWithConcurrency(students, config.concurrency, async (student) => {
     const started = await callFunction("student-start-attempt", {
       method: "POST",
-      body: student,
+      body: { ...student, attemptSource: "qa" },
     });
 
     totalOperations += 1;
@@ -338,7 +340,9 @@ async function executeLoad(token, students) {
     readOps,
     config.readBurstConcurrency,
     async (index) => {
-      const endpoint = index % 2 === 0 ? "teacher-dashboard-summary" : "teacher-dashboard-list?limit=120";
+      const endpoint = index % 2 === 0
+        ? "teacher-dashboard-summary?source=all"
+        : "teacher-dashboard-list?limit=120&source=all";
       const read = await callFunction(endpoint, { token });
       totalOperations += 1;
       readDurations.push(read.durationMs);
@@ -384,7 +388,7 @@ async function executeLoad(token, students) {
     },
   );
 
-  const summaryCheck = await callFunction("teacher-dashboard-summary", { token });
+  const summaryCheck = await callFunction("teacher-dashboard-summary?source=all", { token });
   totalOperations += 1;
   readDurations.push(summaryCheck.durationMs);
   if (!summaryCheck.ok) {

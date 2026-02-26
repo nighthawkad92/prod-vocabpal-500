@@ -27,6 +27,12 @@ export type TeacherSummary = {
   attemptsTotal: number;
   completedAttempts: number;
   avgScore10: number;
+  stageBreakdown: Array<{
+    stage: 0 | 1 | 2 | 3 | 4;
+    students: number;
+    attempts: number;
+    avgScore10: number;
+  }>;
   classBreakdown: Array<{
     className: string;
     attempts: number;
@@ -47,6 +53,7 @@ export type TeacherWindowState = {
 
 export type TeacherAttempt = {
   id: string;
+  attemptSource?: "student" | "qa";
   status: string;
   startedAt: string;
   endedAt: string | null;

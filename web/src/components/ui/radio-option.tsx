@@ -59,7 +59,15 @@ export function RadioOption({
           />
         </span>
       )}
-      <span className={cn(isTile ? "text-base font-semibold leading-6" : undefined)}>{label}</span>
+      <span
+        className={cn(
+          isTile
+            ? "font-['Fraunces',serif] text-2xl leading-tight"
+            : undefined,
+        )}
+      >
+        {label}
+      </span>
     </MotionButton>
   );
 }

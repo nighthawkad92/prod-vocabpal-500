@@ -76,6 +76,8 @@ export function AppShell({
   utilityContext,
   children,
 }: AppShellProps) {
+  const isStudentLockedContext =
+    utilityContext === "student_active" || utilityContext === "student_complete";
   const widthClass = mode === "teacher" ? "max-w-full" : "max-w-6xl";
   const paddingClass = mode === "teacher" ? "px-2 md:px-4" : "px-2 md:px-6";
   const headerRef = useRef<HTMLDivElement | null>(null);
@@ -91,7 +93,10 @@ export function AppShell({
     return getViewportBucket(window.innerWidth);
   });
   const basePresentation = getBasePresentation(utilityContext, viewportBucket);
-  const isDrawerVisible = (basePresentation === "collapsed_menu" || controlsCollapsed) && drawerOpen;
+  const isDrawerVisible =
+    !isStudentLockedContext &&
+    (basePresentation === "collapsed_menu" || controlsCollapsed) &&
+    drawerOpen;
   const effectivePresentation =
     basePresentation === "collapsed_menu" || controlsCollapsed
       ? "collapsed_menu"
@@ -281,26 +286,30 @@ export function AppShell({
         </div>
 
         <div className="ml-auto flex items-center justify-end">
-          {controlsCollapsed ? (
-            <Button
-              variant="secondary"
-              size="icon"
-              className="h-11 w-11"
-              onClick={() => setDrawerOpen((current) => !current)}
-              aria-expanded={isDrawerVisible}
-              aria-label="Open utility menu"
-              title="Open utility menu"
-            >
-              <img src={menuIcon} alt="" aria-hidden className="h-4 w-4" />
-            </Button>
-          ) : (
-            <div
-              ref={inlineControlsRef}
-              className={`ml-auto flex flex-wrap items-center justify-end gap-y-2 ${isIconPresentation ? "gap-x-3" : "gap-x-6"}`}
-            >
-              {controls}
-            </div>
-          )}
+          {!isStudentLockedContext
+            ? (
+              controlsCollapsed ? (
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  className="h-11 w-11"
+                  onClick={() => setDrawerOpen((current) => !current)}
+                  aria-expanded={isDrawerVisible}
+                  aria-label="Open utility menu"
+                  title="Open utility menu"
+                >
+                  <img src={menuIcon} alt="" aria-hidden className="h-4 w-4" />
+                </Button>
+              ) : (
+                <div
+                  ref={inlineControlsRef}
+                  className={`ml-auto flex flex-wrap items-center justify-end gap-y-2 ${isIconPresentation ? "gap-x-3" : "gap-x-6"}`}
+                >
+                  {controls}
+                </div>
+              )
+            )
+            : null}
         </div>
       </motion.div>
 

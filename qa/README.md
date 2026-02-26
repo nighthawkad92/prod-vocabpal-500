@@ -16,6 +16,8 @@ Optional:
 3. `QA_DEPLOY_POLL_MS` (default `20000` in after-deploy runner)
 4. `QA_LOAD_*` overrides for weekly load profile thresholds/concurrency
 5. `QA_LOAD_GATE_MODE` (`advisory` default, `hard` optional)
+6. `QA_SOURCE_TOKEN` (required to mark automated attempts as `qa` source)
+7. `QA_CLEANUP_PREFIXES` (comma-separated prefixes for legacy QA residue cleanup)
 
 ## Suites
 
@@ -44,12 +46,17 @@ npm run qa:data
 npm run qa:after-deploy
 ```
 
-5. Hard release gate (code gates + remote/matrix/data + after-deploy, writes aggregated decision report):
+5. Cleanup QA attempts (archives tagged and legacy-prefix QA attempts):
+```bash
+npm run qa:cleanup
+```
+
+6. Hard release gate (code gates + remote/matrix/data + after-deploy, writes aggregated decision report):
 ```bash
 npm run qa:release-gate
 ```
 
-6. Weekly 500-student phased load profile:
+7. Weekly 500-student phased load profile:
 ```bash
 npm run qa:load-500
 ```
@@ -64,7 +71,8 @@ Reports are written to `qa/reports/`:
 4. `latest_after_deploy.json` + timestamped after-deploy reports
 5. `latest_release_gate.json` + timestamped release-gate reports
 6. `latest_load_profile_500.json` + timestamped load-profile reports
-7. Failure screenshots in `qa/reports/screenshots/`
+7. `latest_cleanup_qa_attempts.json` + timestamped cleanup reports
+8. Failure screenshots in `qa/reports/screenshots/`
 
 ## CI Secrets
 
@@ -75,3 +83,4 @@ For GitHub workflows, configure repository secrets:
 3. `SUPABASE_ANON_KEY`
 4. `TEACHER_PASSCODE`
 5. `TEACHER_NAME` (optional)
+6. `QA_SOURCE_TOKEN` (optional but strongly recommended for clean QA isolation)

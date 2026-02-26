@@ -24,6 +24,7 @@ const config = {
   teacherName: (process.env.TEACHER_NAME ?? "QA Agent").trim(),
   teacherPasscode: process.env.TEACHER_PASSCODE.trim(),
   studentPrefix: (process.env.QA_STUDENT_PREFIX ?? "QA").trim(),
+  qaSourceToken: (process.env.QA_SOURCE_TOKEN ?? "").trim(),
 };
 
 const answerByDisplayOrder = {
@@ -67,6 +68,7 @@ async function callFunction(path, { method = "GET", token, body } = {}) {
       apikey: config.anonKey,
       "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(config.qaSourceToken ? { "x-vocabpal-qa-source-token": config.qaSourceToken } : {}),
     },
     body: method === "GET" ? undefined : JSON.stringify(body ?? {}),
   });
@@ -153,7 +155,7 @@ async function getWindowStatus(token) {
 async function completeAttempt(student, answerOverrides = {}) {
   const start = await callFunction("student-start-attempt", {
     method: "POST",
-    body: student,
+    body: { ...student, attemptSource: "qa" },
   });
   expectStatus(start, 200, "student-start-attempt");
   assert(start.payload?.attemptId, "student-start-attempt did not return attemptId");
@@ -197,6 +199,26 @@ async function completeAttempt(student, answerOverrides = {}) {
     attemptId,
     completion: complete.payload,
   };
+}
+
+async function cleanupQaAttempts(token, attemptIds) {
+  const uniqueAttemptIds = Array.from(new Set(attemptIds.filter(Boolean)));
+  if (!token || uniqueAttemptIds.length === 0) return;
+
+  const cleanup = await callFunction("teacher-attempt-archive", {
+    method: "POST",
+    token,
+    body: { attemptIds: uniqueAttemptIds },
+  });
+  if (!cleanup.ok) {
+    throw new Error(
+      `QA cleanup archive failed (${cleanup.status}): ${JSON.stringify(cleanup.payload)}`,
+    );
+  }
+  addStep("qa-cleanup-archived", {
+    requested: uniqueAttemptIds.length,
+    archivedCount: cleanup.payload?.archivedCount ?? uniqueAttemptIds.length,
+  });
 }
 
 async function fetchAttemptDetail(token, attemptId) {
@@ -317,7 +339,7 @@ async function run() {
     score: classASecondAttempt.completion.totalScore10,
   });
 
-  const listAll = await callFunction("teacher-dashboard-list?limit=200", { token });
+  const listAll = await callFunction("teacher-dashboard-list?limit=200&source=all", { token });
   expectStatus(listAll, 200, "teacher-dashboard-list");
   const runAttempts = (listAll.payload.attempts ?? []).filter((attempt) =>
     attempt.student?.firstName === sharedIdentity.firstName &&
@@ -334,7 +356,9 @@ async function run() {
   assert(classCounts["Class B"] === 1, "Expected 1 attempt for Class B");
   addStep("dashboard-class-separation-validated", { classCounts });
 
-  const listClassA = await callFunction("teacher-dashboard-list?className=Class A&limit=200", { token });
+  const listClassA = await callFunction("teacher-dashboard-list?className=Class A&limit=200&source=all", {
+    token,
+  });
   expectStatus(listClassA, 200, "teacher-dashboard-list class filter");
   const runClassA = (listClassA.payload.attempts ?? []).filter((attempt) =>
     attempt.student?.firstName === sharedIdentity.firstName &&
@@ -353,13 +377,22 @@ async function run() {
   }
   addStep("attempt-detail-time-validated", { totalResponseTimeMs: totalResponseTime });
 
-  const summary = await callFunction("teacher-dashboard-summary", { token });
+  const summary = await callFunction("teacher-dashboard-summary?source=all", { token });
   expectStatus(summary, 200, "teacher-dashboard-summary");
   assert(summary.payload.attemptsTotal >= runAttempts.length, "Summary attemptsTotal should include run attempts");
   addStep("dashboard-summary-validated", {
     attemptsTotal: summary.payload.attemptsTotal,
     attemptsToday: summary.payload.attemptsToday,
   });
+
+  report.artifacts.identity = sharedIdentity;
+  report.artifacts.attemptIds = [
+    classAFirstAttempt.attemptId,
+    classBFirstAttempt.attemptId,
+    classASecondAttempt.attemptId,
+  ];
+
+  await cleanupQaAttempts(token, report.artifacts.attemptIds);
 
   await setWindowStatus(token, windowId, "ended");
 
@@ -368,12 +401,6 @@ async function run() {
   addStep("teacher-logout", { loggedOut: true });
 
   report.status = "passed";
-  report.artifacts.identity = sharedIdentity;
-  report.artifacts.attemptIds = [
-    classAFirstAttempt.attemptId,
-    classBFirstAttempt.attemptId,
-    classASecondAttempt.attemptId,
-  ];
 }
 
 async function main() {

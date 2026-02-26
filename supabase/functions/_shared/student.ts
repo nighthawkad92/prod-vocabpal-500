@@ -317,6 +317,7 @@ export async function createAttempt(
   studentId: string,
   testId: string,
   windowId: string,
+  attemptSource: "student" | "qa" = "student",
 ): Promise<AttemptRow> {
   const startedAt = new Date().toISOString();
   const { data, error } = await client
@@ -325,6 +326,7 @@ export async function createAttempt(
       student_id: studentId,
       test_id: testId,
       window_id: windowId,
+      attempt_source: attemptSource,
       status: "in_progress",
       started_at: startedAt,
     })

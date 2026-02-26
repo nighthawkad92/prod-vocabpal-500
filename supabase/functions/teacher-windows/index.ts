@@ -42,6 +42,10 @@ type WindowRow = {
   class_id: string | null;
 };
 
+type TtsQuestionRow = {
+  id: string;
+};
+
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 const ONE_MINUTE_MS = 60 * 1000;
 
@@ -158,6 +162,59 @@ function normalizeTimesForPatch(
   };
 }
 
+async function prewarmQuestionAudio(
+  client: ReturnType<typeof createAdminClient>,
+  testId: string,
+): Promise<{ attempted: number; warmed: number; failed: number }> {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+  if (!supabaseUrl || !anonKey) {
+    return { attempted: 0, warmed: 0, failed: 0 };
+  }
+
+  const questionResult = await client
+    .from("question_items")
+    .select("id")
+    .eq("test_id", testId)
+    .not("tts_text", "is", null)
+    .order("display_order", { ascending: true });
+
+  if (questionResult.error) {
+    throw new Error(`Failed to load TTS questions for prewarm: ${questionResult.error.message}`);
+  }
+
+  const questionIds = ((questionResult.data ?? []) as TtsQuestionRow[])
+    .map((row) => row.id)
+    .filter((value) => typeof value === "string" && value.length > 0);
+
+  if (questionIds.length === 0) {
+    return { attempted: 0, warmed: 0, failed: 0 };
+  }
+
+  const results = await Promise.allSettled(
+    questionIds.map(async (questionId) => {
+      const response = await fetch(`${supabaseUrl}/functions/v1/student-question-audio/${questionId}`, {
+        method: "GET",
+        headers: {
+          apikey: anonKey,
+          Authorization: `Bearer ${anonKey}`,
+        },
+        signal: AbortSignal.timeout(12_000),
+      });
+      if (!response.ok) {
+        throw new Error(`Prewarm failed for ${questionId}: ${response.status}`);
+      }
+    }),
+  );
+
+  const failed = results.filter((item) => item.status === "rejected").length;
+  return {
+    attempted: questionIds.length,
+    warmed: questionIds.length - failed,
+    failed,
+  };
+}
+
 Deno.serve(async (req) => {
   try {
     if (req.method === "OPTIONS") {
@@ -269,6 +326,23 @@ Deno.serve(async (req) => {
         requestedWindowId: requestedWindowId || null,
       });
 
+      if (resolvedStatus === "in_progress") {
+        try {
+          const prewarmSummary = await prewarmQuestionAudio(client, test.id);
+          await logTeacherEvent(client, teacherSession.teacher_name, "tts_prewarm_triggered", {
+            trigger: "window_status_updated",
+            windowId: updateResult.data.id,
+            ...prewarmSummary,
+          });
+        } catch (prewarmError) {
+          await logTeacherEvent(client, teacherSession.teacher_name, "tts_prewarm_failed", {
+            trigger: "window_status_updated",
+            windowId: updateResult.data.id,
+            error: prewarmError instanceof Error ? prewarmError.message : String(prewarmError),
+          });
+        }
+      }
+
       return json(req, 200, {
         updated: true,
         status: resolvedStatus,
@@ -354,6 +428,23 @@ Deno.serve(async (req) => {
       status,
       allowlistCount: allowlist.length,
     });
+
+    if (deriveStatus(windowInsert.data) === "in_progress") {
+      try {
+        const prewarmSummary = await prewarmQuestionAudio(client, test.id);
+        await logTeacherEvent(client, teacherSession.teacher_name, "tts_prewarm_triggered", {
+          trigger: "window_created",
+          windowId: windowInsert.data.id,
+          ...prewarmSummary,
+        });
+      } catch (prewarmError) {
+        await logTeacherEvent(client, teacherSession.teacher_name, "tts_prewarm_failed", {
+          trigger: "window_created",
+          windowId: windowInsert.data.id,
+          error: prewarmError instanceof Error ? prewarmError.message : String(prewarmError),
+        });
+      }
+    }
 
     return json(req, 200, {
       created: true,

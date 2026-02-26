@@ -131,7 +131,15 @@ async function main() {
     exitCode: dataAudit.exitCode,
   });
 
-  report.status = smoke.ok && matrix.ok && dataAudit.ok ? "passed" : "failed";
+  const cleanup = await runScript(join("qa", "cleanup_qa_attempts.mjs"));
+  report.stages.push({
+    stage: "cleanup-qa-attempts",
+    at: new Date().toISOString(),
+    pass: cleanup.ok,
+    exitCode: cleanup.exitCode,
+  });
+
+  report.status = smoke.ok && matrix.ok && dataAudit.ok && cleanup.ok ? "passed" : "failed";
 }
 
 const outDir = join(process.cwd(), "qa", "reports");

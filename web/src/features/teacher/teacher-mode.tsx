@@ -34,7 +34,6 @@ import signoutIcon from "@/assets/icons/signout.svg";
 import closeIcon from "@/assets/icons/times.svg";
 
 const TOKEN_KEY = "vocabpal.teacher.token";
-const NAME_KEY = "vocabpal.teacher.name";
 const ARCHIVE_CONFIRMATION_MESSAGE =
   "Archiving this attempt will reopen the baseline test for this student. Do you want to continue?";
 const ATTEMPTS_PAGE_SIZE = 25;
@@ -148,7 +147,7 @@ export function TeacherMode({
   playSound,
   onAuthStateChange,
 }: TeacherModeProps) {
-  const [fullName, setFullName] = useState(localStorage.getItem(NAME_KEY) ?? "Akash Datta");
+  const [fullName, setFullName] = useState("");
   const [passcode, setPasscode] = useState("");
   const [token, setToken] = useState(localStorage.getItem(TOKEN_KEY));
   const [summary, setSummary] = useState<TeacherSummary | null>(null);
@@ -159,6 +158,7 @@ export function TeacherMode({
   const [detail, setDetail] = useState<TeacherAttemptDetail | null>(null);
   const [searchText, setSearchText] = useState("");
   const [classFilter, setClassFilter] = useState("all");
+  const [stageFilter, setStageFilter] = useState<"all" | "0" | "1" | "2" | "3" | "4">("all");
   const [attemptPage, setAttemptPage] = useState(1);
   const [attemptsTotal, setAttemptsTotal] = useState(0);
   const [filteredAttemptsTotal, setFilteredAttemptsTotal] = useState(0);
@@ -188,6 +188,7 @@ export function TeacherMode({
     setDetail(null);
     setSearchText("");
     setClassFilter("all");
+    setStageFilter("all");
     setDraftClassFilter("all");
     setAttemptPage(1);
     setAttemptsTotal(0);
@@ -225,10 +226,14 @@ export function TeacherMode({
         const listParams = new URLSearchParams({
           limit: String(ATTEMPTS_PAGE_SIZE),
           offset: String(offset),
+          source: "student",
         });
         const trimmedSearch = searchText.trim();
         if (classFilter !== "all") {
           listParams.set("className", classFilter);
+        }
+        if (stageFilter !== "all") {
+          listParams.set("stage", stageFilter);
         }
         if (trimmedSearch) {
           listParams.set("search", trimmedSearch);
@@ -288,7 +293,7 @@ export function TeacherMode({
         }
       }
     },
-    [attemptPage, classFilter, expireTeacherSession, playSound, searchText, token],
+    [attemptPage, classFilter, expireTeacherSession, playSound, searchText, stageFilter, token],
   );
 
   const loadAttempt = useCallback(
@@ -392,6 +397,22 @@ export function TeacherMode({
     ).sort((a, b) => a.localeCompare(b));
   }, [attempts, summary]);
 
+  const stageCards = useMemo(() => {
+    const fallback = [0, 1, 2, 3, 4].map((stage) => ({
+      stage: stage as 0 | 1 | 2 | 3 | 4,
+      students: 0,
+      attempts: 0,
+      avgScore10: 0,
+    }));
+
+    if (!summary?.stageBreakdown?.length) {
+      return fallback;
+    }
+
+    const byStage = new Map(summary.stageBreakdown.map((row) => [row.stage, row]));
+    return fallback.map((row) => byStage.get(row.stage) ?? row);
+  }, [summary]);
+
   useEffect(() => {
     if (attempts.length === 0) {
       setSelectedAttemptId(null);
@@ -406,7 +427,7 @@ export function TeacherMode({
 
   useEffect(() => {
     setSelectedAttemptIds([]);
-  }, [attemptPage, classFilter, searchText]);
+  }, [attemptPage, classFilter, searchText, stageFilter]);
 
   useEffect(() => {
     setDraftClassFilter(classFilter);
@@ -454,10 +475,10 @@ export function TeacherMode({
 
         setToken(response.token);
         localStorage.setItem(TOKEN_KEY, response.token);
-        localStorage.setItem(NAME_KEY, response.teacherName);
         setPasscode("");
         setSearchText("");
         setClassFilter("all");
+        setStageFilter("all");
         setDraftClassFilter("all");
         setAttemptPage(1);
         setSelectedAttemptIds([]);
@@ -497,6 +518,7 @@ export function TeacherMode({
   const showingEnd = filteredAttemptsTotal === 0
     ? 0
     : Math.min((attemptPage - 1) * ATTEMPTS_PAGE_SIZE + attempts.length, filteredAttemptsTotal);
+  const stageFilterLabel = stageFilter === "all" ? null : `Stage ${stageFilter}`;
 
   const updateSessionStatus = useCallback(
     async (nextStatus: "paused" | "in_progress") => {
@@ -830,6 +852,7 @@ export function TeacherMode({
             <p className="text-xs font-semibold text-[color:var(--muted)]">
               Showing {showingStart}-{showingEnd} of {filteredAttemptsTotal} attempts
               {attemptsTotal !== filteredAttemptsTotal ? ` (total ${attemptsTotal})` : ""}
+              {stageFilterLabel ? ` · ${stageFilterLabel}` : ""}
             </p>
 
             <motion.div
@@ -863,11 +886,11 @@ export function TeacherMode({
                     void playSound("tap", { fromInteraction: true });
                   }}
                 >
-                  {allFilteredSelected ? "Clear visible" : "Select visible"}
+                  {allFilteredSelected ? "Unselect visible" : "Select visible"}
                 </MotionButton>
                 <MotionButton
                   motionPolicy={motionPolicy}
-                  variant="secondary"
+                  variant={selectedAttemptIds.length > 0 ? "destructive" : "secondary"}
                   size="sm"
                   disabled={busy || selectedAttemptIds.length === 0}
                   title={ARCHIVE_CONFIRMATION_MESSAGE}
@@ -1029,23 +1052,50 @@ export function TeacherMode({
           </div>
         </div>
 
-        {summary && summary.classBreakdown.length > 0 ? (
-          <div className="overflow-x-auto pb-1">
-            <div className="flex min-w-max items-stretch gap-3 pr-1">
-              {summary.classBreakdown.map((classSummary) => (
-                <ClassPerformanceRow
-                  key={classSummary.className}
-                  summary={classSummary}
-                  isActive={classFilter === classSummary.className}
-                  onSelect={(selectedClassName) => {
-                    const nextFilter = classFilter === selectedClassName ? "all" : selectedClassName;
-                    setClassFilter(nextFilter);
-                    setAttemptPage(1);
-                    void playSound("tap", { fromInteraction: true });
-                  }}
-                />
-              ))}
+        {summary ? (
+          <div className="space-y-3">
+            <div className="overflow-x-auto pb-1">
+              <div className="flex min-w-max items-stretch gap-3 pr-1">
+                {stageCards.map((stageSummary) => {
+                  const stageValue = String(stageSummary.stage) as "0" | "1" | "2" | "3" | "4";
+                  return (
+                    <StageDistributionCard
+                      key={`stage-${stageSummary.stage}`}
+                      summary={stageSummary}
+                      isActive={stageFilter === stageValue}
+                      onSelect={(selectedStage) => {
+                        const nextFilter = stageFilter === selectedStage ? "all" : selectedStage;
+                        setStageFilter(nextFilter);
+                        setAttemptPage(1);
+                        void playSound("tap", { fromInteraction: true });
+                      }}
+                    />
+                  );
+                })}
+              </div>
             </div>
+
+            {summary.classBreakdown.length > 0 ? (
+              <div className="overflow-x-auto pb-1">
+                <div className="flex min-w-max items-stretch gap-3 pr-1">
+                  {summary.classBreakdown.map((classSummary) => (
+                    <ClassPerformanceRow
+                      key={classSummary.className}
+                      summary={classSummary}
+                      isActive={classFilter === classSummary.className}
+                      onSelect={(selectedClassName) => {
+                        const nextFilter = classFilter === selectedClassName ? "all" : selectedClassName;
+                        setClassFilter(nextFilter);
+                        setAttemptPage(1);
+                        void playSound("tap", { fromInteraction: true });
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-[color:var(--muted)]">No class summaries yet.</p>
+            )}
           </div>
         ) : (
           <p className="text-sm text-[color:var(--muted)]">No attempts available yet.</p>
@@ -1094,6 +1144,7 @@ export function TeacherMode({
           <p className="text-xs font-semibold text-[color:var(--muted)]">
             Showing {showingStart}-{showingEnd} of {filteredAttemptsTotal} attempts
             {attemptsTotal !== filteredAttemptsTotal ? ` (total ${attemptsTotal})` : ""}
+            {stageFilterLabel ? ` · ${stageFilterLabel}` : ""}
           </p>
 
           <AnimatePresence initial={false}>
@@ -1111,8 +1162,8 @@ export function TeacherMode({
                   motionPolicy={motionPolicy}
                   variant="secondary"
                   size="icon"
-                  title={allFilteredSelected ? "Clear visible selection" : "Select visible attempts"}
-                  aria-label={allFilteredSelected ? "Clear visible selection" : "Select visible attempts"}
+                  title={allFilteredSelected ? "Unselect visible attempts" : "Select visible attempts"}
+                  aria-label={allFilteredSelected ? "Unselect visible attempts" : "Select visible attempts"}
                   disabled={busy || attempts.length === 0}
                   onClick={() => {
                     const nextSelectAll = !allFilteredSelected;
@@ -1124,7 +1175,7 @@ export function TeacherMode({
                 </MotionButton>
                 <MotionButton
                   motionPolicy={motionPolicy}
-                  variant="secondary"
+                  variant={selectedAttemptIds.length > 0 ? "destructive" : "secondary"}
                   size="icon"
                   title="Archive selected attempts"
                   aria-label="Archive selected attempts"
@@ -1429,6 +1480,7 @@ function HeaderActionSkeleton({ className }: HeaderActionSkeletonProps) {
 }
 
 type ClassSummaryRow = TeacherSummary["classBreakdown"][number];
+type StageSummaryRow = TeacherSummary["stageBreakdown"][number];
 
 type IconGlyphProps = {
   src: string;
@@ -1437,6 +1489,42 @@ type IconGlyphProps = {
 
 function IconGlyph({ src, alt }: IconGlyphProps) {
   return <img src={src} alt={alt} aria-hidden={alt === ""} className="h-4 w-4 shrink-0" />;
+}
+
+type StageDistributionCardProps = {
+  summary: StageSummaryRow;
+  isActive: boolean;
+  onSelect: (stage: "0" | "1" | "2" | "3" | "4") => void;
+};
+
+function StageDistributionCard({ summary, isActive, onSelect }: StageDistributionCardProps) {
+  const stageLabel = `Stage ${summary.stage}`;
+
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(String(summary.stage) as "0" | "1" | "2" | "3" | "4")}
+      className={`w-fit min-w-[180px] rounded-[var(--radius-xl)] border bg-white p-3 text-left shadow-[var(--shadow-2xs)] transition-colors ${
+        isActive
+          ? "border-[color:var(--ring)] ring-2 ring-[color:var(--ring)]/30"
+          : "border-[color:var(--line)] hover:bg-[color:var(--surface)]"
+      }`}
+      aria-pressed={isActive}
+      aria-label={`Filter attempts by ${stageLabel}`}
+    >
+      <div className="space-y-2">
+        <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[color:var(--muted)]">
+          {stageLabel}
+        </p>
+        <p className="text-3xl font-bold leading-none text-[color:var(--ink)]">
+          {summary.students}
+        </p>
+        <p className="text-xs font-semibold text-[color:var(--muted)]">
+          {summary.students === 1 ? "student" : "students"}
+        </p>
+      </div>
+    </button>
+  );
 }
 
 type ClassPerformanceRowProps = {

@@ -5,8 +5,10 @@ import { normalizeClassName } from "../_shared/student.ts";
 
 type AttemptSummaryRow = {
   id: string;
+  attempt_source: "student" | "qa";
   status: string;
   total_score_10: number;
+  placement_stage: number | null;
   started_at: string;
   students: {
     id: string;
@@ -33,13 +35,17 @@ Deno.serve(async (req) => {
 
     const url = new URL(req.url);
     const classFilter = (url.searchParams.get("className") ?? "").trim();
+    const sourceFilter = (url.searchParams.get("source") ?? "student").trim().toLowerCase();
     const dateFrom = url.searchParams.get("dateFrom");
     const dateTo = url.searchParams.get("dateTo");
+    const includeAllSources = sourceFilter === "all";
 
     let query = client.from("attempts").select(`
       id,
+      attempt_source,
       status,
       total_score_10,
+      placement_stage,
       started_at,
       students!inner(
         id,
@@ -52,6 +58,10 @@ Deno.serve(async (req) => {
       )
     `);
 
+    if (!includeAllSources) {
+      const resolvedSource = sourceFilter === "qa" ? "qa" : "student";
+      query = query.eq("attempt_source", resolvedSource);
+    }
     if (dateFrom) query = query.gte("started_at", dateFrom);
     if (dateTo) query = query.lte("started_at", dateTo);
 
@@ -74,6 +84,24 @@ Deno.serve(async (req) => {
 
     const todayIsoPrefix = new Date().toISOString().slice(0, 10);
     const attemptsToday = rows.filter((row) => row.started_at.startsWith(todayIsoPrefix)).length;
+    const completedRows = rows.filter((row) => row.status === "completed");
+    const stageBreakdown = [0, 1, 2, 3, 4].map((stage) => {
+      const stageRows = completedRows.filter((row) => row.placement_stage === stage);
+      const uniqueStudents = new Set(
+        stageRows
+          .map((row) => row.students?.id)
+          .filter((value): value is string => typeof value === "string" && value.length > 0),
+      );
+
+      return {
+        stage: stage as 0 | 1 | 2 | 3 | 4,
+        students: uniqueStudents.size,
+        attempts: stageRows.length,
+        avgScore10: stageRows.length === 0
+          ? 0
+          : Number((stageRows.reduce((sum, row) => sum + row.total_score_10, 0) / stageRows.length).toFixed(2)),
+      };
+    });
 
     const classMap = new Map<
       string,
@@ -114,6 +142,7 @@ Deno.serve(async (req) => {
       attemptsTotal,
       completedAttempts,
       avgScore10,
+      stageBreakdown,
       classBreakdown,
     });
   } catch (error) {

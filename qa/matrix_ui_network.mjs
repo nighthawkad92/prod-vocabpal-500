@@ -24,6 +24,7 @@ const config = {
   anonKey: process.env.SUPABASE_ANON_KEY.trim(),
   teacherPasscode: process.env.TEACHER_PASSCODE.trim(),
   teacherName: (process.env.TEACHER_NAME ?? "QA Matrix Agent").trim(),
+  qaSourceToken: (process.env.QA_SOURCE_TOKEN ?? "").trim(),
   finalizeAttempt: process.env.QA_MATRIX_FINALIZE_ATTEMPT === "true",
   caseLimit: Number(process.env.QA_MATRIX_CASE_LIMIT ?? 0),
   questionsToSubmit: Number(process.env.QA_MATRIX_QUESTIONS_TO_SUBMIT ?? 1),
@@ -139,6 +140,7 @@ async function callFunction(path, { method = "GET", token, body } = {}) {
       apikey: config.anonKey,
       "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(config.qaSourceToken ? { "x-vocabpal-qa-source-token": config.qaSourceToken } : {}),
     },
     body: method === "GET" ? undefined : JSON.stringify(body ?? {}),
   });
@@ -484,6 +486,29 @@ async function runUiCase(browser, deviceProfile, networkProfile, student, caseId
   try {
     await applyNetworkProfile(context, page, networkProfile);
 
+    if (config.qaSourceToken) {
+      await page.route("**/functions/v1/student-start-attempt", async (route) => {
+        const request = route.request();
+        let payload = {};
+        try {
+          payload = JSON.parse(request.postData() ?? "{}");
+        } catch {
+          payload = {};
+        }
+
+        await route.continue({
+          headers: {
+            ...request.headers(),
+            "x-vocabpal-qa-source-token": config.qaSourceToken,
+          },
+          postData: JSON.stringify({
+            ...payload,
+            attemptSource: "qa",
+          }),
+        });
+      });
+    }
+
     await page.addInitScript(() => {
       class MockAudio {
         constructor(src) {
@@ -621,7 +646,7 @@ async function runUiCase(browser, deviceProfile, networkProfile, student, caseId
 }
 
 async function runDataIntegrityChecks(token, scenarioStudents, attemptIds) {
-  const list = await callFunction("teacher-dashboard-list?limit=200", { token });
+  const list = await callFunction("teacher-dashboard-list?limit=200&source=all", { token });
   const attempts = list.payload?.attempts ?? [];
   const matrixAttempts = attempts.filter((attempt) =>
     scenarioStudents.some(
@@ -661,7 +686,7 @@ async function runDataIntegrityChecks(token, scenarioStudents, attemptIds) {
     });
   }
 
-  const summary = await callFunction("teacher-dashboard-summary", { token });
+  const summary = await callFunction("teacher-dashboard-summary?source=all", { token });
   const summaryPass = summary.status === 200 && Number.isFinite(summary.payload?.attemptsTotal);
   addApiCheck("teacher-dashboard-summary", summaryPass, {
     status: summary.status,
@@ -670,6 +695,21 @@ async function runDataIntegrityChecks(token, scenarioStudents, attemptIds) {
   });
 
   return identityCheckPass && detailChecksPass && summaryPass;
+}
+
+async function cleanupQaAttempts(token, attemptIds) {
+  const uniqueAttemptIds = Array.from(new Set(attemptIds.filter(Boolean)));
+  if (!token || uniqueAttemptIds.length === 0) return;
+  const cleanup = await callFunction("teacher-attempt-archive", {
+    method: "POST",
+    token,
+    body: { attemptIds: uniqueAttemptIds },
+  });
+  addApiCheck("qa-cleanup-archived", cleanup.status === 200, {
+    status: cleanup.status,
+    requested: uniqueAttemptIds.length,
+    archivedCount: cleanup.payload?.archivedCount ?? null,
+  });
 }
 
 async function main() {
@@ -743,6 +783,7 @@ async function main() {
     .map((item) => item.attemptId);
 
   await runDataIntegrityChecks(token, effectiveStudents, attemptIds);
+  await cleanupQaAttempts(token, attemptIds);
   await updateSessionStatus(token, windowId, "ended");
   await logoutTeacher(token);
 

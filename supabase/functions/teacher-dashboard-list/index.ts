@@ -5,6 +5,7 @@ import { normalizeClassName } from "../_shared/student.ts";
 
 type AttemptRow = {
   id: string;
+  attempt_source: "student" | "qa";
   status: string;
   started_at: string;
   ended_at: string | null;
@@ -42,6 +43,20 @@ function escapeLike(value: string): string {
     .replace(/,/g, "\\,");
 }
 
+function parseSourceFilter(value: string): "student" | "qa" | "all" {
+  if (value === "all") return "all";
+  if (value === "qa") return "qa";
+  return "student";
+}
+
+function parseStageFilter(value: string): number | null {
+  if (!value) return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return null;
+  if (parsed < 0 || parsed > 4) return null;
+  return Math.trunc(parsed);
+}
+
 Deno.serve(async (req) => {
   try {
     if (req.method === "OPTIONS") {
@@ -58,15 +73,29 @@ Deno.serve(async (req) => {
     const status = (url.searchParams.get("status") ?? "").trim();
     const className = (url.searchParams.get("className") ?? "").trim();
     const search = (url.searchParams.get("search") ?? "").trim();
+    const source = parseSourceFilter((url.searchParams.get("source") ?? "student").trim().toLowerCase());
+    const stageRaw = (url.searchParams.get("stage") ?? "").trim();
+    const stage = parseStageFilter(stageRaw);
     const limit = clampLimit(Number(url.searchParams.get("limit") ?? "25"));
     const offset = clampOffset(Number(url.searchParams.get("offset") ?? "0"));
+    if (stageRaw && stage === null) {
+      return json(req, 400, { error: "stage must be an integer between 0 and 4" });
+    }
 
     let totalCountQuery = client
       .from("attempts")
       .select("id", { count: "exact", head: true });
 
+    if (source !== "all") {
+      totalCountQuery = totalCountQuery.eq("attempt_source", source);
+    }
     if (status) {
       totalCountQuery = totalCountQuery.eq("status", status);
+    }
+    if (stage !== null) {
+      totalCountQuery = totalCountQuery
+        .eq("status", "completed")
+        .eq("placement_stage", stage);
     }
 
     const totalCountResult = await totalCountQuery;
@@ -144,8 +173,16 @@ Deno.serve(async (req) => {
       .from("attempts")
       .select("id", { count: "exact", head: true });
 
+    if (source !== "all") {
+      filteredCountQuery = filteredCountQuery.eq("attempt_source", source);
+    }
     if (status) {
       filteredCountQuery = filteredCountQuery.eq("status", status);
+    }
+    if (stage !== null) {
+      filteredCountQuery = filteredCountQuery
+        .eq("status", "completed")
+        .eq("placement_stage", stage);
     }
     if (studentIds) {
       filteredCountQuery = filteredCountQuery.in("student_id", studentIds);
@@ -177,6 +214,7 @@ Deno.serve(async (req) => {
       .from("attempts")
       .select(`
         id,
+        attempt_source,
         status,
         started_at,
         ended_at,
@@ -200,6 +238,14 @@ Deno.serve(async (req) => {
 
     if (status) {
       dataQuery = dataQuery.eq("status", status);
+    }
+    if (source !== "all") {
+      dataQuery = dataQuery.eq("attempt_source", source);
+    }
+    if (stage !== null) {
+      dataQuery = dataQuery
+        .eq("status", "completed")
+        .eq("placement_stage", stage);
     }
     if (studentIds) {
       dataQuery = dataQuery.in("student_id", studentIds);
@@ -230,6 +276,7 @@ Deno.serve(async (req) => {
         totalScore10: row.total_score_10,
         stars: row.stars,
         placementStage: row.placement_stage,
+        attemptSource: row.attempt_source,
         student: {
           id: row.students?.id ?? null,
           firstName: row.students?.first_name ?? null,
