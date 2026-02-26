@@ -187,7 +187,7 @@ Deno.serve(async (req) => {
 
       return json(req, 200, {
         hasWindow: Boolean(latestWindow),
-        status: latestWindow ? deriveStatus(latestWindow) : "paused",
+        status: latestWindow ? deriveStatus(latestWindow) : "ended",
         window: latestWindow,
       });
     }
@@ -228,6 +228,24 @@ Deno.serve(async (req) => {
         return json(req, 404, { error: "No baseline session found to update" });
       }
 
+      const currentStatus = deriveStatus(currentWindow);
+      if (status === "paused") {
+        if (!requestedWindowId) {
+          return json(req, 400, { error: "Manual pause requires an explicit windowId" });
+        }
+        if (currentStatus === "ended") {
+          return json(req, 409, { error: "Cannot pause an ended baseline session" });
+        }
+        if (currentStatus === "paused") {
+          return json(req, 200, {
+            updated: false,
+            status: currentStatus,
+            usedLatest: false,
+            window: currentWindow,
+          });
+        }
+      }
+
       const patch = normalizeTimesForPatch(status, currentWindow);
       const updateResult = await client
         .from("test_windows")
@@ -264,6 +282,11 @@ Deno.serve(async (req) => {
 
     const scope = body.scope ?? "all";
     const status = parseStatus(body.status, body.isOpen);
+    if (status === "paused") {
+      return json(req, 400, {
+        error: "Creating a paused baseline session is not allowed. Start in progress, then pause manually.",
+      });
+    }
     const normalizedTimes = normalizeTimesForCreate(status, body.startAt, body.endAt);
     const className = (body.className ?? "").trim();
     const allowlist = body.allowlist ?? [];

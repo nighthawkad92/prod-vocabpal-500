@@ -270,6 +270,11 @@ The PM agent is the scheduler. Only PM changes task state.
 | BE-012 | Update teacher-windows GET to prioritize latest non-ended window | Backend | PM-QA-016 | DONE | `teacher-windows` now scans recent windows and returns latest non-ended window before falling back to latest ended window |
 | QA-062 | Align remote smoke session cleanup to end (not pause) and validate static gates | QA | BE-012 | DONE | `qa/remote_smoke.mjs` now ends its QA session; typecheck/lint/build passed |
 | PM-QA-017 | Final signoff for baseline session-status stability fix | PM | QA-062 | DONE | signoff complete; build-triggered QA windows no longer force dashboard into paused via latest-window selection |
+| PM-QA-018 | Queue strict manual-pause enforcement so baseline never auto-pauses | PM | PM-QA-017 | DONE | scoped follow-up guardrails: no paused default/fallback state and no creating paused windows from implicit flows |
+| BE-013 | Enforce manual pause semantics in teacher-windows function | Backend | PM-QA-018 | DONE | no-window GET now reports `ended`, POST rejects paused creation, PATCH pause requires explicit window id and non-ended state |
+| UI-069 | Remove ended->paused coercion and block pause action when no active window | UI | BE-013 | DONE | teacher dashboard now preserves true session status and surfaces explicit error if pause is attempted without an active window |
+| QA-063 | Validate manual-pause-only behavior and static regression gates | QA | UI-069 | DONE | typecheck/lint/build passed; verified no automatic paused fallback in backend or teacher UI status mapping |
+| PM-QA-019 | Final signoff for manual-pause-only enforcement | PM | QA-063 | DONE | signoff complete; paused state now appears only after explicit teacher pause action on an active session |
 | PM-QA-010 | Queue post-push release-gate validation and CI checkpoint closure | PM | PM-002 | DONE | scoped QA harness alignment and rerun of `qa:after-deploy` after main push |
 | QA-010 | Align matrix harness with audio-end submit gate and rerun release gate | QA | PM-QA-010 | DONE | updated submit selector + mock audio `onended`; `qa:matrix` and `qa:after-deploy` passed |
 | PM-QA-011 | Sign off post-push QA recovery and checkpoint closure | PM | QA-010 | DONE | verified green after-deploy report and cleared CP-07 via GitHub secrets |

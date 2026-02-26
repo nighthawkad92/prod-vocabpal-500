@@ -487,7 +487,7 @@ export function TeacherMode({
     }
   }, [playSound, resetDashboardState, token]);
 
-  const sessionStatus = windowState?.status === "in_progress" ? "in_progress" : "paused";
+  const sessionStatus: SessionStatus = windowState?.status ?? "ended";
   const isStatusActionLoading = headerActionLoading === "status";
   const isRefreshActionLoading = headerActionLoading === "refresh";
   const totalPages = Math.max(1, Math.ceil(filteredAttemptsTotal / ATTEMPTS_PAGE_SIZE));
@@ -507,6 +507,12 @@ export function TeacherMode({
       setNotice(null);
 
       try {
+        if (!windowState?.window?.id && nextStatus === "paused") {
+          setError("No active baseline session to pause. Set baseline to In Progress first.");
+          void playSound("error", { fromInteraction: true });
+          return;
+        }
+
         let response: WindowMutationResponse;
         if (windowState?.window?.id) {
           response = await callFunction<WindowMutationResponse>("teacher-windows", {
@@ -1346,7 +1352,7 @@ export function TeacherMode({
 }
 
 type SessionStatusToggleProps = {
-  status: "paused" | "in_progress";
+  status: SessionStatus;
   compact?: boolean;
   iconOnly?: boolean;
   disabled?: boolean;
