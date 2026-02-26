@@ -682,6 +682,7 @@ export function TeacherMode({
                 id="teacher-name"
                 value={fullName}
                 onChange={(event) => setFullName(event.target.value)}
+                data-clarity-mask="true"
                 required
               />
 
@@ -795,6 +796,7 @@ export function TeacherMode({
                     setSearchText(event.target.value);
                     setAttemptPage(1);
                   }}
+                  data-clarity-mask="true"
                 />
               </div>
 
@@ -1064,6 +1066,7 @@ export function TeacherMode({
                   setSearchText(event.target.value);
                   setAttemptPage(1);
                 }}
+                data-clarity-mask="true"
               />
             </div>
             <MotionButton

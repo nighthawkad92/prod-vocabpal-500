@@ -748,6 +748,7 @@ export function StudentMode({
                     id="student-first-name"
                     value={firstName}
                     onChange={(event) => setFirstName(event.target.value)}
+                    data-clarity-mask="true"
                     required
                   />
 
@@ -756,6 +757,7 @@ export function StudentMode({
                     id="student-last-name"
                     value={lastName}
                     onChange={(event) => setLastName(event.target.value)}
+                    data-clarity-mask="true"
                     required
                   />
 

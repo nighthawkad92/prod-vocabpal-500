@@ -262,6 +262,10 @@ The PM agent is the scheduler. Only PM changes task state.
 | QA-059 | Validate Clarity event/tag emission and no-PII contract | QA | UI-067 | DONE | local static gates passed; verified instrumentation uses class/section primitives + hashed attempt alias and no student name fields |
 | QA-060 | Validate journey reconstruction readiness and rollout env docs | QA | QA-059 | DONE | funnel taxonomy documented for Clarity; env keys added to `.env.example` for production gating (`VITE_CLARITY_ENABLED`, `VITE_CLARITY_PROJECT_ID`) |
 | PM-ANL-002 | Final signoff for Clarity student journey rollout | PM | QA-060 | DONE | signoff complete; frontend-only analytics instrumentation accepted pending Vercel env configuration checkpoint |
+| PM-ANL-003 | Queue Clarity masking policy adjustment (mask name fields only) | PM | PM-ANL-002 | DONE | scoped selective masking: unmask app surfaces and explicitly mask name-entry/search fields |
+| UI-068 | Apply Clarity mask/unmask attributes across app shell and name fields | UI | PM-ANL-003 | DONE | added `data-clarity-unmask` at shell root and `data-clarity-mask` on student/teacher name fields and teacher name-search fields |
+| QA-061 | Validate Clarity masking behavior and static regression gates | QA | UI-068 | DONE | typecheck/lint/build pass; verified attributes present on target nodes with no runtime regressions |
+| PM-ANL-004 | Final signoff for Clarity masking policy adjustment | PM | QA-061 | DONE | signoff complete; masking policy implemented with documented Clarity input-field limitation |
 | PM-QA-010 | Queue post-push release-gate validation and CI checkpoint closure | PM | PM-002 | DONE | scoped QA harness alignment and rerun of `qa:after-deploy` after main push |
 | QA-010 | Align matrix harness with audio-end submit gate and rerun release gate | QA | PM-QA-010 | DONE | updated submit selector + mock audio `onended`; `qa:matrix` and `qa:after-deploy` passed |
 | PM-QA-011 | Sign off post-push QA recovery and checkpoint closure | PM | QA-010 | DONE | verified green after-deploy report and cleared CP-07 via GitHub secrets |

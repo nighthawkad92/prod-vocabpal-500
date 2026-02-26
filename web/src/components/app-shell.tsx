@@ -260,6 +260,7 @@ export function AppShell({
       className={`mx-auto w-full ${widthClass} ${paddingClass} space-y-4 pb-8 pt-5 text-[color:var(--ink)]`}
       data-motion-policy={motionPolicy}
       data-sound-enabled={soundEnabled ? "true" : "false"}
+      data-clarity-unmask="true"
     >
       <motion.div
         ref={headerRef}
