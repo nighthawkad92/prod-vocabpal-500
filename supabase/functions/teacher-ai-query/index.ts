@@ -52,6 +52,7 @@ Deno.serve(async (req) => {
 
     let fallbackUsed = true;
     let result = deterministic;
+    let openAiError: string | null = null;
 
     if (isOpenAiConfigured()) {
       try {
@@ -60,8 +61,11 @@ Deno.serve(async (req) => {
           result = mergeTeacherAiLanguagePatch(deterministic, patch);
           fallbackUsed = false;
         }
-      } catch {
+      } catch (openAiPatchError) {
         fallbackUsed = true;
+        openAiError = openAiPatchError instanceof Error
+          ? openAiPatchError.message
+          : "Unknown OpenAI patch error";
       }
     }
 
@@ -88,6 +92,7 @@ Deno.serve(async (req) => {
         classCount: dataset.classAggregates.length,
         responseCount: dataset.responses.length,
       },
+      openAiError,
     });
 
     return json(req, 200, payload);

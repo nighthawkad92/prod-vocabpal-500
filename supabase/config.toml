@@ -562,3 +562,9 @@ entrypoint = "./functions/teacher-attempt-archive/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/teacher-attempt-archive/*.html" ]
+
+[functions.teacher-ai-query]
+enabled = true
+verify_jwt = false
+import_map = "./functions/teacher-ai-query/deno.json"
+entrypoint = "./functions/teacher-ai-query/index.ts"

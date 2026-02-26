@@ -6,7 +6,7 @@ import type {
 
 const OPENAI_CHAT_URL = "https://api.openai.com/v1/chat/completions";
 const DEFAULT_MODEL = "gpt-4.1-mini";
-const OPENAI_TIMEOUT_MS = 8_000;
+const OPENAI_TIMEOUT_MS = 15_000;
 
 type OpenAiMessage = {
   role: "system" | "user";
@@ -16,7 +16,12 @@ type OpenAiMessage = {
 type OpenAiResponse = {
   choices?: Array<{
     message?: {
-      content?: string;
+      content?:
+        | string
+        | Array<{
+            type?: string;
+            text?: string;
+          }>;
     };
   }>;
 };
@@ -41,6 +46,35 @@ function getOpenAiConfig(): { apiKey: string; model: string } | null {
 
   const model = Deno.env.get("OPENAI_MODEL")?.trim() || DEFAULT_MODEL;
   return { apiKey: apiKey.trim(), model };
+}
+
+function extractOpenAiContent(payload: OpenAiResponse): string {
+  const content = payload.choices?.[0]?.message?.content;
+  if (typeof content === "string") {
+    return content;
+  }
+  if (Array.isArray(content)) {
+    return content
+      .map((part) => (typeof part?.text === "string" ? part.text : ""))
+      .join("")
+      .trim();
+  }
+  return "";
+}
+
+function parseJsonSafe(input: string): unknown {
+  const normalized = removeCodeFence(input);
+  try {
+    return JSON.parse(normalized) as unknown;
+  } catch {
+    const firstBrace = normalized.indexOf("{");
+    const lastBrace = normalized.lastIndexOf("}");
+    if (firstBrace >= 0 && lastBrace > firstBrace) {
+      const sliced = normalized.slice(firstBrace, lastBrace + 1);
+      return JSON.parse(sliced) as unknown;
+    }
+    throw new Error("OpenAI response was not valid JSON");
+  }
 }
 
 function buildPrompt(
@@ -102,6 +136,8 @@ export async function generateTeacherAiLanguagePatch(
       body: JSON.stringify({
         model: config.model,
         temperature: 0.2,
+        response_format: { type: "json_object" },
+        max_tokens: 900,
         messages: buildPrompt(intent, filters, deterministic),
       }),
       signal: controller.signal,
@@ -113,13 +149,12 @@ export async function generateTeacherAiLanguagePatch(
     }
 
     const payload = (await response.json()) as OpenAiResponse;
-    const content = payload.choices?.[0]?.message?.content;
+    const content = extractOpenAiContent(payload);
     if (!content || content.trim().length === 0) {
       throw new Error("OpenAI response contained no message content");
     }
 
-    const normalized = removeCodeFence(content);
-    return JSON.parse(normalized) as unknown;
+    return parseJsonSafe(content);
   } finally {
     clearTimeout(timeoutId);
   }
