@@ -266,6 +266,13 @@ The PM agent is the scheduler. Only PM changes task state.
 | UI-068 | Apply Clarity mask/unmask attributes across app shell and name fields | UI | PM-ANL-003 | DONE | added `data-clarity-unmask` at shell root and `data-clarity-mask` on student/teacher name fields and teacher name-search fields |
 | QA-061 | Validate Clarity masking behavior and static regression gates | QA | UI-068 | DONE | typecheck/lint/build pass; verified attributes present on target nodes with no runtime regressions |
 | PM-ANL-004 | Final signoff for Clarity masking policy adjustment | PM | QA-061 | DONE | signoff complete; masking policy implemented with documented Clarity input-field limitation |
+| PM-ANL-005 | Queue teacher AI copilot rollout (guided chips + structured responses) | PM | PM-002 | DONE | execution plan and board/checkpoints created; handoff `handoffs/PM-ANL-005.md` recorded |
+| BE-015 | Build `teacher-ai-query` backend contract and deterministic analytics + OpenAI patching | Backend | PM-ANL-005 | DONE | new edge function + shared analytics/OpenAI helpers added with strict schema validation and metadata-only audit logging |
+| UI-071 | Build teacher AI copilot panel with guided chips and structured response rendering | UI | BE-015 | DONE | desktop/tablet AI panel integrated into teacher dashboard with structured sections, chart renderer, and mobile fallback messaging |
+| UI-072 | Add AI copilot components and guidance to design system inventory | UI | UI-071 | DONE | AI catalog entries, playground tab examples, and design-system guidance card added |
+| QA-066 | Validate AI backend contract/auth/fallback and no-transcript persistence | QA | UI-072 | DONE | contract review completed; auth/fallback and no-transcript persistence verified in code paths |
+| QA-067 | Validate AI UX/data parity + static release gates | QA | QA-066 | DONE | typecheck/lint/build passed; `qa:release-gate` blocked locally due missing runtime env (`APP_URL`, etc.) |
+| PM-ANL-006 | Final signoff for teacher AI copilot rollout | PM | QA-067 | DONE | implementation signoff complete; production enablement pending CP-10 and CP-11 before live rollout |
 | PM-QA-016 | Queue baseline session-status stability fix for teacher dashboard | PM | PM-QA-015 | DONE | scoped production status drift fix: prefer latest non-ended window and avoid QA leaving paused latest window |
 | BE-012 | Update teacher-windows GET to prioritize latest non-ended window | Backend | PM-QA-016 | DONE | `teacher-windows` now scans recent windows and returns latest non-ended window before falling back to latest ended window |
 | QA-062 | Align remote smoke session cleanup to end (not pause) and validate static gates | QA | BE-012 | DONE | `qa/remote_smoke.mjs` now ends its QA session; typecheck/lint/build passed |
@@ -319,6 +326,8 @@ Only these checkpoints pause autonomous flow for user input/credentials.
 | CP-07-CI-SECRETS | Before enabling fully automated CI deploy | Add Supabase/Vercel secrets in GitHub Actions | REL-001 | CLEARED |
 | CP-08-CLARITY-PROJECT | Before first production Clarity collection | Create/get Microsoft Clarity project ID | PM-ANL-001 onward | PENDING |
 | CP-09-VERCEL-ENV-CLARITY | Before releasing Clarity instrumentation | Add `VITE_CLARITY_ENABLED=true` and `VITE_CLARITY_PROJECT_ID` in Vercel Production env | PM-ANL-002 | PENDING |
+| CP-10-OPENAI-SUPABASE-SECRET | Before enabling teacher AI response generation | Set Supabase secrets `OPENAI_API_KEY` and optional `OPENAI_MODEL` | BE-015, QA-066 | PENDING |
+| CP-11-VERCEL-ENV-TEACHER-AI | Before exposing teacher AI copilot in production UI | Set `VITE_TEACHER_AI_ENABLED=true` in Vercel Production env | UI-071, PM-ANL-006 | PENDING |
 
 ## 6. Autonomous Run Loop
 1. PM selects next `READY` task with highest dependency priority.

@@ -16,6 +16,7 @@ import type {
   TeacherSummary,
   TeacherWindowState,
 } from "@/features/shared/types";
+import { TeacherAiPanel } from "@/features/teacher/teacher-ai-panel";
 import { ApiError, callFunction } from "@/lib/env";
 import { formatDurationMs, formatSessionStatus } from "@/lib/format";
 import type { SfxEvent } from "@/lib/sfx";
@@ -39,6 +40,7 @@ const ARCHIVE_CONFIRMATION_MESSAGE =
   "Archiving this attempt will reopen the baseline test for this student. Do you want to continue?";
 const ATTEMPTS_PAGE_SIZE = 25;
 const MOBILE_BREAKPOINT_QUERY = "(max-width: 768px)";
+const TEACHER_AI_ENABLED = import.meta.env.VITE_TEACHER_AI_ENABLED === "true";
 
 type TeacherModeProps = {
   motionPolicy: MotionPolicy;
@@ -1175,15 +1177,36 @@ export function TeacherMode({
               <IconGlyph src={arrowRightIcon} alt="" />
             </MotionButton>
           </div>
+
+          {TEACHER_AI_ENABLED ? (
+            <Alert>AI insights are available on larger screens.</Alert>
+          ) : null}
         </div>
       ) : (
-        <motion.div
-          className="grid items-start gap-4 xl:grid-cols-[1fr_1.08fr]"
-          {...(motionPolicy === "full" ? cardMotion : { initial: false, animate: { opacity: 1, y: 0 } })}
-        >
-          {desktopAttemptsCard}
-          {desktopDetailCard}
-        </motion.div>
+        <div className="space-y-4">
+          <motion.div
+            className="grid items-start gap-4 xl:grid-cols-[1fr_1.08fr]"
+            {...(motionPolicy === "full" ? cardMotion : { initial: false, animate: { opacity: 1, y: 0 } })}
+          >
+            {desktopAttemptsCard}
+            {desktopDetailCard}
+          </motion.div>
+
+          {TEACHER_AI_ENABLED ? (
+            <motion.div
+              {...(motionPolicy === "full" ? cardMotion : { initial: false, animate: { opacity: 1, y: 0 } })}
+            >
+              <TeacherAiPanel
+                token={token}
+                classOptions={classOptions}
+                defaultClassFilter={classFilter}
+                motionPolicy={motionPolicy}
+                playSound={playSound}
+                onSessionExpired={expireTeacherSession}
+              />
+            </motion.div>
+          ) : null}
+        </div>
       )}
 
       <AnimatePresence>

@@ -97,3 +97,59 @@ export type TeacherAttemptDetail = {
     answeredAt: string | null;
   }>;
 };
+
+export type TeacherAiIntent =
+  | "class_snapshot"
+  | "students_need_support"
+  | "slow_questions"
+  | "class_comparison"
+  | "next_steps";
+
+export type TeacherAiTimeframe = "today" | "7d" | "30d" | "all";
+export type TeacherAiStatusFilter = "all" | "completed" | "in_progress";
+
+export type TeacherAiChartType = "bar" | "stacked_bar" | "donut" | "trend_line";
+export type TeacherAiChartUnit = "count" | "score" | "seconds" | "percent";
+
+export type TeacherAiChartSeries = {
+  label: string;
+  data: number[];
+};
+
+export type TeacherAiChartSpec = {
+  type: TeacherAiChartType;
+  title: string;
+  labels: string[];
+  series: TeacherAiChartSeries[];
+  yUnit?: TeacherAiChartUnit;
+};
+
+export type TeacherAiTableRow = {
+  label: string;
+  primary: string;
+  secondary?: string;
+  value: string;
+  trend?: string;
+};
+
+export type TeacherAiRequest = {
+  intent: TeacherAiIntent;
+  filters: {
+    className?: string;
+    timeframe?: TeacherAiTimeframe;
+    status?: TeacherAiStatusFilter;
+    limit?: number;
+  };
+};
+
+export type TeacherAiResponse = {
+  requestId: string;
+  intent: TeacherAiIntent;
+  summary: string;
+  insights: string[];
+  actions: string[];
+  chart: TeacherAiChartSpec;
+  tableRows: TeacherAiTableRow[];
+  sourceMetrics: Record<string, unknown>;
+  fallbackUsed: boolean;
+};

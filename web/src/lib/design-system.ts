@@ -145,6 +145,34 @@ const COMPONENT_CATALOG: ComponentCatalogItem[] = [
     variants: ["default", "secondary", "destructive", "ghost"],
     states: ["full motion", "reduced motion"],
   },
+  {
+    id: "prompt-chip",
+    name: "PromptChip",
+    description: "Guided prompt trigger chip for teacher AI copilot intents.",
+    variants: ["active", "inactive"],
+    states: ["default", "disabled"],
+  },
+  {
+    id: "insight-block",
+    name: "InsightBlock",
+    description: "Structured text block for AI summary, insights, and recommendations.",
+    variants: ["summary", "insights", "actions"],
+    states: ["default", "fallback"],
+  },
+  {
+    id: "ai-chart-card",
+    name: "AiChartCard",
+    description: "Lightweight teacher AI chart renderer (bar, stacked, donut, trend line).",
+    variants: ["bar", "stacked_bar", "donut", "trend_line"],
+    states: ["data", "empty"],
+  },
+  {
+    id: "ai-source-metrics-table",
+    name: "AiSourceMetricsTable",
+    description: "Structured list/table surface for evidence rows and source metrics.",
+    variants: ["rows", "metrics"],
+    states: ["with data", "empty"],
+  },
 ];
 
 function readCssVariable(name: string, fallback: string): string {
