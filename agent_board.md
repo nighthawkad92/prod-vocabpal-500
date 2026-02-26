@@ -279,6 +279,10 @@ The PM agent is the scheduler. Only PM changes task state.
 | BE-014 | Make student-start window resolution honor latest non-ended window state | Backend | PM-QA-020 | DONE | `getOpenWindowForStudent` now evaluates latest non-ended window (open/paused/allowlist) instead of any historical open window |
 | QA-064 | Add remote smoke pause/resume assertions and run static gates | QA | BE-014 | DONE | `qa/remote_smoke.mjs` now validates pause blocks student start and resume re-enables flow; typecheck/lint/build passed locally |
 | PM-QA-021 | Final signoff for pause/resume functional reliability | PM | QA-064 | DONE | signoff complete; pause/resume now validated at both API logic and QA smoke contract levels |
+| PM-DS-087 | Queue destructive-button icon contrast fix across app and design system | PM | PM-002 | DONE | scoped shared style fix so destructive button icons render white consistently without per-screen overrides |
+| UI-070 | Enforce white icon rendering in destructive button variant contract | UI | PM-DS-087 | DONE | updated shared destructive button variant to force child icon image filter to white across Button and MotionButton usage |
+| QA-065 | Validate destructive icon contrast in teacher dashboard and design system playground | QA | UI-070 | DONE | typecheck/lint/build passed; shared variant contract now guarantees white icon treatment in destructive controls |
+| PM-DS-088 | Final signoff for destructive icon contrast fix | PM | QA-065 | DONE | signoff complete for UI-only contrast update with no backend/schema impact |
 | PM-QA-010 | Queue post-push release-gate validation and CI checkpoint closure | PM | PM-002 | DONE | scoped QA harness alignment and rerun of `qa:after-deploy` after main push |
 | QA-010 | Align matrix harness with audio-end submit gate and rerun release gate | QA | PM-QA-010 | DONE | updated submit selector + mock audio `onended`; `qa:matrix` and `qa:after-deploy` passed |
 | PM-QA-011 | Sign off post-push QA recovery and checkpoint closure | PM | QA-010 | DONE | verified green after-deploy report and cleared CP-07 via GitHub secrets |

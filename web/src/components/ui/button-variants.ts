@@ -9,7 +9,8 @@ export const buttonVariants = cva(
           "bg-[color:var(--primary)] text-[color:var(--primary-foreground)] shadow-[var(--shadow-sm)] hover:bg-[color:var(--brand-700)]",
         secondary:
           "border border-[color:var(--border)] bg-[color:var(--secondary)] text-[color:var(--secondary-foreground)] shadow-[var(--shadow-2xs)] hover:bg-[color:var(--accent)]",
-        destructive: "bg-[color:var(--danger)] text-white hover:brightness-95",
+        destructive:
+          "bg-[color:var(--danger)] text-white hover:brightness-95 [&_img]:brightness-0 [&_img]:invert [&_img]:contrast-200",
         ghost: "border border-[color:var(--border)] bg-transparent text-[color:var(--foreground)] hover:bg-[color:var(--secondary)]",
       },
       size: {
