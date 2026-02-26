@@ -224,6 +224,13 @@ The PM agent is the scheduler. Only PM changes task state.
 | UI-053 | Add attempts multi-select + archive-selected controls in teacher dashboard | UI | BE-011 | DONE | added checkbox selection per attempt, select-visible/clear-visible controls, and archive-selected CTA with same confirmation dialog |
 | QA-045 | Validate multi-select archive flow and dashboard metric refresh behavior | QA | UI-053 | DONE | typecheck/lint/build pass; archive paths trigger refresh so counts/averages/class visuals recompute from latest data |
 | PM-DS-074 | Final signoff for teacher multi-select archive rollout | PM | QA-045 | DONE | signoff complete; requested bulk archive behavior delivered with no schema migration impact |
+| PM-DS-075 | Queue teacher mobile UX optimization | PM | PM-002 | DONE | queued mobile-only IA split (`Attempts`/`Detail`) and compact header strategy for <=768px |
+| UI-054 | Implement mobile Attempts/Detail split architecture | UI | PM-DS-075 | DONE | added mobile panel tabs, panel state persistence, and select-attempt auto-switch to detail |
+| UI-055 | Implement compact mobile header and contextual bulk-action bar | UI | UI-054 | DONE | compacted mobile teacher header controls and made bulk-action controls contextual on mobile selection |
+| UI-056 | Implement mobile detail sticky action row and auto-switch behavior | UI | UI-055 | DONE | mobile detail panel now has sticky top actions (`Back to attempts`, `Archive`) with preserved grouped detail content |
+| QA-051 | Mobile responsive/interaction regression for teacher dashboard | QA | UI-056 | DONE | typecheck/lint/build pass; validated mobile panel switching, selection flow, and desktop/tablet layout parity |
+| QA-052 | Data/action parity checks for archive, selection, pagination, filter in mobile mode | QA | QA-051 | DONE | validated archive and list controls preserve totals/filter/pagination state across mobile panel switches |
+| PM-DS-076 | Final signoff and release recommendation for mobile teacher UX optimization | PM | QA-052 | DONE | signoff complete; mobile-only UX optimization accepted with no backend/API/schema changes |
 | PM-QA-010 | Queue post-push release-gate validation and CI checkpoint closure | PM | PM-002 | DONE | scoped QA harness alignment and rerun of `qa:after-deploy` after main push |
 | QA-010 | Align matrix harness with audio-end submit gate and rerun release gate | QA | PM-QA-010 | DONE | updated submit selector + mock audio `onended`; `qa:matrix` and `qa:after-deploy` passed |
 | PM-QA-011 | Sign off post-push QA recovery and checkpoint closure | PM | QA-010 | DONE | verified green after-deploy report and cleared CP-07 via GitHub secrets |

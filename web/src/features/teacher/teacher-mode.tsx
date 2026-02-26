@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { Archive, RefreshCw } from "lucide-react";
+import { Archive, ArrowLeft, LogOut, RefreshCw } from "lucide-react";
 import { MotionButton } from "@/components/motion-button";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { MotionPolicy } from "@/hooks/use-motion-policy";
 import type {
   SessionStatus,
@@ -20,6 +21,7 @@ import type {
 import { ApiError, callFunction } from "@/lib/env";
 import { formatDurationMs, formatSessionStatus } from "@/lib/format";
 import type { SfxEvent } from "@/lib/sfx";
+import { cn } from "@/lib/utils";
 import logoVocabPal from "@/assets/branding/logo-vocabpal.png";
 
 const TOKEN_KEY = "vocabpal.teacher.token";
@@ -27,6 +29,9 @@ const NAME_KEY = "vocabpal.teacher.name";
 const ARCHIVE_CONFIRMATION_MESSAGE =
   "Archiving this attempt will reopen the baseline test for this student. Do you want to continue?";
 const ATTEMPTS_PAGE_SIZE = 25;
+const MOBILE_BREAKPOINT_QUERY = "(max-width: 768px)";
+
+type MobilePanel = "attempts" | "detail";
 
 type TeacherModeProps = {
   motionPolicy: MotionPolicy;
@@ -156,6 +161,13 @@ export function TeacherMode({
   const [headerActionLoading, setHeaderActionLoading] = useState<"status" | "refresh" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [isMobileTeacher, setIsMobileTeacher] = useState(() => {
+    if (typeof window === "undefined") {
+      return false;
+    }
+    return window.matchMedia(MOBILE_BREAKPOINT_QUERY).matches;
+  });
+  const [activeMobilePanel, setActiveMobilePanel] = useState<MobilePanel>("attempts");
 
   const resetDashboardState = useCallback(() => {
     setSummary(null);
@@ -328,6 +340,35 @@ export function TeacherMode({
     return () => window.clearTimeout(timeoutId);
   }, [notice]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const mediaQuery = window.matchMedia(MOBILE_BREAKPOINT_QUERY);
+    const updateMatch = (matches: boolean) => {
+      setIsMobileTeacher(matches);
+    };
+
+    updateMatch(mediaQuery.matches);
+
+    const handleChange = (event: MediaQueryListEvent) => {
+      updateMatch(event.matches);
+    };
+
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", handleChange);
+      return () => mediaQuery.removeEventListener("change", handleChange);
+    }
+
+    mediaQuery.addListener(handleChange);
+    return () => mediaQuery.removeListener(handleChange);
+  }, []);
+
+  useEffect(() => {
+    if (!isMobileTeacher && activeMobilePanel !== "attempts") {
+      setActiveMobilePanel("attempts");
+    }
+  }, [activeMobilePanel, isMobileTeacher]);
+
   const classOptions = useMemo(() => {
     if (summary && summary.classBreakdown.length > 0) {
       return summary.classBreakdown
@@ -358,6 +399,13 @@ export function TeacherMode({
   useEffect(() => {
     setSelectedAttemptIds([]);
   }, [attemptPage, classFilter, searchText]);
+
+  useEffect(() => {
+    if (!isMobileTeacher) return;
+    if (activeMobilePanel !== "detail") return;
+    if (selectedAttemptId) return;
+    setActiveMobilePanel("attempts");
+  }, [activeMobilePanel, isMobileTeacher, selectedAttemptId]);
 
   const selectedAttemptIdSet = useMemo(() => new Set(selectedAttemptIds), [selectedAttemptIds]);
   const allFilteredSelected = useMemo(
@@ -581,6 +629,13 @@ export function TeacherMode({
     });
   }, [attempts]);
 
+  const handleAttemptSelect = useCallback((attemptId: string) => {
+    setSelectedAttemptId(attemptId);
+    if (isMobileTeacher) {
+      setActiveMobilePanel("detail");
+    }
+  }, [isMobileTeacher]);
+
   if (!token) {
     return (
       <section
@@ -635,140 +690,106 @@ export function TeacherMode({
     );
   }
 
-  return (
-    <section className="space-y-4" aria-label="teacher-mode">
-      {notice ? (
-        <div className="fixed inset-x-0 top-4 z-50 flex justify-center px-4" role="status" aria-live="polite">
-          <Alert variant="success" className="w-full max-w-5xl shadow-[var(--shadow-md)]">
-            {notice}
-          </Alert>
-        </div>
-      ) : null}
-
-      <div className="space-y-4 px-2">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <CardTitle className="text-4xl">Teacher Dashboard</CardTitle>
-            <CardDescription>
-              Track class performance, inspect attempts, and control baseline availability.
-            </CardDescription>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            {isStatusActionLoading ? (
-              <HeaderActionSkeleton className="w-[220px]" />
-            ) : (
-              <SessionStatusToggle
-                status={sessionStatus}
-                disabled={busy}
-                onChange={(nextStatus) => {
-                  void playSound("tap", { fromInteraction: true });
-                  void updateSessionStatus(nextStatus);
-                }}
-              />
-            )}
-            {isRefreshActionLoading ? (
-              <HeaderActionSkeleton className="w-[128px]" />
-            ) : (
-              <MotionButton
-                motionPolicy={motionPolicy}
-                variant="secondary"
-                onClick={() => {
-                  void playSound("tap", { fromInteraction: true });
-                  void refresh(token ?? undefined, "refresh");
-                }}
-                disabled={busy}
-              >
-                <RefreshCw className="h-4 w-4" />
-                Refresh
-              </MotionButton>
-            )}
-            <MotionButton
-              motionPolicy={motionPolicy}
-              variant="destructive"
-              onClick={logout}
-            >
-              Logout
-            </MotionButton>
-          </div>
-        </div>
-
-        {summary && summary.classBreakdown.length > 0 ? (
-          <div className="overflow-x-auto pb-1">
-            <div className="flex min-w-max items-stretch gap-3 pr-1">
-            {summary.classBreakdown.map((classSummary) => (
-              <ClassPerformanceRow
-                key={classSummary.className}
-                summary={classSummary}
-                isActive={classFilter === classSummary.className}
-                onSelect={(selectedClassName) => {
-                  const nextFilter = classFilter === selectedClassName ? "all" : selectedClassName;
-                  setClassFilter(nextFilter);
-                  setAttemptPage(1);
-                  void playSound("tap", { fromInteraction: true });
-                }}
-              />
-            ))}
-            </div>
-          </div>
-        ) : (
-          <p className="text-sm text-[color:var(--muted)]">No attempts available yet.</p>
+  const attemptsCard = (
+    <Card>
+      <CardHeader>
+        <CardTitle className={cn("text-3xl", isMobileTeacher && "text-[2.15rem]")}>Attempts</CardTitle>
+        <CardDescription>
+          Search by student name and filter by class before selecting an attempt.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className={cn(
+          "space-y-3",
+          isMobileTeacher
+            ? "max-h-[65vh] overflow-y-auto pr-1"
+            : "xl:max-h-[calc(100vh-23rem)] xl:overflow-y-auto xl:pr-1",
         )}
-      </div>
-
-      <motion.div
-        className="grid items-start gap-4 xl:grid-cols-[1fr_1.08fr]"
-        {...(motionPolicy === "full" ? cardMotion : { initial: false, animate: { opacity: 1, y: 0 } })}
-      >
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-3xl">Attempts</CardTitle>
-            <CardDescription>
-              Search by student name and filter by class before selecting an attempt.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1">
-                  <Label htmlFor="attempt-search">Search</Label>
-                  <Input
-                    id="attempt-search"
-                    placeholder="Search by name"
-                    value={searchText}
-                    onChange={(event) => {
-                      setSearchText(event.target.value);
-                      setAttemptPage(1);
-                    }}
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <Label htmlFor="attempt-class-filter">Filter by class</Label>
-                  <Select
-                    id="attempt-class-filter"
-                    value={classFilter}
-                    onChange={(event) => {
-                      setClassFilter(event.target.value);
-                      setAttemptPage(1);
-                      void playSound("tap", { fromInteraction: true });
-                    }}
-                  >
-                    <option value="all">All classes</option>
-                    {classOptions.map((className) => (
-                      <option key={className} value={className}>
-                        {className}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
+        >
+          <div className={cn("space-y-3", isMobileTeacher && "sticky top-0 z-20 bg-[color:var(--surface)] pb-2")}>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1">
+                <Label htmlFor="attempt-search">Search</Label>
+                <Input
+                  id="attempt-search"
+                  placeholder="Search by name"
+                  value={searchText}
+                  onChange={(event) => {
+                    setSearchText(event.target.value);
+                    setAttemptPage(1);
+                  }}
+                />
               </div>
 
-              <p className="text-xs font-semibold text-[color:var(--muted)]">
-                Showing {showingStart}-{showingEnd} of {filteredAttemptsTotal} attempts
-                {attemptsTotal !== filteredAttemptsTotal ? ` (total ${attemptsTotal})` : ""}
-              </p>
+              <div className="space-y-1">
+                <Label htmlFor="attempt-class-filter">Filter by class</Label>
+                <Select
+                  id="attempt-class-filter"
+                  value={classFilter}
+                  onChange={(event) => {
+                    setClassFilter(event.target.value);
+                    setAttemptPage(1);
+                    void playSound("tap", { fromInteraction: true });
+                  }}
+                >
+                  <option value="all">All classes</option>
+                  {classOptions.map((className) => (
+                    <option key={className} value={className}>
+                      {className}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+            </div>
 
+            <p className="text-xs font-semibold text-[color:var(--muted)]">
+              Showing {showingStart}-{showingEnd} of {filteredAttemptsTotal} attempts
+              {attemptsTotal !== filteredAttemptsTotal ? ` (total ${attemptsTotal})` : ""}
+            </p>
+
+            {isMobileTeacher ? (
+              <AnimatePresence initial={false}>
+                {selectedAttemptIds.length > 0 ? (
+                  <motion.div
+                    key="mobile-selected-attempt-actions"
+                    initial={motionPolicy === "full" ? { opacity: 0, y: -6 } : { opacity: 0 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={motionPolicy === "full" ? { opacity: 0, y: -6 } : { opacity: 0 }}
+                    transition={motionPolicy === "full" ? { duration: 0.16, ease: "easeOut" } : undefined}
+                    className="flex flex-wrap items-center justify-end gap-2"
+                  >
+                    <Badge>{selectedAttemptIds.length} selected</Badge>
+                    <MotionButton
+                      motionPolicy={motionPolicy}
+                      variant="secondary"
+                      size="sm"
+                      disabled={busy || attempts.length === 0}
+                      onClick={() => {
+                        const nextSelectAll = !allFilteredSelected;
+                        toggleSelectAllFiltered(nextSelectAll);
+                        void playSound("tap", { fromInteraction: true });
+                      }}
+                    >
+                      {allFilteredSelected ? "Clear visible" : "Select visible"}
+                    </MotionButton>
+                    <MotionButton
+                      motionPolicy={motionPolicy}
+                      variant="secondary"
+                      size="sm"
+                      disabled={busy || selectedAttemptIds.length === 0}
+                      title={ARCHIVE_CONFIRMATION_MESSAGE}
+                      onClick={() => {
+                        void playSound("tap", { fromInteraction: true });
+                        archiveSelectedAttempts();
+                      }}
+                    >
+                      <Archive className="h-4 w-4" />
+                      Archive selected
+                    </MotionButton>
+                  </motion.div>
+                ) : null}
+              </AnimatePresence>
+            ) : (
               <motion.div
                 layout
                 className="flex flex-wrap items-center gap-2"
@@ -818,120 +839,153 @@ export function TeacherMode({
                   </MotionButton>
                 </div>
               </motion.div>
+            )}
+          </div>
 
-              <div className="xl:max-h-[calc(100vh-23rem)] xl:overflow-y-auto xl:pr-1">
-                <div className="grid gap-2 pb-16">
-                  {filteredAttemptsTotal === 0 ? (
-                    <Alert>No attempts recorded.</Alert>
-                  ) : attempts.length === 0 ? (
-                    <Alert>No attempts match this search/filter combination.</Alert>
-                  ) : (
-                    attempts.map((attempt) => {
-                      const className = attempt.student.className ?? "Unknown";
-                      const fullStudentName = [attempt.student.firstName, attempt.student.lastName]
-                        .filter(Boolean)
-                        .join(" ") || "Unknown student";
-                      const isSelected = selectedAttemptIdSet.has(attempt.id);
+          <div className="grid gap-2 pb-16">
+            {filteredAttemptsTotal === 0 ? (
+              <Alert>No attempts recorded.</Alert>
+            ) : attempts.length === 0 ? (
+              <Alert>No attempts match this search/filter combination.</Alert>
+            ) : (
+              attempts.map((attempt) => {
+                const className = attempt.student.className ?? "Unknown";
+                const fullStudentName = [attempt.student.firstName, attempt.student.lastName]
+                  .filter(Boolean)
+                  .join(" ") || "Unknown student";
+                const isSelected = selectedAttemptIdSet.has(attempt.id);
 
-                      return (
-                        <div key={attempt.id} className="flex items-stretch gap-2">
-                          <label className="flex w-9 items-center justify-center rounded-[var(--radius-lg)] border border-[color:var(--line)] bg-white shadow-[var(--shadow-2xs)]">
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={(event) => {
-                                toggleAttemptSelection(attempt.id, event.target.checked);
-                                void playSound("tap", { fromInteraction: true });
-                              }}
-                              aria-label={`Select attempt for ${fullStudentName}`}
-                              className="h-4 w-4 accent-[color:var(--brand-600)]"
-                            />
-                          </label>
+                return (
+                  <div key={attempt.id} className={cn("flex items-stretch gap-2", isMobileTeacher && "gap-1.5")}>
+                    <label className={cn(
+                      "flex items-center justify-center rounded-[var(--radius-lg)] border border-[color:var(--line)] bg-white shadow-[var(--shadow-2xs)]",
+                      isMobileTeacher ? "min-h-11 w-11" : "w-9",
+                    )}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={(event) => {
+                          toggleAttemptSelection(attempt.id, event.target.checked);
+                          void playSound("tap", { fromInteraction: true });
+                        }}
+                        aria-label={`Select attempt for ${fullStudentName}`}
+                        className="h-4 w-4 accent-[color:var(--brand-600)]"
+                      />
+                    </label>
 
-                          <MotionButton
-                            variant="secondary"
-                            motionPolicy={motionPolicy}
-                            className={`h-auto flex-1 justify-start px-3 py-3 text-left !bg-white hover:!bg-white ${
-                              attempt.id === selectedAttemptId
-                                ? "ring-2 ring-[color:var(--ring)]"
-                                : ""
-                            }`}
-                            onClick={() => {
-                              setSelectedAttemptId(attempt.id);
-                              void playSound("tap", { fromInteraction: true });
-                            }}
-                          >
-                            <div className="grid w-full gap-1 sm:grid-cols-[1fr_auto] sm:items-center">
-                              <div>
-                                <p className="text-sm font-semibold text-[color:var(--ink)]">{fullStudentName}</p>
-                                <p className="text-xs text-[color:var(--muted)]">{className}</p>
-                              </div>
-                              <div className="text-right text-xs font-semibold text-[color:var(--ink)]">
-                                <p>Score {attempt.totalScore10}/10</p>
-                                <p>{formatDateTimeCompact(attempt.startedAt)}</p>
-                              </div>
-                            </div>
-                          </MotionButton>
+                    <MotionButton
+                      variant="secondary"
+                      motionPolicy={motionPolicy}
+                      className={cn(
+                        "h-auto flex-1 justify-start text-left !bg-white hover:!bg-white",
+                        isMobileTeacher ? "px-2.5 py-2.5" : "px-3 py-3",
+                        attempt.id === selectedAttemptId ? "ring-2 ring-[color:var(--ring)]" : "",
+                      )}
+                      onClick={() => {
+                        handleAttemptSelect(attempt.id);
+                        void playSound("tap", { fromInteraction: true });
+                      }}
+                    >
+                      <div className="grid w-full gap-1 sm:grid-cols-[1fr_auto] sm:items-center">
+                        <div>
+                          <p className="text-sm font-semibold text-[color:var(--ink)]">{fullStudentName}</p>
+                          <p className="text-xs text-[color:var(--muted)]">{className}</p>
                         </div>
-                      );
-                    })
-                  )}
-                </div>
+                        <div className="text-right text-xs font-semibold text-[color:var(--ink)]">
+                          <p>Score {attempt.totalScore10}/10</p>
+                          <p>{formatDateTimeCompact(attempt.startedAt)}</p>
+                        </div>
+                      </div>
+                    </MotionButton>
+                  </div>
+                );
+              })
+            )}
+          </div>
 
-                <div className="sticky bottom-0 z-10 mt-2 flex flex-wrap items-center gap-2 bg-[color:var(--surface)]/95 py-2 backdrop-blur-[2px]">
-                  <MotionButton
-                    motionPolicy={motionPolicy}
-                    variant="secondary"
-                    size="sm"
-                    disabled={busy || attemptPage <= 1}
-                    onClick={() => {
-                      setAttemptPage((current) => Math.max(1, current - 1));
-                      void playSound("tap", { fromInteraction: true });
-                    }}
-                  >
-                    Previous
-                  </MotionButton>
-                  <Badge>Page {attemptPage} of {totalPages}</Badge>
-                  <MotionButton
-                    motionPolicy={motionPolicy}
-                    variant="secondary"
-                    size="sm"
-                    disabled={busy || filteredAttemptsTotal === 0 || attemptPage >= totalPages}
-                    onClick={() => {
-                      setAttemptPage((current) => Math.min(totalPages, current + 1));
-                      void playSound("tap", { fromInteraction: true });
-                    }}
-                  >
-                    Next
-                  </MotionButton>
-                </div>
+          <div className="sticky bottom-0 z-10 mt-2 flex flex-wrap items-center gap-2 bg-[color:var(--surface)]/95 py-2 backdrop-blur-[2px]">
+            <MotionButton
+              motionPolicy={motionPolicy}
+              variant="secondary"
+              size="sm"
+              disabled={busy || attemptPage <= 1}
+              onClick={() => {
+                setAttemptPage((current) => Math.max(1, current - 1));
+                void playSound("tap", { fromInteraction: true });
+              }}
+            >
+              Previous
+            </MotionButton>
+            <Badge>Page {attemptPage} of {totalPages}</Badge>
+            <MotionButton
+              motionPolicy={motionPolicy}
+              variant="secondary"
+              size="sm"
+              disabled={busy || filteredAttemptsTotal === 0 || attemptPage >= totalPages}
+              onClick={() => {
+                setAttemptPage((current) => Math.min(totalPages, current + 1));
+                void playSound("tap", { fromInteraction: true });
+              }}
+            >
+              Next
+            </MotionButton>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  const detailCard = isMobileTeacher ? (
+    <Card className="h-fit p-0">
+      {!detail ? (
+        <CardContent className="p-4">
+          <p className="text-sm text-[color:var(--muted)]">
+            {detailBusy
+              ? "Loading attempt detail..."
+              : "Select an attempt in the Attempts tab to review detailed performance."}
+          </p>
+          <MotionButton
+            motionPolicy={motionPolicy}
+            variant="secondary"
+            size="sm"
+            className="mt-3"
+            onClick={() => {
+              setActiveMobilePanel("attempts");
+              void playSound("tap", { fromInteraction: true });
+            }}
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to attempts
+          </MotionButton>
+        </CardContent>
+      ) : (
+        <div className="max-h-[65vh] overflow-y-auto">
+          <div className="sticky top-0 z-20 border-b border-[color:var(--line)] bg-[color:var(--surface)] px-4 py-3 shadow-[var(--shadow-2xs)]">
+            <div className="space-y-2">
+              <div>
+                <CardTitle className="text-3xl">Attempt Detail</CardTitle>
+                <CardDescription>
+                  Review timing, correctness, and question-level outcomes.
+                </CardDescription>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="h-fit xl:sticky xl:top-6">
-          {!detail ? (
-            <CardContent>
-              <p className="text-sm text-[color:var(--muted)]">
-                {detailBusy
-                  ? "Loading attempt detail..."
-                  : "Select an attempt to review detailed performance."}
-              </p>
-            </CardContent>
-          ) : (
-            <>
-              <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <CardTitle className="text-3xl">Attempt Detail</CardTitle>
-                  <CardDescription>
-                    Review timing, correctness, and question-level outcomes.
-                  </CardDescription>
-                </div>
+              <div className="flex flex-wrap items-center gap-2">
                 <MotionButton
                   motionPolicy={motionPolicy}
                   variant="secondary"
-                  className="self-start"
+                  size="sm"
+                  onClick={() => {
+                    setActiveMobilePanel("attempts");
+                    void playSound("tap", { fromInteraction: true });
+                  }}
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  Back to attempts
+                </MotionButton>
+                <MotionButton
+                  motionPolicy={motionPolicy}
+                  variant="secondary"
+                  size="sm"
                   disabled={busy}
                   title={ARCHIVE_CONFIRMATION_MESSAGE}
                   onClick={() => {
@@ -942,15 +996,176 @@ export function TeacherMode({
                   <Archive className="h-4 w-4" />
                   Archive
                 </MotionButton>
-              </CardHeader>
+              </div>
+            </div>
+          </div>
 
-              <CardContent>
-                <AttemptDetailBody detail={detail} />
-              </CardContent>
-            </>
-          )}
-        </Card>
-      </motion.div>
+          <div className="p-4">
+            <AttemptDetailBody detail={detail} />
+          </div>
+        </div>
+      )}
+    </Card>
+  ) : (
+    <Card className="h-fit xl:sticky xl:top-6">
+      {!detail ? (
+        <CardContent>
+          <p className="text-sm text-[color:var(--muted)]">
+            {detailBusy
+              ? "Loading attempt detail..."
+              : "Select an attempt to review detailed performance."}
+          </p>
+        </CardContent>
+      ) : (
+        <>
+          <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <CardTitle className="text-3xl">Attempt Detail</CardTitle>
+              <CardDescription>
+                Review timing, correctness, and question-level outcomes.
+              </CardDescription>
+            </div>
+            <MotionButton
+              motionPolicy={motionPolicy}
+              variant="secondary"
+              className="self-start"
+              disabled={busy}
+              title={ARCHIVE_CONFIRMATION_MESSAGE}
+              onClick={() => {
+                void playSound("tap", { fromInteraction: true });
+                archiveAttempt();
+              }}
+            >
+              <Archive className="h-4 w-4" />
+              Archive
+            </MotionButton>
+          </CardHeader>
+
+          <CardContent>
+            <AttemptDetailBody detail={detail} />
+          </CardContent>
+        </>
+      )}
+    </Card>
+  );
+
+  return (
+    <section className="space-y-4" aria-label="teacher-mode">
+      {notice ? (
+        <div className="fixed inset-x-0 top-4 z-50 flex justify-center px-4" role="status" aria-live="polite">
+          <Alert variant="success" className="w-full max-w-5xl shadow-[var(--shadow-md)]">
+            {notice}
+          </Alert>
+        </div>
+      ) : null}
+
+      <div className="space-y-4 px-2">
+        <div className={cn("flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between", isMobileTeacher && "gap-2")}>
+          <div className={cn(isMobileTeacher && "space-y-1")}>
+            <CardTitle className={cn("text-4xl", isMobileTeacher && "text-3xl leading-tight")}>Teacher Dashboard</CardTitle>
+            <CardDescription className={cn(isMobileTeacher && "max-w-[38ch] text-base")}>
+              Track class performance, inspect attempts, and control baseline availability.
+            </CardDescription>
+          </div>
+
+          <div className={cn("flex flex-wrap items-center gap-2", isMobileTeacher && "w-full")}>
+            {isStatusActionLoading ? (
+              <HeaderActionSkeleton className={isMobileTeacher ? "w-[210px]" : "w-[220px]"} />
+            ) : (
+              <SessionStatusToggle
+                status={sessionStatus}
+                compact={isMobileTeacher}
+                disabled={busy}
+                onChange={(nextStatus) => {
+                  void playSound("tap", { fromInteraction: true });
+                  void updateSessionStatus(nextStatus);
+                }}
+              />
+            )}
+            {isRefreshActionLoading ? (
+              <HeaderActionSkeleton className={isMobileTeacher ? "w-[112px]" : "w-[128px]"} />
+            ) : (
+              <MotionButton
+                motionPolicy={motionPolicy}
+                variant="secondary"
+                size={isMobileTeacher ? "sm" : undefined}
+                onClick={() => {
+                  void playSound("tap", { fromInteraction: true });
+                  void refresh(token ?? undefined, "refresh");
+                }}
+                disabled={busy}
+              >
+                <RefreshCw className="h-4 w-4" />
+                Refresh
+              </MotionButton>
+            )}
+            <MotionButton
+              motionPolicy={motionPolicy}
+              variant="destructive"
+              size={isMobileTeacher ? "sm" : undefined}
+              onClick={logout}
+            >
+              <LogOut className="h-4 w-4" />
+              Logout
+            </MotionButton>
+          </div>
+        </div>
+
+        {summary && summary.classBreakdown.length > 0 ? (
+          <div className="overflow-x-auto pb-1">
+            <div className="flex min-w-max items-stretch gap-3 pr-1">
+              {summary.classBreakdown.map((classSummary) => (
+                <ClassPerformanceRow
+                  key={classSummary.className}
+                  summary={classSummary}
+                  isActive={classFilter === classSummary.className}
+                  onSelect={(selectedClassName) => {
+                    const nextFilter = classFilter === selectedClassName ? "all" : selectedClassName;
+                    setClassFilter(nextFilter);
+                    setAttemptPage(1);
+                    void playSound("tap", { fromInteraction: true });
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-[color:var(--muted)]">No attempts available yet.</p>
+        )}
+      </div>
+
+      {isMobileTeacher ? (
+        <Tabs
+          value={activeMobilePanel}
+          onValueChange={(nextValue) => {
+            setActiveMobilePanel(nextValue as MobilePanel);
+            void playSound("tap", { fromInteraction: true });
+          }}
+          className="space-y-3 px-2"
+          aria-label="teacher-mobile-panels"
+        >
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger className="w-full" value="attempts">Attempts</TabsTrigger>
+            <TabsTrigger className="w-full" value="detail">Detail</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="attempts">
+            {attemptsCard}
+          </TabsContent>
+
+          <TabsContent value="detail">
+            {detailCard}
+          </TabsContent>
+        </Tabs>
+      ) : (
+        <motion.div
+          className="grid items-start gap-4 xl:grid-cols-[1fr_1.08fr]"
+          {...(motionPolicy === "full" ? cardMotion : { initial: false, animate: { opacity: 1, y: 0 } })}
+        >
+          {attemptsCard}
+          {detailCard}
+        </motion.div>
+      )}
 
       {error && <Alert variant="destructive">{error}</Alert>}
     </section>
@@ -959,20 +1174,28 @@ export function TeacherMode({
 
 type SessionStatusToggleProps = {
   status: "paused" | "in_progress";
+  compact?: boolean;
   disabled?: boolean;
   onChange: (status: "paused" | "in_progress") => void;
 };
 
-function SessionStatusToggle({ status, disabled = false, onChange }: SessionStatusToggleProps) {
+function SessionStatusToggle({ status, compact = false, disabled = false, onChange }: SessionStatusToggleProps) {
   return (
-    <div className="inline-flex items-center rounded-[var(--radius-xl)] border border-[color:var(--line)] bg-white p-1 shadow-[var(--shadow-2xs)]">
+    <div
+      className={cn(
+        "inline-flex items-center rounded-[var(--radius-xl)] border border-[color:var(--line)] bg-white p-1 shadow-[var(--shadow-2xs)]",
+        compact && "w-fit",
+      )}
+    >
       <button
         type="button"
-        className={`rounded-[var(--radius-lg)] px-3 py-1.5 text-sm font-semibold transition-colors ${
+        className={cn(
+          "rounded-[var(--radius-lg)] font-semibold transition-colors",
+          compact ? "min-h-9 px-3 py-1 text-sm" : "px-3 py-1.5 text-sm",
           status === "paused"
             ? "bg-[color:var(--secondary)] text-[color:var(--ink)]"
-            : "bg-transparent text-[color:var(--muted)]"
-        }`}
+            : "bg-transparent text-[color:var(--muted)]",
+        )}
         disabled={disabled}
         onClick={() => onChange("paused")}
       >
@@ -980,11 +1203,13 @@ function SessionStatusToggle({ status, disabled = false, onChange }: SessionStat
       </button>
       <button
         type="button"
-        className={`rounded-[var(--radius-lg)] px-3 py-1.5 text-sm font-semibold transition-colors ${
+        className={cn(
+          "rounded-[var(--radius-lg)] font-semibold transition-colors",
+          compact ? "min-h-9 px-3 py-1 text-sm" : "px-3 py-1.5 text-sm",
           status === "in_progress"
             ? "bg-[color:var(--secondary)] text-[color:var(--ink)]"
-            : "bg-transparent text-[color:var(--muted)]"
-        }`}
+            : "bg-transparent text-[color:var(--muted)]",
+        )}
         disabled={disabled}
         onClick={() => onChange("in_progress")}
       >
