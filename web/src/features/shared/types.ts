@@ -101,12 +101,9 @@ export type TeacherAttemptDetail = {
 export type TeacherAiIntent =
   | "class_snapshot"
   | "students_need_support"
-  | "slow_questions"
-  | "class_comparison"
-  | "next_steps";
+  | "slow_questions";
 
-export type TeacherAiTimeframe = "today" | "7d" | "30d" | "all";
-export type TeacherAiStatusFilter = "all" | "completed" | "in_progress";
+export type TeacherAiTimeframe = "24h" | "7d" | "30d" | "all";
 
 export type TeacherAiChartType = "bar" | "stacked_bar" | "donut" | "trend_line";
 export type TeacherAiChartUnit = "count" | "score" | "seconds" | "percent";
@@ -130,14 +127,14 @@ export type TeacherAiTableRow = {
   secondary?: string;
   value: string;
   trend?: string;
+  stageNo?: 0 | 1 | 2 | 3 | 4 | null;
 };
 
 export type TeacherAiRequest = {
   intent: TeacherAiIntent;
   filters: {
-    className?: string;
+    classNames?: string[];
     timeframe?: TeacherAiTimeframe;
-    status?: TeacherAiStatusFilter;
     limit?: number;
   };
 };
@@ -147,7 +144,6 @@ export type TeacherAiResponse = {
   intent: TeacherAiIntent;
   summary: string;
   insights: string[];
-  actions: string[];
   chart: TeacherAiChartSpec;
   tableRows: TeacherAiTableRow[];
   sourceMetrics: Record<string, unknown>;

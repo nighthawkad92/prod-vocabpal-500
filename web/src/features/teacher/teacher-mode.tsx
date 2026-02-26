@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { MotionPolicy } from "@/hooks/use-motion-policy";
 import type {
   SessionStatus,
@@ -180,6 +181,7 @@ export function TeacherMode({
   const [detailAttemptId, setDetailAttemptId] = useState<string | null>(null);
   const [isClassFilterSheetOpen, setIsClassFilterSheetOpen] = useState(false);
   const [draftClassFilter, setDraftClassFilter] = useState("all");
+  const [teacherViewTab, setTeacherViewTab] = useState<"attempts" | "ai">("attempts");
 
   const resetDashboardState = useCallback(() => {
     setSummary(null);
@@ -420,6 +422,14 @@ export function TeacherMode({
       setDetailAttemptId(null);
     }
   }, [isDetailSheetOpen, isMobileTeacher]);
+
+  useEffect(() => {
+    if (teacherViewTab === "attempts") return;
+    if (isDetailSheetOpen) {
+      setIsDetailSheetOpen(false);
+      setDetailAttemptId(null);
+    }
+  }, [isDetailSheetOpen, teacherViewTab]);
 
   useEffect(() => {
     if (!isDetailSheetOpen || !detailAttemptId) return;
@@ -1031,168 +1041,200 @@ export function TeacherMode({
           </div>
         </div>
 
-        {summary && summary.classBreakdown.length > 0 ? (
-          <div className="overflow-x-auto pb-1">
-            <div className="flex min-w-max items-stretch gap-3 pr-1">
-              {summary.classBreakdown.map((classSummary) => (
-                <ClassPerformanceRow
-                  key={classSummary.className}
-                  summary={classSummary}
-                  isActive={classFilter === classSummary.className}
-                  onSelect={(selectedClassName) => {
-                    const nextFilter = classFilter === selectedClassName ? "all" : selectedClassName;
-                    setClassFilter(nextFilter);
-                    setAttemptPage(1);
-                    void playSound("tap", { fromInteraction: true });
-                  }}
-                />
-              ))}
+        {TEACHER_AI_ENABLED ? (
+          <Tabs
+            value={teacherViewTab}
+            onValueChange={(value) => {
+              setTeacherViewTab(value as "attempts" | "ai");
+              void playSound("tap", { fromInteraction: true });
+            }}
+            className="space-y-0"
+          >
+            <TabsList className={cn("w-fit", isMobileTeacher && "w-full justify-between")}>
+              <TabsTrigger value="attempts" className={cn(isMobileTeacher && "flex-1")}>Attempts</TabsTrigger>
+              <TabsTrigger value="ai" className={cn(isMobileTeacher && "flex-1")}>AI Copilot</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        ) : null}
+
+        {teacherViewTab === "attempts" ? (
+          summary && summary.classBreakdown.length > 0 ? (
+            <div className="overflow-x-auto pb-1">
+              <div className="flex min-w-max items-stretch gap-3 pr-1">
+                {summary.classBreakdown.map((classSummary) => (
+                  <ClassPerformanceRow
+                    key={classSummary.className}
+                    summary={classSummary}
+                    isActive={classFilter === classSummary.className}
+                    onSelect={(selectedClassName) => {
+                      const nextFilter = classFilter === selectedClassName ? "all" : selectedClassName;
+                      setClassFilter(nextFilter);
+                      setAttemptPage(1);
+                      void playSound("tap", { fromInteraction: true });
+                    }}
+                  />
+                ))}
+              </div>
             </div>
-          </div>
-        ) : (
-          <p className="text-sm text-[color:var(--muted)]">No attempts available yet.</p>
-        )}
+          ) : (
+            <p className="text-sm text-[color:var(--muted)]">No attempts available yet.</p>
+          )
+        ) : null}
       </div>
 
       {isMobileTeacher ? (
-        <div className="space-y-3 px-2">
-          <div className="space-y-1">
-            <CardTitle className="text-[2.15rem] leading-tight">Attempts</CardTitle>
-            <CardDescription>
-              Search by student name and filter by class before selecting an attempt.
-            </CardDescription>
-          </div>
+        teacherViewTab === "attempts" ? (
+          <div className="space-y-3 px-2">
+            <div className="space-y-1">
+              <CardTitle className="text-[2.15rem] leading-tight">Attempts</CardTitle>
+              <CardDescription>
+                Search by student name and filter by class before selecting an attempt.
+              </CardDescription>
+            </div>
 
-          <div className="flex items-end gap-2">
-            <div className="flex-1 space-y-1">
-              <Label htmlFor="attempt-search-mobile">Search</Label>
-              <Input
-                id="attempt-search-mobile"
-                placeholder="Search by name"
-                value={searchText}
-                onChange={(event) => {
-                  setSearchText(event.target.value);
-                  setAttemptPage(1);
+            <div className="flex items-end gap-2">
+              <div className="flex-1 space-y-1">
+                <Label htmlFor="attempt-search-mobile">Search</Label>
+                <Input
+                  id="attempt-search-mobile"
+                  placeholder="Search by name"
+                  value={searchText}
+                  onChange={(event) => {
+                    setSearchText(event.target.value);
+                    setAttemptPage(1);
+                  }}
+                  data-clarity-mask="true"
+                />
+              </div>
+              <MotionButton
+                motionPolicy={motionPolicy}
+                variant="secondary"
+                size="icon"
+                title="Filter by class"
+                aria-label="Filter by class"
+                onClick={() => {
+                  setDraftClassFilter(classFilter);
+                  setIsClassFilterSheetOpen(true);
+                  void playSound("tap", { fromInteraction: true });
                 }}
-                data-clarity-mask="true"
+              >
+                <IconGlyph src={filterIcon} alt="" />
+              </MotionButton>
+            </div>
+
+            <p className="text-xs font-semibold text-[color:var(--muted)]">
+              Showing {showingStart}-{showingEnd} of {filteredAttemptsTotal} attempts
+              {attemptsTotal !== filteredAttemptsTotal ? ` (total ${attemptsTotal})` : ""}
+            </p>
+
+            <AnimatePresence initial={false}>
+              {selectedAttemptIds.length > 0 ? (
+                <motion.div
+                  key="mobile-selected-attempt-actions"
+                  initial={motionPolicy === "full" ? { opacity: 0, y: -6 } : { opacity: 0 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={motionPolicy === "full" ? { opacity: 0, y: -6 } : { opacity: 0 }}
+                  transition={motionPolicy === "full" ? { duration: 0.16, ease: "easeOut" } : undefined}
+                  className="flex flex-wrap items-center justify-end gap-2"
+                >
+                  <Badge>{selectedAttemptIds.length} selected</Badge>
+                  <MotionButton
+                    motionPolicy={motionPolicy}
+                    variant="secondary"
+                    size="icon"
+                    title={allFilteredSelected ? "Clear visible selection" : "Select visible attempts"}
+                    aria-label={allFilteredSelected ? "Clear visible selection" : "Select visible attempts"}
+                    disabled={busy || attempts.length === 0}
+                    onClick={() => {
+                      const nextSelectAll = !allFilteredSelected;
+                      toggleSelectAllFiltered(nextSelectAll);
+                      void playSound("tap", { fromInteraction: true });
+                    }}
+                  >
+                    <IconGlyph src={checkSquareIcon} alt="" />
+                  </MotionButton>
+                  <MotionButton
+                    motionPolicy={motionPolicy}
+                    variant="secondary"
+                    size="icon"
+                    title="Archive selected attempts"
+                    aria-label="Archive selected attempts"
+                    disabled={busy || selectedAttemptIds.length === 0}
+                    onClick={() => {
+                      void playSound("tap", { fromInteraction: true });
+                      archiveSelectedAttempts();
+                    }}
+                  >
+                    <IconGlyph src={archiveIcon} alt="" />
+                  </MotionButton>
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
+
+            <div className="grid gap-2">
+              {attemptRows}
+            </div>
+
+            <div className="flex items-center justify-center gap-2 pt-2">
+              <MotionButton
+                motionPolicy={motionPolicy}
+                variant="secondary"
+                size="icon"
+                title="Previous page"
+                aria-label="Previous page"
+                disabled={busy || attemptPage <= 1}
+                onClick={() => {
+                  setAttemptPage((current) => Math.max(1, current - 1));
+                  void playSound("tap", { fromInteraction: true });
+                }}
+              >
+                <IconGlyph src={arrowLeftIcon} alt="" />
+              </MotionButton>
+              <Badge>Page {attemptPage} of {totalPages}</Badge>
+              <MotionButton
+                motionPolicy={motionPolicy}
+                variant="secondary"
+                size="icon"
+                title="Next page"
+                aria-label="Next page"
+                disabled={busy || filteredAttemptsTotal === 0 || attemptPage >= totalPages}
+                onClick={() => {
+                  setAttemptPage((current) => Math.min(totalPages, current + 1));
+                  void playSound("tap", { fromInteraction: true });
+                }}
+              >
+                <IconGlyph src={arrowRightIcon} alt="" />
+              </MotionButton>
+            </div>
+          </div>
+        ) : (
+          TEACHER_AI_ENABLED ? (
+            <div className="px-2">
+              <TeacherAiPanel
+                token={token}
+                classOptions={classOptions}
+                defaultClassFilter={classFilter}
+                active
+                motionPolicy={motionPolicy}
+                playSound={playSound}
+                onSessionExpired={expireTeacherSession}
               />
             </div>
-            <MotionButton
-              motionPolicy={motionPolicy}
-              variant="secondary"
-              size="icon"
-              title="Filter by class"
-              aria-label="Filter by class"
-              onClick={() => {
-                setDraftClassFilter(classFilter);
-                setIsClassFilterSheetOpen(true);
-                void playSound("tap", { fromInteraction: true });
-              }}
-            >
-              <IconGlyph src={filterIcon} alt="" />
-            </MotionButton>
-          </div>
-
-          <p className="text-xs font-semibold text-[color:var(--muted)]">
-            Showing {showingStart}-{showingEnd} of {filteredAttemptsTotal} attempts
-            {attemptsTotal !== filteredAttemptsTotal ? ` (total ${attemptsTotal})` : ""}
-          </p>
-
-          <AnimatePresence initial={false}>
-            {selectedAttemptIds.length > 0 ? (
-              <motion.div
-                key="mobile-selected-attempt-actions"
-                initial={motionPolicy === "full" ? { opacity: 0, y: -6 } : { opacity: 0 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={motionPolicy === "full" ? { opacity: 0, y: -6 } : { opacity: 0 }}
-                transition={motionPolicy === "full" ? { duration: 0.16, ease: "easeOut" } : undefined}
-                className="flex flex-wrap items-center justify-end gap-2"
-              >
-                <Badge>{selectedAttemptIds.length} selected</Badge>
-                <MotionButton
-                  motionPolicy={motionPolicy}
-                  variant="secondary"
-                  size="icon"
-                  title={allFilteredSelected ? "Clear visible selection" : "Select visible attempts"}
-                  aria-label={allFilteredSelected ? "Clear visible selection" : "Select visible attempts"}
-                  disabled={busy || attempts.length === 0}
-                  onClick={() => {
-                    const nextSelectAll = !allFilteredSelected;
-                    toggleSelectAllFiltered(nextSelectAll);
-                    void playSound("tap", { fromInteraction: true });
-                  }}
-                >
-                  <IconGlyph src={checkSquareIcon} alt="" />
-                </MotionButton>
-                <MotionButton
-                  motionPolicy={motionPolicy}
-                  variant="secondary"
-                  size="icon"
-                  title="Archive selected attempts"
-                  aria-label="Archive selected attempts"
-                  disabled={busy || selectedAttemptIds.length === 0}
-                  onClick={() => {
-                    void playSound("tap", { fromInteraction: true });
-                    archiveSelectedAttempts();
-                  }}
-                >
-                  <IconGlyph src={archiveIcon} alt="" />
-                </MotionButton>
-              </motion.div>
-            ) : null}
-          </AnimatePresence>
-
-          <div className="grid gap-2">
-            {attemptRows}
-          </div>
-
-          <div className="flex items-center justify-center gap-2 pt-2">
-            <MotionButton
-              motionPolicy={motionPolicy}
-              variant="secondary"
-              size="icon"
-              title="Previous page"
-              aria-label="Previous page"
-              disabled={busy || attemptPage <= 1}
-              onClick={() => {
-                setAttemptPage((current) => Math.max(1, current - 1));
-                void playSound("tap", { fromInteraction: true });
-              }}
-            >
-              <IconGlyph src={arrowLeftIcon} alt="" />
-            </MotionButton>
-            <Badge>Page {attemptPage} of {totalPages}</Badge>
-            <MotionButton
-              motionPolicy={motionPolicy}
-              variant="secondary"
-              size="icon"
-              title="Next page"
-              aria-label="Next page"
-              disabled={busy || filteredAttemptsTotal === 0 || attemptPage >= totalPages}
-              onClick={() => {
-                setAttemptPage((current) => Math.min(totalPages, current + 1));
-                void playSound("tap", { fromInteraction: true });
-              }}
-            >
-              <IconGlyph src={arrowRightIcon} alt="" />
-            </MotionButton>
-          </div>
-
-          {TEACHER_AI_ENABLED ? (
-            <Alert>AI insights are available on larger screens.</Alert>
-          ) : null}
-        </div>
+          ) : null
+        )
       ) : (
-        <div className="space-y-4">
-          <motion.div
-            className="grid items-start gap-4 xl:grid-cols-[1fr_1.08fr]"
-            {...(motionPolicy === "full" ? cardMotion : { initial: false, animate: { opacity: 1, y: 0 } })}
-          >
-            {desktopAttemptsCard}
-            {desktopDetailCard}
-          </motion.div>
-
-          {TEACHER_AI_ENABLED ? (
+        teacherViewTab === "attempts" ? (
+          <div className="space-y-4">
+            <motion.div
+              className="grid items-start gap-4 xl:grid-cols-[1fr_1.08fr]"
+              {...(motionPolicy === "full" ? cardMotion : { initial: false, animate: { opacity: 1, y: 0 } })}
+            >
+              {desktopAttemptsCard}
+              {desktopDetailCard}
+            </motion.div>
+          </div>
+        ) : (
+          TEACHER_AI_ENABLED ? (
             <motion.div
               {...(motionPolicy === "full" ? cardMotion : { initial: false, animate: { opacity: 1, y: 0 } })}
             >
@@ -1200,13 +1242,14 @@ export function TeacherMode({
                 token={token}
                 classOptions={classOptions}
                 defaultClassFilter={classFilter}
+                active
                 motionPolicy={motionPolicy}
                 playSound={playSound}
                 onSessionExpired={expireTeacherSession}
               />
             </motion.div>
-          ) : null}
-        </div>
+          ) : null
+        )
       )}
 
       <AnimatePresence>

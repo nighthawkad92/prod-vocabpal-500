@@ -74,7 +74,6 @@ Deno.serve(async (req) => {
       intent,
       summary: result.summary,
       insights: result.insights,
-      actions: result.actions,
       chart: result.chart,
       tableRows: result.tableRows,
       sourceMetrics: result.sourceMetrics,

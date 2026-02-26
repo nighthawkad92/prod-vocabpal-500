@@ -6,29 +6,23 @@ export const TEACHER_AI_INTENTS = [
   "class_snapshot",
   "students_need_support",
   "slow_questions",
-  "class_comparison",
-  "next_steps",
 ] as const;
 
-export const TEACHER_AI_TIMEFRAMES = ["today", "7d", "30d", "all"] as const;
-
-export const TEACHER_AI_STATUS = ["all", "completed", "in_progress"] as const;
+export const TEACHER_AI_TIMEFRAMES = ["24h", "7d", "30d", "all"] as const;
 
 export type TeacherAiIntent = typeof TEACHER_AI_INTENTS[number];
 export type TeacherAiTimeframe = typeof TEACHER_AI_TIMEFRAMES[number];
-export type TeacherAiStatusFilter = typeof TEACHER_AI_STATUS[number];
 
 export type TeacherAiFilters = {
   className?: string;
+  classNames?: string[];
   timeframe?: TeacherAiTimeframe;
-  status?: TeacherAiStatusFilter;
   limit?: number;
 };
 
 export type TeacherAiFiltersNormalized = {
-  className: string | null;
+  classNames: string[];
   timeframe: TeacherAiTimeframe;
-  status: TeacherAiStatusFilter;
   limit: number;
 };
 
@@ -54,12 +48,12 @@ export type TeacherAiTableRow = {
   secondary?: string;
   value: string;
   trend?: string;
+  stageNo?: 0 | 1 | 2 | 3 | 4 | null;
 };
 
 export type TeacherAiDeterministicResult = {
   summary: string;
   insights: string[];
-  actions: string[];
   chart: TeacherAiChartSpec;
   tableRows: TeacherAiTableRow[];
   sourceMetrics: Record<string, unknown>;
@@ -68,6 +62,7 @@ export type TeacherAiDeterministicResult = {
 type AttemptRow = {
   id: string;
   status: string;
+  placement_stage: number | null;
   total_score_10: number;
   total_correct: number;
   total_wrong: number;
@@ -105,8 +100,8 @@ type StudentAggregate = {
   completed: number;
   inProgress: number;
   totalScore: number;
-  totalWrong: number;
   latestStartedAt: string;
+  latestPlacementStage: number | null;
 };
 
 type ClassAggregate = {
@@ -157,10 +152,6 @@ function isIntent(value: string): value is TeacherAiIntent {
 
 function isTimeframe(value: string): value is TeacherAiTimeframe {
   return (TEACHER_AI_TIMEFRAMES as readonly string[]).includes(value);
-}
-
-function isStatusFilter(value: string): value is TeacherAiStatusFilter {
-  return (TEACHER_AI_STATUS as readonly string[]).includes(value);
 }
 
 function toFiniteNumber(value: unknown, fallback: number): number {
@@ -219,11 +210,7 @@ function nowMinusDaysIso(days: number): string {
 
 function timeframeStartIso(timeframe: TeacherAiTimeframe): string | null {
   if (timeframe === "all") return null;
-  if (timeframe === "today") {
-    const start = new Date();
-    start.setUTCHours(0, 0, 0, 0);
-    return start.toISOString();
-  }
+  if (timeframe === "24h") return nowMinusDaysIso(1);
   if (timeframe === "7d") return nowMinusDaysIso(7);
   return nowMinusDaysIso(30);
 }
@@ -236,26 +223,33 @@ function chunk<T>(items: T[], size: number): T[][] {
   return chunks;
 }
 
-async function resolveClassId(client: SupabaseClient, className: string): Promise<string | null> {
-  const normalized = normalizeClassName(className).toLowerCase();
+async function resolveClassIds(client: SupabaseClient, classNames: string[]): Promise<string[]> {
+  if (classNames.length === 0) return [];
+  const normalized = classNames
+    .map((value) => normalizeClassName(value).toLowerCase())
+    .filter((value, index, arr) => value.length > 0 && arr.indexOf(value) === index);
+  if (normalized.length === 0) return [];
+
   const result = await client
     .from("classes")
     .select("id")
-    .eq("name_norm", normalized)
-    .maybeSingle<{ id: string }>();
+    .in("name_norm", normalized);
 
   if (result.error) {
     throw new Error(`Failed to resolve class filter: ${result.error.message}`);
   }
 
-  return result.data?.id ?? null;
+  return (result.data ?? [])
+    .map((row) => row.id)
+    .filter((value): value is string => typeof value === "string" && value.length > 0);
 }
 
-async function resolveStudentIdsForClass(client: SupabaseClient, classId: string): Promise<string[]> {
+async function resolveStudentIdsForClasses(client: SupabaseClient, classIds: string[]): Promise<string[]> {
+  if (classIds.length === 0) return [];
   const result = await client
     .from("students")
     .select("id")
-    .eq("class_id", classId);
+    .in("class_id", classIds);
 
   if (result.error) {
     throw new Error(`Failed to resolve class students: ${result.error.message}`);
@@ -300,17 +294,17 @@ function buildAggregates(attempts: AttemptRow[], responses: ResponseRow[]): Teac
       completed: 0,
       inProgress: 0,
       totalScore: 0,
-      totalWrong: 0,
       latestStartedAt: attempt.started_at,
+      latestPlacementStage: attempt.placement_stage,
     };
 
     studentAggregate.attempts += 1;
     studentAggregate.totalScore += attempt.total_score_10;
-    studentAggregate.totalWrong += attempt.total_wrong;
     if (attempt.status === "completed") studentAggregate.completed += 1;
     if (attempt.status === "in_progress") studentAggregate.inProgress += 1;
     if (Date.parse(attempt.started_at) > Date.parse(studentAggregate.latestStartedAt)) {
       studentAggregate.latestStartedAt = attempt.started_at;
+      studentAggregate.latestPlacementStage = attempt.placement_stage;
     }
     studentMap.set(studentKey, studentAggregate);
   }
@@ -383,7 +377,7 @@ export function parseTeacherAiIntent(value: unknown): TeacherAiIntent {
 
   const normalized = value.trim();
   if (!isIntent(normalized)) {
-    throw new Error("intent must be one of class_snapshot, students_need_support, slow_questions, class_comparison, next_steps");
+    throw new Error("intent must be one of class_snapshot, students_need_support, slow_questions");
   }
   return normalized;
 }
@@ -391,19 +385,29 @@ export function parseTeacherAiIntent(value: unknown): TeacherAiIntent {
 export function normalizeTeacherAiFilters(value: unknown): TeacherAiFiltersNormalized {
   const input = value && typeof value === "object" ? (value as TeacherAiFilters) : {};
 
-  const className = typeof input.className === "string" ? input.className.trim() : "";
+  const classNameLegacy = typeof input.className === "string" ? input.className.trim() : "";
+  const classNamesRaw = Array.isArray(input.classNames)
+    ? input.classNames
+      .filter((entry): entry is string => typeof entry === "string")
+      .map((entry) => entry.trim())
+      .filter((entry) => entry.length > 0)
+    : [];
   const timeframeRaw = typeof input.timeframe === "string" ? input.timeframe.trim() : "7d";
-  const statusRaw = typeof input.status === "string" ? input.status.trim() : "all";
   const limitRaw = toFiniteNumber(input.limit, 5);
 
-  const timeframe = isTimeframe(timeframeRaw) ? timeframeRaw : "7d";
-  const status = isStatusFilter(statusRaw) ? statusRaw : "all";
+  const normalizedTimeframeRaw = timeframeRaw === "today" ? "24h" : timeframeRaw;
+  const timeframe = isTimeframe(normalizedTimeframeRaw) ? normalizedTimeframeRaw : "7d";
   const limit = clampInt(limitRaw, 3, 10);
+  const mergedClassNames = classNamesRaw.length > 0
+    ? classNamesRaw
+    : (classNameLegacy.length > 0 ? [classNameLegacy] : []);
+  const classNames = mergedClassNames
+    .map((entry) => normalizeClassName(entry))
+    .filter((entry, index, arr) => entry.length > 0 && arr.indexOf(entry) === index);
 
   return {
-    className: className.length > 0 && className.toLowerCase() !== "all" ? normalizeClassName(className) : null,
+    classNames: classNames.includes("all") ? [] : classNames,
     timeframe,
-    status,
     limit,
   };
 }
@@ -415,12 +419,12 @@ export async function loadTeacherAnalyticsDataset(
 ): Promise<TeacherAnalyticsDataset> {
   let classStudentIds: string[] | null = null;
 
-  if (filters.className) {
-    const classId = await resolveClassId(client, filters.className);
-    if (!classId) {
+  if (filters.classNames.length > 0) {
+    const classIds = await resolveClassIds(client, filters.classNames);
+    if (classIds.length === 0) {
       return buildAggregates([], []);
     }
-    classStudentIds = await resolveStudentIdsForClass(client, classId);
+    classStudentIds = await resolveStudentIdsForClasses(client, classIds);
     if (classStudentIds.length === 0) {
       return buildAggregates([], []);
     }
@@ -431,6 +435,7 @@ export async function loadTeacherAnalyticsDataset(
     .select(`
       id,
       status,
+      placement_stage,
       total_score_10,
       total_correct,
       total_wrong,
@@ -447,14 +452,12 @@ export async function loadTeacherAnalyticsDataset(
       )
     `)
     .eq("test_id", testId)
+    .eq("status", "completed")
     .order("started_at", { ascending: false });
 
   const sinceIso = timeframeStartIso(filters.timeframe);
   if (sinceIso) {
     attemptsQuery = attemptsQuery.gte("started_at", sinceIso);
-  }
-  if (filters.status !== "all") {
-    attemptsQuery = attemptsQuery.eq("status", filters.status);
   }
   if (classStudentIds) {
     attemptsQuery = attemptsQuery.in("student_id", classStudentIds);
@@ -501,32 +504,15 @@ export async function loadTeacherAnalyticsDataset(
   return buildAggregates(attempts, responses);
 }
 
-function instructionNeedFromStage(stageNo: number): string {
-  switch (stageNo) {
-    case 0:
-      return "Phonics and sound matching";
-    case 1:
-      return "Word reading and decoding";
-    case 2:
-      return "Sentence fluency";
-    case 3:
-      return "Paragraph comprehension";
-    case 4:
-      return "Inference and expression";
-    default:
-      return "Core vocabulary practice";
-  }
-}
-
 function withDefaultDeterministicSource(
   filters: TeacherAiFiltersNormalized,
   dataset: TeacherAnalyticsDataset,
 ): Record<string, unknown> {
   return {
     filters: {
-      className: filters.className,
+      classNames: filters.classNames,
       timeframe: filters.timeframe,
-      status: filters.status,
+      status: "completed",
       limit: filters.limit,
     },
     totals: dataset.totals,
@@ -545,11 +531,8 @@ function buildClassSnapshot(
     return {
       summary: "No attempts match the current filters yet.",
       insights: [
-        "Try removing class or status filters to expand the view.",
+        "Try adjusting class or timeframe filters to expand the view.",
         "Once students submit responses, this panel will summarize score and completion trends.",
-      ],
-      actions: [
-        "Set baseline to In Progress and invite a class to start attempts.",
       ],
       chart: {
         type: "bar",
@@ -572,12 +555,8 @@ function buildClassSnapshot(
   return {
     summary: `Across ${dataset.totals.attempts} attempts, average score is ${dataset.totals.avgScore10}/10 and completion is ${completionRate}%.`,
     insights: [
-      `${dataset.totals.completed} attempts are completed and ${dataset.totals.inProgress} are still in progress.`,
+      `${dataset.totals.completed} completed attempts are included in this snapshot.`,
       `${classRows.length > 0 ? classRows[0].className : "No class"} has the highest visible attempt volume right now.`,
-    ],
-    actions: [
-      "Focus support on classes with low average score before opening a new baseline cycle.",
-      "Use In Progress counts to identify classes needing in-class completion reminders.",
     ],
     chart: {
       type: "bar",
@@ -594,9 +573,9 @@ function buildClassSnapshot(
     tableRows: classRows.map((row) => ({
       label: row.className,
       primary: `${row.attempts} attempts`,
-      secondary: `${row.completed} completed · ${row.inProgress} in progress`,
+      secondary: `${row.completed} completed`,
       value: `${asScore(row.totalScore / Math.max(row.attempts, 1))}/10`,
-      trend: `${asPercent(row.completed, row.attempts)}% completion`,
+      trend: `${asPercent(row.completed, row.attempts)}% completed`,
     })),
     sourceMetrics: {
       ...sourceBase,
@@ -610,68 +589,97 @@ function buildStudentsNeedSupport(
   dataset: TeacherAnalyticsDataset,
 ): TeacherAiDeterministicResult {
   const sourceBase = withDefaultDeterministicSource(filters, dataset);
-
-  const ranked = dataset.studentAggregates
-    .map((student) => ({
-      ...student,
-      avgScore: asScore(student.totalScore / Math.max(student.attempts, 1)),
-    }))
-    .sort((a, b) => {
-      if (a.avgScore !== b.avgScore) return a.avgScore - b.avgScore;
-      if (a.totalWrong !== b.totalWrong) return b.totalWrong - a.totalWrong;
-      return a.fullName.localeCompare(b.fullName);
+  const stageOrder: Array<0 | 1 | 2 | 3 | 4> = [0, 1, 2, 3, 4];
+  const rankedByStage = dataset.studentAggregates
+    .map((student) => {
+      const stageNo = student.latestPlacementStage;
+      return {
+        ...student,
+        stageNo,
+        avgScore: asScore(student.totalScore / Math.max(student.attempts, 1)),
+      };
     })
-    .slice(0, filters.limit);
+    .sort((a, b) => {
+      const stageA = typeof a.stageNo === "number" ? a.stageNo : Number.MAX_SAFE_INTEGER;
+      const stageB = typeof b.stageNo === "number" ? b.stageNo : Number.MAX_SAFE_INTEGER;
+      if (stageA !== stageB) return stageA - stageB;
+      if (a.avgScore !== b.avgScore) return a.avgScore - b.avgScore;
+      return a.fullName.localeCompare(b.fullName);
+    });
 
-  if (ranked.length === 0) {
+  if (rankedByStage.length === 0) {
     return {
       summary: "No student-level data is available for the selected filters.",
-      insights: ["Student support ranking appears after attempts are submitted."],
-      actions: ["Collect more attempts before using support prioritization."],
+      insights: ["Student stage buckets appear after completed attempts are submitted."],
       chart: {
         type: "bar",
-        title: "Students needing support",
-        labels: ["No data"],
-        series: [{ label: "Avg score", data: [0] }],
-        yUnit: "score",
+        title: "Students by reading stage",
+        labels: ["Stage 0", "Stage 1", "Stage 2", "Stage 3", "Stage 4"],
+        series: [{ label: "Students", data: [0, 0, 0, 0, 0] }],
+        yUnit: "count",
       },
       tableRows: [],
       sourceMetrics: sourceBase,
     };
   }
-
-  const averageOfRanked = asScore(
-    ranked.reduce((sum, item) => sum + item.avgScore, 0) / ranked.length,
-  );
+  const stageBuckets = new Map<number, typeof rankedByStage>();
+  for (const stageNo of stageOrder) {
+    stageBuckets.set(stageNo, []);
+  }
+  const unassigned: typeof rankedByStage = [];
+  for (const student of rankedByStage) {
+    if (typeof student.stageNo === "number" && stageBuckets.has(student.stageNo)) {
+      stageBuckets.get(student.stageNo)!.push(student);
+    } else {
+      unassigned.push(student);
+    }
+  }
+  const stageCounts = stageOrder.map((stageNo) => stageBuckets.get(stageNo)?.length ?? 0);
+  const topStage = stageOrder.find((stageNo) => (stageBuckets.get(stageNo)?.length ?? 0) > 0) ?? null;
+  const tableRows: TeacherAiTableRow[] = rankedByStage.map((student) => ({
+    label: student.fullName,
+    primary: student.className,
+    secondary: typeof student.stageNo === "number" ? `Stage ${student.stageNo}` : "Unassigned",
+    value: `${student.avgScore}/10`,
+    trend: `${student.attempts} completed attempts`,
+    stageNo: typeof student.stageNo === "number" ? (student.stageNo as 0 | 1 | 2 | 3 | 4) : null,
+  }));
+  const stageInsights = stageOrder
+    .map((stageNo) => {
+      const count = stageBuckets.get(stageNo)?.length ?? 0;
+      return `Stage ${stageNo}: ${count} ${count === 1 ? "student" : "students"}.`;
+    });
+  if (unassigned.length > 0) {
+    stageInsights.push(`Unassigned stage: ${unassigned.length} students.`);
+  }
 
   return {
-    summary: `Priority support list highlights ${ranked.length} students with average score around ${averageOfRanked}/10.`,
+    summary: topStage === null
+      ? "No stage-mapped students are available yet in this filter."
+      : `Support priority is stage-based. Start with Stage ${topStage} students, then progress to higher stages.`,
     insights: [
-      "Students are ranked by lower average score first, then higher wrong-answer count.",
-      `${ranked[0].fullName} currently needs the earliest intervention in this filtered view.`,
-    ],
-    actions: [
-      "Run 1:1 or small-group review for the first three students in the list.",
-      "Use dictation-heavy remediation where wrong-answer counts are high.",
+      ...stageInsights,
+      "Students are ordered by stage (0 to 4), then by average score within each stage.",
     ],
     chart: {
       type: "bar",
-      title: "Support priority (average score)",
-      labels: ranked.map((item) => item.fullName),
-      series: [{ label: "Avg score", data: ranked.map((item) => item.avgScore) }],
-      yUnit: "score",
+      title: "Students by reading stage",
+      labels: stageOrder.map((stageNo) => `Stage ${stageNo}`),
+      series: [{ label: "Students", data: stageCounts }],
+      yUnit: "count",
     },
-    tableRows: ranked.map((item) => ({
-      label: item.fullName,
-      primary: item.className,
-      secondary: `${item.attempts} attempts · ${item.totalWrong} wrong answers`,
-      value: `${item.avgScore}/10`,
-      trend: item.inProgress > 0 ? `${item.inProgress} in progress` : "Ready for review",
-    })),
+    tableRows,
     sourceMetrics: {
       ...sourceBase,
-      rankedStudents: ranked.length,
-      rankedAverageScore: averageOfRanked,
+      stageCounts: {
+        stage0: stageCounts[0],
+        stage1: stageCounts[1],
+        stage2: stageCounts[2],
+        stage3: stageCounts[3],
+        stage4: stageCounts[4],
+        unassigned: unassigned.length,
+      },
+      firstPriorityStage: topStage,
     },
   };
 }
@@ -695,7 +703,6 @@ function buildSlowQuestions(
     return {
       summary: "No question response data is available yet.",
       insights: ["Question speed analytics will appear after students answer questions."],
-      actions: ["Collect completed attempts to identify slow questions."],
       chart: {
         type: "bar",
         title: "Slowest questions",
@@ -713,10 +720,6 @@ function buildSlowQuestions(
     insights: [
       "Slow questions usually combine longer response time with higher wrong-answer rates.",
       `Q${ranked[0].displayOrder} shows the highest response time in this filter scope.`,
-    ],
-    actions: [
-      "Pre-teach vocabulary for the top two slow questions before the next baseline cycle.",
-      "Model one solved example before independent student responses.",
     ],
     chart: {
       type: "bar",
@@ -740,179 +743,6 @@ function buildSlowQuestions(
   };
 }
 
-function buildClassComparison(
-  filters: TeacherAiFiltersNormalized,
-  dataset: TeacherAnalyticsDataset,
-): TeacherAiDeterministicResult {
-  const sourceBase = withDefaultDeterministicSource(filters, dataset);
-
-  const classRows = [...dataset.classAggregates]
-    .sort((a, b) => b.attempts - a.attempts)
-    .slice(0, filters.limit);
-
-  if (classRows.length === 0) {
-    return {
-      summary: "No class-level attempt data is available for comparison.",
-      insights: ["Class comparison appears when attempts are present."],
-      actions: ["Collect attempts from at least one class to unlock this view."],
-      chart: {
-        type: "stacked_bar",
-        title: "Class comparison",
-        labels: ["No data"],
-        series: [
-          { label: "Completed", data: [0] },
-          { label: "In Progress", data: [0] },
-        ],
-        yUnit: "count",
-      },
-      tableRows: [],
-      sourceMetrics: sourceBase,
-    };
-  }
-
-  const bestClass = [...classRows]
-    .sort((a, b) => (b.totalScore / Math.max(b.attempts, 1)) - (a.totalScore / Math.max(a.attempts, 1)))[0];
-
-  return {
-    summary: `Class comparison includes ${classRows.length} classes with visible attempts in the current filter.`,
-    insights: [
-      `${bestClass.className} has the highest average score in this snapshot.`,
-      "Compare completion and in-progress counts together before prioritizing teaching support.",
-    ],
-    actions: [
-      "Prioritize classes with high in-progress counts for completion push.",
-      "Review teaching strategy in classes with lower average score and high attempt volume.",
-    ],
-    chart: {
-      type: "stacked_bar",
-      title: "Completion vs In Progress by class",
-      labels: classRows.map((row) => row.className),
-      series: [
-        { label: "Completed", data: classRows.map((row) => row.completed) },
-        { label: "In Progress", data: classRows.map((row) => row.inProgress) },
-      ],
-      yUnit: "count",
-    },
-    tableRows: classRows.map((row) => {
-      const avgScore = asScore(row.totalScore / Math.max(row.attempts, 1));
-      return {
-        label: row.className,
-        primary: `${row.attempts} attempts`,
-        secondary: `${row.completed} completed · ${row.inProgress} in progress`,
-        value: `${avgScore}/10`,
-        trend: `${asPercent(row.completed, row.attempts)}% completion`,
-      };
-    }),
-    sourceMetrics: {
-      ...sourceBase,
-      comparedClasses: classRows.length,
-      bestClass: bestClass.className,
-    },
-  };
-}
-
-function buildNextSteps(
-  filters: TeacherAiFiltersNormalized,
-  dataset: TeacherAnalyticsDataset,
-): TeacherAiDeterministicResult {
-  const sourceBase = withDefaultDeterministicSource(filters, dataset);
-
-  const stageRanks = [...dataset.stageAggregates]
-    .map((stage) => ({
-      ...stage,
-      accuracy: asPercent(stage.correctCount, stage.responseCount),
-    }))
-    .sort((a, b) => a.accuracy - b.accuracy);
-
-  const weakestStage = stageRanks[0] ?? null;
-
-  const recentAttempts = [...dataset.attempts]
-    .sort((a, b) => Date.parse(a.started_at) - Date.parse(b.started_at))
-    .slice(-Math.max(filters.limit, 6));
-
-  const trendLabels = recentAttempts.map((attempt, index) => {
-    const date = new Date(attempt.started_at);
-    const short = Number.isNaN(date.getTime()) ? `${index + 1}` : `${date.getUTCMonth() + 1}/${date.getUTCDate()}`;
-    return short;
-  });
-
-  const trendData = recentAttempts.map((attempt) => attempt.total_score_10);
-
-  const dictationResponses = dataset.questionAggregates
-    .filter((question) => question.itemType === "dictation")
-    .reduce(
-      (acc, question) => {
-        acc.total += question.responseCount;
-        acc.correct += question.correctCount;
-        return acc;
-      },
-      { total: 0, correct: 0 },
-    );
-
-  const dictationAccuracy = asPercent(dictationResponses.correct, dictationResponses.total);
-
-  const topSlow = [...dataset.questionAggregates]
-    .map((question) => ({
-      ...question,
-      avgTimeMs: question.responseCount ? question.totalTimeMs / question.responseCount : 0,
-    }))
-    .sort((a, b) => b.avgTimeMs - a.avgTimeMs)[0] ?? null;
-
-  return {
-    summary: weakestStage
-      ? `Stage ${weakestStage.stageNo} needs the earliest teaching attention in the current data window.`
-      : "No stage-level response data is available yet.",
-    insights: [
-      weakestStage
-        ? `Current stage accuracy is ${weakestStage.accuracy}% for Stage ${weakestStage.stageNo}.`
-        : "Run a few more attempts to generate stage-wise accuracy.",
-      `Dictation accuracy is ${dictationAccuracy}% across visible responses.`,
-    ],
-    actions: [
-      weakestStage
-        ? `Focus next lesson on ${instructionNeedFromStage(weakestStage.stageNo)}.`
-        : "Start with mixed phonics and vocabulary warm-up.",
-      topSlow
-        ? `Pre-teach vocabulary from Q${topSlow.displayOrder} before the next practice set.`
-        : "Review one slow question verbally before written response.",
-    ],
-    chart: {
-      type: "trend_line",
-      title: "Recent score trend",
-      labels: trendLabels.length > 0 ? trendLabels : ["No data"],
-      series: [{ label: "Score", data: trendData.length > 0 ? trendData : [0] }],
-      yUnit: "score",
-    },
-    tableRows: [
-      {
-        label: "Priority stage",
-        primary: weakestStage ? `Stage ${weakestStage.stageNo}` : "-",
-        secondary: weakestStage ? instructionNeedFromStage(weakestStage.stageNo) : "No stage data",
-        value: weakestStage ? `${weakestStage.accuracy}% accuracy` : "-",
-      },
-      {
-        label: "Dictation performance",
-        primary: "Dictation accuracy",
-        value: `${dictationAccuracy}%`,
-        trend: `${dictationResponses.total} responses`,
-      },
-      {
-        label: "Slowest question",
-        primary: topSlow ? `Q${topSlow.displayOrder}` : "-",
-        secondary: topSlow ? sanitizeText(topSlow.promptText, "") : "No question data",
-        value: topSlow ? `${toSeconds(topSlow.avgTimeMs)} sec avg` : "-",
-      },
-    ],
-    sourceMetrics: {
-      ...sourceBase,
-      weakestStage: weakestStage?.stageNo ?? null,
-      weakestStageAccuracy: weakestStage?.accuracy ?? null,
-      dictationAccuracy,
-      trendPoints: trendData.length,
-    },
-  };
-}
-
 export function buildTeacherAiDeterministicResult(
   intent: TeacherAiIntent,
   filters: TeacherAiFiltersNormalized,
@@ -925,10 +755,6 @@ export function buildTeacherAiDeterministicResult(
       return buildStudentsNeedSupport(filters, dataset);
     case "slow_questions":
       return buildSlowQuestions(filters, dataset);
-    case "class_comparison":
-      return buildClassComparison(filters, dataset);
-    case "next_steps":
-      return buildNextSteps(filters, dataset);
     default:
       return buildClassSnapshot(filters, dataset);
   }
@@ -1019,6 +845,10 @@ function sanitizeTableRows(input: unknown, fallback: TeacherAiTableRow[]): Teach
       const secondary = typeof row.secondary === "string" ? sanitizeText(row.secondary, "") : undefined;
       const value = sanitizeText(typeof row.value === "string" ? row.value : "-", "-");
       const trend = typeof row.trend === "string" ? sanitizeText(row.trend, "") : undefined;
+      const rawStageNo = typeof row.stageNo === "number" ? Math.trunc(row.stageNo) : null;
+      const stageNo = rawStageNo !== null && rawStageNo >= 0 && rawStageNo <= 4
+        ? (rawStageNo as 0 | 1 | 2 | 3 | 4)
+        : null;
 
       return {
         label,
@@ -1026,6 +856,7 @@ function sanitizeTableRows(input: unknown, fallback: TeacherAiTableRow[]): Teach
         secondary: secondary && secondary.length > 0 ? secondary : undefined,
         value,
         trend: trend && trend.length > 0 ? trend : undefined,
+        stageNo,
       };
     })
     .slice(0, 10);
@@ -1047,7 +878,6 @@ export function mergeTeacherAiLanguagePatch(
     : deterministic.summary;
 
   const insights = sanitizeStringArray(record.insights, deterministic.insights);
-  const actions = sanitizeStringArray(record.actions, deterministic.actions);
   const chart = sanitizeChartSpec(record.chart, deterministic.chart);
   const tableRows = sanitizeTableRows(record.tableRows, deterministic.tableRows);
 
@@ -1055,7 +885,6 @@ export function mergeTeacherAiLanguagePatch(
     ...deterministic,
     summary,
     insights,
-    actions,
     chart,
     tableRows,
   };
@@ -1066,7 +895,6 @@ export function assertTeacherAiResponseShape(payload: {
   intent: TeacherAiIntent;
   summary: string;
   insights: string[];
-  actions: string[];
   chart: TeacherAiChartSpec;
   tableRows: TeacherAiTableRow[];
   sourceMetrics: Record<string, unknown>;
@@ -1083,9 +911,6 @@ export function assertTeacherAiResponseShape(payload: {
   }
   if (!Array.isArray(payload.insights) || payload.insights.length === 0) {
     throw new Error("Invalid AI response: insights are required");
-  }
-  if (!Array.isArray(payload.actions) || payload.actions.length === 0) {
-    throw new Error("Invalid AI response: actions are required");
   }
 
   const chart = sanitizeChartSpec(payload.chart, payload.chart);

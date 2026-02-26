@@ -90,15 +90,15 @@ export function DesignSystemPage() {
         <CardHeader>
           <CardTitle className="text-2xl">Teacher AI Copilot Guidance</CardTitle>
           <CardDescription>
-            Desktop-first guided analytics pattern using prompt chips and structured response blocks.
+            Tabbed analytics pattern with fixed AI subsections and filter-driven auto-generation.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3 text-sm text-[color:var(--ink)]">
           <div className="rounded-[var(--radius-lg)] border border-[color:var(--line)] bg-white p-3">
             <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[color:var(--muted)]">Pattern</p>
             <p className="mt-2">
-              Use guided prompt chips for predictable teacher intents, then render response as summary, insights,
-              actions, chart, and source-metrics table.
+              Use class/timeframe filters to auto-generate three fixed sections: Class snapshot, Support priority,
+              and Slow questions. Support priority is grouped by reading stage (0-4).
             </p>
           </div>
           <div className="rounded-[var(--radius-lg)] border border-[color:var(--line)] bg-white p-3">
@@ -106,7 +106,7 @@ export function DesignSystemPage() {
             <ul className="mt-2 list-disc space-y-1 pl-5">
               <li>Deterministic metrics first; language patch second.</li>
               <li>Fallback mode must always return valid structure.</li>
-              <li>No transcript persistence and no student-name analytics tags.</li>
+              <li>No transcript persistence and no recommendation/history blocks in AI response UI.</li>
             </ul>
           </div>
         </CardContent>

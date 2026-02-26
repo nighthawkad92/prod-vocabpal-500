@@ -86,7 +86,7 @@ function buildPrompt(
     "You are an analytics copilot for teachers in India.",
     "Write concise plain-English insights with simple vocabulary.",
     "Return ONLY valid JSON, no markdown, no extra keys.",
-    "Required keys: summary (string), insights (string[]), actions (string[]), chart (object), tableRows (object[]).",
+    "Required keys: summary (string), insights (string[]), chart (object), tableRows (object[]).",
     "chart must include: type, title, labels[], series[].",
     "Do not invent metrics not present in sourceMetrics/tableRows/chart.",
     "Avoid student full names in summary; names are allowed in tableRows only when already present.",
@@ -98,7 +98,6 @@ function buildPrompt(
     deterministic,
     outputRules: {
       maxInsights: 4,
-      maxActions: 4,
       maxRows: 8,
     },
   };

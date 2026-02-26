@@ -414,20 +414,28 @@ export function ComponentsSection({
               <div className="space-y-3">
                 <div className="ds-preview-panel space-y-3">
                   <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[color:var(--muted)]">
-                    Prompt chips
+                    AI filter controls
                   </p>
-                  <div className="flex flex-wrap gap-2">
-                    <Button size="sm">Class snapshot</Button>
-                    <Button size="sm" variant="secondary">Support priority</Button>
-                    <Button size="sm" variant="secondary">Slow questions</Button>
-                    <Button size="sm" variant="secondary">Next steps</Button>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <div className="rounded-[var(--radius-md)] border border-[color:var(--line)] bg-white px-3 py-2">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[color:var(--muted)]">
+                        Class scope
+                      </p>
+                      <p className="text-sm font-semibold text-[color:var(--ink)]">Class 1, Class 2</p>
+                    </div>
+                    <div className="rounded-[var(--radius-md)] border border-[color:var(--line)] bg-white px-3 py-2">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[color:var(--muted)]">
+                        Timeframe
+                      </p>
+                      <p className="text-sm font-semibold text-[color:var(--ink)]">Last 7 days</p>
+                    </div>
                   </div>
                 </div>
 
-                <div className="grid gap-3 lg:grid-cols-2">
+                <div className="grid gap-3">
                   <div className="rounded-[var(--radius-lg)] border border-[color:var(--line)] bg-white p-3">
                     <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[color:var(--muted)]">
-                      Insight block
+                      Class snapshot
                     </p>
                     <p className="mt-2 text-sm font-semibold text-[color:var(--ink)]">
                       Class 2 is trending lower on completion and needs support on dictation-heavy items.
@@ -435,12 +443,19 @@ export function ComponentsSection({
                   </div>
                   <div className="rounded-[var(--radius-lg)] border border-[color:var(--line)] bg-white p-3">
                     <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[color:var(--muted)]">
-                      Recommended actions
+                      Support priority (stage-based)
                     </p>
-                    <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-[color:var(--ink)]">
-                      <li>Run a 15-minute dictation warm-up before next attempt.</li>
-                      <li>Focus teacher support on the three lowest-score students.</li>
-                    </ul>
+                    <p className="mt-2 text-sm font-semibold text-[color:var(--ink)]">
+                      Stage 0: 4 students, Stage 1: 6 students, Stage 2: 8 students.
+                    </p>
+                  </div>
+                  <div className="rounded-[var(--radius-lg)] border border-[color:var(--line)] bg-white p-3">
+                    <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[color:var(--muted)]">
+                      Slow questions
+                    </p>
+                    <p className="mt-2 text-sm font-semibold text-[color:var(--ink)]">
+                      Q4 and Q7 are taking the longest average response time.
+                    </p>
                   </div>
                 </div>
 
