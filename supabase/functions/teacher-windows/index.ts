@@ -82,6 +82,14 @@ function deriveStatus(window: Pick<WindowRow, "is_open" | "end_at">): SessionSta
   return "ended";
 }
 
+function isWindowNotEnded(window: Pick<WindowRow, "end_at">): boolean {
+  const endMs = Date.parse(window.end_at);
+  if (Number.isNaN(endMs)) {
+    return true;
+  }
+  return endMs > Date.now();
+}
+
 function normalizeTimesForCreate(
   status: SessionStatus,
   startAtRaw: string | undefined,
@@ -168,14 +176,14 @@ Deno.serve(async (req) => {
         .select("id, scope, is_open, start_at, end_at, class_id")
         .eq("test_id", test.id)
         .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle<WindowRow>();
+        .limit(100);
 
       if (latestResult.error) {
         throw new Error(`Failed to load latest baseline session: ${latestResult.error.message}`);
       }
 
-      const latestWindow = latestResult.data ?? null;
+      const windows = (latestResult.data ?? []) as WindowRow[];
+      const latestWindow = windows.find((window) => isWindowNotEnded(window)) ?? windows[0] ?? null;
 
       return json(req, 200, {
         hasWindow: Boolean(latestWindow),

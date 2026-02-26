@@ -318,13 +318,13 @@ async function run() {
     attemptsToday: summary.payload.attemptsToday,
   });
 
-  const pauseSession = await callFunction("teacher-windows", {
+  const endSession = await callFunction("teacher-windows", {
     method: "PATCH",
     token,
-    body: { windowId, status: "paused" },
+    body: { windowId, status: "ended" },
   });
-  expectStatus(pauseSession, 200, "teacher-windows PATCH status update");
-  addStep("session-paused", { windowId, status: pauseSession.payload?.status });
+  expectStatus(endSession, 200, "teacher-windows PATCH status update");
+  addStep("session-ended", { windowId, status: endSession.payload?.status });
 
   const logout = await callFunction("teacher-logout", { method: "POST", token });
   expectStatus(logout, 200, "teacher-logout");

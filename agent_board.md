@@ -266,6 +266,10 @@ The PM agent is the scheduler. Only PM changes task state.
 | UI-068 | Apply Clarity mask/unmask attributes across app shell and name fields | UI | PM-ANL-003 | DONE | added `data-clarity-unmask` at shell root and `data-clarity-mask` on student/teacher name fields and teacher name-search fields |
 | QA-061 | Validate Clarity masking behavior and static regression gates | QA | UI-068 | DONE | typecheck/lint/build pass; verified attributes present on target nodes with no runtime regressions |
 | PM-ANL-004 | Final signoff for Clarity masking policy adjustment | PM | QA-061 | DONE | signoff complete; masking policy implemented with documented Clarity input-field limitation |
+| PM-QA-016 | Queue baseline session-status stability fix for teacher dashboard | PM | PM-QA-015 | DONE | scoped production status drift fix: prefer latest non-ended window and avoid QA leaving paused latest window |
+| BE-012 | Update teacher-windows GET to prioritize latest non-ended window | Backend | PM-QA-016 | DONE | `teacher-windows` now scans recent windows and returns latest non-ended window before falling back to latest ended window |
+| QA-062 | Align remote smoke session cleanup to end (not pause) and validate static gates | QA | BE-012 | DONE | `qa/remote_smoke.mjs` now ends its QA session; typecheck/lint/build passed |
+| PM-QA-017 | Final signoff for baseline session-status stability fix | PM | QA-062 | DONE | signoff complete; build-triggered QA windows no longer force dashboard into paused via latest-window selection |
 | PM-QA-010 | Queue post-push release-gate validation and CI checkpoint closure | PM | PM-002 | DONE | scoped QA harness alignment and rerun of `qa:after-deploy` after main push |
 | QA-010 | Align matrix harness with audio-end submit gate and rerun release gate | QA | PM-QA-010 | DONE | updated submit selector + mock audio `onended`; `qa:matrix` and `qa:after-deploy` passed |
 | PM-QA-011 | Sign off post-push QA recovery and checkpoint closure | PM | QA-010 | DONE | verified green after-deploy report and cleared CP-07 via GitHub secrets |
