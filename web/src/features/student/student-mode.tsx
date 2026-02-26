@@ -33,6 +33,7 @@ type StudentModeProps = {
   motionPolicy: MotionPolicy;
   playSound: (event: SfxEvent, options?: { fromInteraction?: boolean }) => Promise<boolean>;
   onAttemptStateChange?: (active: boolean) => void;
+  onViewStateChange?: (state: "entry" | "attempt" | "completion") => void;
 };
 
 type StartAttemptResponse = {
@@ -83,6 +84,7 @@ export function StudentMode({
   motionPolicy,
   playSound,
   onAttemptStateChange,
+  onViewStateChange,
 }: StudentModeProps) {
   const [step, setStep] = useState<StudentOnboardingStep>(1);
   const [firstName, setFirstName] = useState("");
@@ -106,6 +108,12 @@ export function StudentMode({
 
   const autoPlayedQuestionIdRef = useRef<string | null>(null);
   const activeAudioRef = useRef<HTMLAudioElement | null>(null);
+  const isCompletionView = Boolean(attemptId && completion && !question);
+  const studentViewState: "entry" | "attempt" | "completion" = !attemptId
+    ? "entry"
+    : isCompletionView
+      ? "completion"
+      : "attempt";
 
   const progressPercent = useMemo(() => {
     return Math.min(100, (answeredItems / TOTAL_QUESTION_COUNT) * 100);
@@ -205,6 +213,16 @@ export function StudentMode({
       onAttemptStateChange?.(false);
     };
   }, [onAttemptStateChange]);
+
+  useEffect(() => {
+    onViewStateChange?.(studentViewState);
+  }, [onViewStateChange, studentViewState]);
+
+  useEffect(() => {
+    return () => {
+      onViewStateChange?.("entry");
+    };
+  }, [onViewStateChange]);
 
   const startAttempt = useCallback(
     async (event: FormEvent) => {
@@ -322,7 +340,6 @@ export function StudentMode({
   const showReadySubmitIcon = !busy && !audioGateLocked;
   const stepOneComplete = firstName.trim().length > 0 && lastName.trim().length > 0;
   const stepTwoComplete = Boolean(classNumber && sectionLetter);
-  const isCompletionView = Boolean(attemptId && completion && !question);
   const entryStepMeta =
     step === 1
       ? "Step 1 of 2:"

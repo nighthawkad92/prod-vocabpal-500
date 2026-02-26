@@ -13,7 +13,43 @@ import volumeOnIcon from "@/assets/icons/volume-up.svg";
 import volumeOffIcon from "@/assets/icons/volume-mute.svg";
 
 const COLLAPSE_THRESHOLD_PX = 48;
-const MOBILE_BREAKPOINT_QUERY = "(max-width: 768px)";
+
+export type UtilityContext =
+  | "student_entry"
+  | "student_active"
+  | "student_complete"
+  | "teacher_login"
+  | "teacher_dashboard";
+
+type UtilityViewportBucket = "xxs" | "xs" | "sm" | "md" | "lg";
+type UtilityPresentation = "inline_full" | "inline_hybrid" | "inline_icon" | "collapsed_menu";
+
+function getViewportBucket(width: number): UtilityViewportBucket {
+  if (width <= 359) return "xxs";
+  if (width <= 389) return "xs";
+  if (width <= 767) return "sm";
+  if (width <= 1023) return "md";
+  return "lg";
+}
+
+function getBasePresentation(
+  context: UtilityContext,
+  bucket: UtilityViewportBucket,
+): UtilityPresentation {
+  if (bucket === "xxs") {
+    return "collapsed_menu";
+  }
+
+  if (bucket === "xs" || bucket === "sm") {
+    return "inline_icon";
+  }
+
+  if (bucket === "md") {
+    return context === "teacher_dashboard" ? "inline_hybrid" : "inline_hybrid";
+  }
+
+  return context === "teacher_dashboard" ? "inline_full" : "inline_hybrid";
+}
 
 type AppShellProps = {
   mode: AppMode;
@@ -24,6 +60,7 @@ type AppShellProps = {
   motionPolicy: MotionPolicy;
   showUtilityLogo: boolean;
   utilityLogoSrc: string;
+  utilityContext: UtilityContext;
   children: ReactNode;
 };
 
@@ -36,6 +73,7 @@ export function AppShell({
   motionPolicy,
   showUtilityLogo,
   utilityLogoSrc,
+  utilityContext,
   children,
 }: AppShellProps) {
   const widthClass = mode === "teacher" ? "max-w-[850px]" : "max-w-6xl";
@@ -46,16 +84,27 @@ export function AppShell({
   const [controlsCollapsed, setControlsCollapsed] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [cachedControlsWidth, setCachedControlsWidth] = useState(0);
-  const [isPhone, setIsPhone] = useState(() => {
+  const [viewportBucket, setViewportBucket] = useState<UtilityViewportBucket>(() => {
     if (typeof window === "undefined") {
-      return false;
+      return "lg";
     }
-    return window.matchMedia(MOBILE_BREAKPOINT_QUERY).matches;
+    return getViewportBucket(window.innerWidth);
   });
-  const isTeacherMobileIcons = mode === "teacher" && isPhone;
-  const isDrawerVisible = controlsCollapsed && drawerOpen;
+  const basePresentation = getBasePresentation(utilityContext, viewportBucket);
+  const isDrawerVisible = (basePresentation === "collapsed_menu" || controlsCollapsed) && drawerOpen;
+  const effectivePresentation =
+    basePresentation === "collapsed_menu" || controlsCollapsed
+      ? "collapsed_menu"
+      : basePresentation;
+  const isIconPresentation = effectivePresentation === "inline_icon";
+  const isHybridPresentation = effectivePresentation === "inline_hybrid";
 
   const evaluateControlCollapse = useCallback(() => {
+    if (basePresentation === "collapsed_menu") {
+      setControlsCollapsed(true);
+      return;
+    }
+
     if (!showUtilityLogo || !headerRef.current || !logoRef.current) {
       setControlsCollapsed(false);
       if (drawerOpen) {
@@ -92,36 +141,23 @@ export function AppShell({
     if (!shouldCollapse && drawerOpen) {
       setDrawerOpen(false);
     }
-  }, [cachedControlsWidth, drawerOpen, showUtilityLogo]);
+  }, [basePresentation, cachedControlsWidth, drawerOpen, showUtilityLogo]);
 
   useEffect(() => {
     const rafId = window.requestAnimationFrame(() => {
       evaluateControlCollapse();
     });
     return () => window.cancelAnimationFrame(rafId);
-  }, [evaluateControlCollapse, mode, showUtilityLogo]);
+  }, [evaluateControlCollapse, mode, showUtilityLogo, utilityContext, viewportBucket]);
 
   useEffect(() => {
-    const handleResize = () => evaluateControlCollapse();
+    const handleResize = () => {
+      setViewportBucket(getViewportBucket(window.innerWidth));
+      evaluateControlCollapse();
+    };
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, [evaluateControlCollapse]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const mediaQuery = window.matchMedia(MOBILE_BREAKPOINT_QUERY);
-    const handleChange = (event: MediaQueryListEvent) => {
-      setIsPhone(event.matches);
-    };
-
-    if (typeof mediaQuery.addEventListener === "function") {
-      mediaQuery.addEventListener("change", handleChange);
-      return () => mediaQuery.removeEventListener("change", handleChange);
-    }
-
-    mediaQuery.addListener(handleChange);
-    return () => mediaQuery.removeListener(handleChange);
-  }, []);
 
   useEffect(() => {
     if (!isDrawerVisible) return;
@@ -142,64 +178,78 @@ export function AppShell({
     };
   }, [isDrawerVisible]);
 
-  const controls = isTeacherMobileIcons ? (
-    <>
-      <Button
-        variant="secondary"
-        size="icon"
-        className="h-11 w-11"
-        onClick={onSoundToggle}
-        aria-label={soundEnabled ? "Mute sound" : "Enable sound"}
-        title={soundEnabled ? "Mute sound" : "Enable sound"}
-      >
+  const modeTabs = (
+    <Tabs
+      value={mode}
+      onValueChange={(nextMode) => onModeChange(nextMode as AppMode)}
+      className="space-y-0"
+    >
+      <TabsList className="border-none bg-transparent p-0 shadow-none">
+        <TabsTrigger
+          value="student"
+          aria-label="Student mode"
+          title="Student mode"
+          className={isIconPresentation ? "h-10 w-10 px-0 py-0" : undefined}
+        >
+          {isIconPresentation ? (
+            <img src={userIcon} alt="" aria-hidden className="h-5 w-5" />
+          ) : (
+            "Student"
+          )}
+        </TabsTrigger>
+        <TabsTrigger
+          value="teacher"
+          aria-label="Teacher mode"
+          title="Teacher mode"
+          className={isIconPresentation ? "h-10 w-10 px-0 py-0" : undefined}
+        >
+          {isIconPresentation ? (
+            <img src={teacherIcon} alt="" aria-hidden className="h-5 w-5" />
+          ) : (
+            "Teacher"
+          )}
+        </TabsTrigger>
+      </TabsList>
+    </Tabs>
+  );
+
+  const soundControl = isIconPresentation ? (
+    <Button
+      variant="secondary"
+      size="icon"
+      className="h-11 w-11"
+      onClick={onSoundToggle}
+      aria-label={soundEnabled ? "Mute sound" : "Enable sound"}
+      title={soundEnabled ? "Mute sound" : "Enable sound"}
+    >
+      <img
+        src={soundEnabled ? volumeOnIcon : volumeOffIcon}
+        alt=""
+        aria-hidden
+        className="h-5 w-5"
+      />
+    </Button>
+  ) : (
+    <div className="flex items-center gap-2">
+      {effectivePresentation === "inline_full" ? (
+        <span className="text-sm font-semibold text-[color:var(--ink)]">Sound</span>
+      ) : null}
+      {isHybridPresentation ? (
         <img
           src={soundEnabled ? volumeOnIcon : volumeOffIcon}
           alt=""
           aria-hidden
-          className="h-5 w-5"
+          className="h-4 w-4"
         />
-      </Button>
+      ) : null}
+      <Switch checked={soundEnabled} onCheckedChange={onSoundToggle} />
+    </div>
+  );
 
-      <Tabs
-        value={mode}
-        onValueChange={(nextMode) => onModeChange(nextMode as AppMode)}
-        className="space-y-0"
-      >
-        <TabsList className="border-none bg-transparent p-0 shadow-none">
-          <TabsTrigger value="student" aria-label="Student mode" title="Student mode">
-            <img src={userIcon} alt="" aria-hidden className="h-5 w-5" />
-          </TabsTrigger>
-          <TabsTrigger value="teacher" aria-label="Teacher mode" title="Teacher mode">
-            <img src={teacherIcon} alt="" aria-hidden className="h-5 w-5" />
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
-    </>
-  ) : (
+  const controls = (
     <>
-      <div className="flex items-center gap-3">
-        <span className="text-sm font-semibold text-[color:var(--ink)]">Sound</span>
-        <div className="flex items-center gap-2">
-          <img
-            src={soundEnabled ? volumeOnIcon : volumeOffIcon}
-            alt=""
-            aria-hidden
-            className="h-4 w-4"
-          />
-          <Switch checked={soundEnabled} onCheckedChange={onSoundToggle} />
-        </div>
-      </div>
-
-      <Tabs
-        value={mode}
-        onValueChange={(nextMode) => onModeChange(nextMode as AppMode)}
-        className="space-y-0"
-      >
-        <TabsList className="border-none bg-transparent p-0 shadow-none">
-          <TabsTrigger value="student">Student</TabsTrigger>
-          <TabsTrigger value="teacher">Teacher</TabsTrigger>
-        </TabsList>
-      </Tabs>
+      {soundControl}
+      {modeTabs}
     </>
   );
 
@@ -231,15 +281,14 @@ export function AppShell({
           {controlsCollapsed ? (
             <Button
               variant="secondary"
-              size={isTeacherMobileIcons ? "icon" : undefined}
-              className={isTeacherMobileIcons ? "h-11 w-11" : "h-11 px-4"}
+              size="icon"
+              className="h-11 w-11"
               onClick={() => setDrawerOpen((current) => !current)}
               aria-expanded={isDrawerVisible}
               aria-label="Open utility menu"
               title="Open utility menu"
             >
               <img src={menuIcon} alt="" aria-hidden className="h-4 w-4" />
-              {isTeacherMobileIcons ? null : "Menu"}
             </Button>
           ) : (
             <div
@@ -280,57 +329,31 @@ export function AppShell({
                 <p className="text-sm font-semibold tracking-wide text-[color:var(--ink)]">Menu</p>
                 <Button
                   variant="secondary"
-                  size={isTeacherMobileIcons ? "icon" : "sm"}
+                  size="icon"
                   onClick={() => setDrawerOpen(false)}
                   aria-label="Close utility menu"
                   title="Close utility menu"
                 >
                   <img src={menuIcon} alt="" aria-hidden className="h-4 w-4" />
-                  {isTeacherMobileIcons ? null : "Close"}
                 </Button>
               </div>
 
               <div className="flex flex-col gap-5">
                 <div className="flex items-center justify-between gap-3">
-                  {isTeacherMobileIcons ? (
-                    <Button
-                      variant="secondary"
-                      size="icon"
-                      className="h-11 w-11"
-                      onClick={() => {
-                        onSoundToggle();
-                        setDrawerOpen(false);
-                      }}
-                      aria-label={soundEnabled ? "Mute sound" : "Enable sound"}
-                      title={soundEnabled ? "Mute sound" : "Enable sound"}
-                    >
-                      <img
-                        src={soundEnabled ? volumeOnIcon : volumeOffIcon}
-                        alt=""
-                        aria-hidden
-                        className="h-5 w-5"
-                      />
-                    </Button>
-                  ) : (
-                    <>
-                      <span className="text-sm font-semibold text-[color:var(--ink)]">Sound</span>
-                      <div className="flex items-center gap-2">
-                        <img
-                          src={soundEnabled ? volumeOnIcon : volumeOffIcon}
-                          alt=""
-                          aria-hidden
-                          className="h-4 w-4"
-                        />
-                        <Switch checked={soundEnabled} onCheckedChange={onSoundToggle} />
-                      </div>
-                    </>
-                  )}
+                  <span className="text-sm font-semibold text-[color:var(--ink)]">Sound</span>
+                  <div className="flex items-center gap-2">
+                    <img
+                      src={soundEnabled ? volumeOnIcon : volumeOffIcon}
+                      alt=""
+                      aria-hidden
+                      className="h-4 w-4"
+                    />
+                    <Switch checked={soundEnabled} onCheckedChange={onSoundToggle} />
+                  </div>
                 </div>
 
                 <div className="space-y-2">
-                  {isTeacherMobileIcons ? null : (
-                    <p className="text-sm font-semibold text-[color:var(--ink)]">Mode</p>
-                  )}
+                  <p className="text-sm font-semibold text-[color:var(--ink)]">Mode</p>
                   <Tabs
                     value={mode}
                     onValueChange={(nextMode) => {
@@ -340,30 +363,8 @@ export function AppShell({
                     className="space-y-0"
                   >
                     <TabsList className="w-full border-none bg-transparent p-0 shadow-none">
-                      <TabsTrigger
-                        className={isTeacherMobileIcons ? "w-full" : "w-full"}
-                        value="student"
-                        aria-label="Student mode"
-                        title="Student mode"
-                      >
-                        {isTeacherMobileIcons ? (
-                          <img src={userIcon} alt="" aria-hidden className="h-5 w-5" />
-                        ) : (
-                          "Student"
-                        )}
-                      </TabsTrigger>
-                      <TabsTrigger
-                        className={isTeacherMobileIcons ? "w-full" : "w-full"}
-                        value="teacher"
-                        aria-label="Teacher mode"
-                        title="Teacher mode"
-                      >
-                        {isTeacherMobileIcons ? (
-                          <img src={teacherIcon} alt="" aria-hidden className="h-5 w-5" />
-                        ) : (
-                          "Teacher"
-                        )}
-                      </TabsTrigger>
+                      <TabsTrigger className="w-full" value="student">Student</TabsTrigger>
+                      <TabsTrigger className="w-full" value="teacher">Teacher</TabsTrigger>
                     </TabsList>
                   </Tabs>
                 </div>

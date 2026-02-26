@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { AppShell } from "@/components/app-shell";
+import { AppShell, type UtilityContext } from "@/components/app-shell";
 import { DesignSystemPage } from "@/features/design-system/design-system-page";
 import { StudentMode } from "@/features/student/student-mode";
 import { TeacherMode } from "@/features/teacher/teacher-mode";
@@ -14,14 +14,15 @@ import logoVocabPal from "@/assets/branding/logo-vocabpal.png";
 export type AppRoute = "app" | "designsystem";
 
 function resolveRoute(pathname: string): AppRoute {
-  return pathname === "/designsystem" || pathname === "/designsystem/"
-    ? "designsystem"
-    : "app";
+  if (pathname === "/designsystem" || pathname === "/designsystem/") {
+    return "designsystem";
+  }
+  return "app";
 }
 
 function BaselineAssessmentApp() {
   const [mode, setMode] = useState<AppMode>("student");
-  const [studentAttemptActive, setStudentAttemptActive] = useState(false);
+  const [studentViewState, setStudentViewState] = useState<"entry" | "attempt" | "completion">("entry");
   const [teacherAuthenticated, setTeacherAuthenticated] = useState(false);
   const configError = getClientConfigError();
   const motionPolicy = useMotionPolicy();
@@ -73,7 +74,16 @@ function BaselineAssessmentApp() {
           transition: { duration: 0.01 },
         };
 
-  const showUtilityLogo = mode === "student" ? studentAttemptActive : teacherAuthenticated;
+  const showUtilityLogo = mode === "student"
+    ? studentViewState !== "entry"
+    : teacherAuthenticated;
+  const utilityContext: UtilityContext = mode === "student"
+    ? (studentViewState === "entry"
+      ? "student_entry"
+      : studentViewState === "completion"
+        ? "student_complete"
+        : "student_active")
+    : (teacherAuthenticated ? "teacher_dashboard" : "teacher_login");
 
   return (
     <AppShell
@@ -91,6 +101,7 @@ function BaselineAssessmentApp() {
       motionPolicy={motionPolicy}
       showUtilityLogo={showUtilityLogo}
       utilityLogoSrc={logoVocabPal}
+      utilityContext={utilityContext}
     >
       <AnimatePresence mode="wait">
         <motion.section key={mode} {...sectionTransition}>
@@ -98,7 +109,7 @@ function BaselineAssessmentApp() {
             <StudentMode
               motionPolicy={motionPolicy}
               playSound={play}
-              onAttemptStateChange={setStudentAttemptActive}
+              onViewStateChange={setStudentViewState}
             />
           ) : (
             <TeacherMode
