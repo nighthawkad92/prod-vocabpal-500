@@ -1,0 +1,64 @@
+name: Linear Hard Gate (PR)
+
+on:
+  pull_request:
+    branches:
+      - main
+    types: [opened, synchronize, reopened, edited, ready_for_review]
+
+jobs:
+  linear-hard-gate-pr:
+    name: linear-hard-gate-pr
+    runs-on: ubuntu-latest
+    env:
+      LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+      LINEAR_TEAM_ID: ${{ secrets.LINEAR_TEAM_ID }}
+      LINEAR_PROJECT_ID: ${{ secrets.LINEAR_PROJECT_ID }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Extract Linear issue key
+        id: linear_key
+        run: |
+          TEXT="${{ github.head_ref }} ${{ github.event.pull_request.title }}"
+          ISSUE_KEY=$(echo "$TEXT" | grep -Eo '[A-Z][A-Z0-9]+-[0-9]+' | head -n1 || true)
+          if [ -z "$ISSUE_KEY" ]; then
+            echo "Missing Linear issue key in branch or PR title" >&2
+            exit 1
+          fi
+          echo "issue_key=$ISSUE_KEY" >> "$GITHUB_OUTPUT"
+
+      - name: Enforce Linear key branch/PR/commit convention
+        env:
+          LINEAR_BRANCH: ${{ github.head_ref }}
+          LINEAR_PR_TITLE: ${{ github.event.pull_request.title }}
+          LINEAR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          LINEAR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: npm run linear:verify
+
+      - name: Enforce Linear-only workflow control
+        env:
+          LINEAR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          LINEAR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: npm run linear:enforce-linear-only
+
+      - name: Validate skill docs for stale workflow references
+        run: npm run linear:validate-skills
+
+      - name: Validate hard gate for main merge
+        env:
+          ISSUE_KEY: ${{ steps.linear_key.outputs.issue_key }}
+        run: |
+          npm run linear:gate-hard -- --mode main --issue "$ISSUE_KEY"

@@ -21,7 +21,10 @@ jobs:
       SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
       TEACHER_PASSCODE: ${{ secrets.TEACHER_PASSCODE }}
       TEACHER_NAME: ${{ secrets.TEACHER_NAME }}
-      QA_LOAD_GATE_MODE: advisory
+      QA_LOAD_GATE_MODE: hard
+      LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+      LINEAR_TEAM_ID: ${{ secrets.LINEAR_TEAM_ID }}
+      LINEAR_PROJECT_ID: ${{ secrets.LINEAR_PROJECT_ID }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -38,6 +41,13 @@ jobs:
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
 
+      - name: Extract Linear issue key
+        id: linear_key
+        run: |
+          TEXT="${{ github.ref_name }} ${{ github.event.head_commit.message }}"
+          ISSUE_KEY=$(echo "$TEXT" | grep -Eo '[A-Z][A-Z0-9]+-[0-9]+' | head -n1 || true)
+          echo "issue_key=$ISSUE_KEY" >> "$GITHUB_OUTPUT"
+
       - name: Validate required secrets
         run: |
           test -n "$APP_URL" || (echo "Missing secret APP_URL" && exit 1)
@@ -48,9 +58,60 @@ jobs:
       - name: Run release gate QA
         run: npm run qa:release-gate
 
+      - name: Upsert production release issue in Linear
+        id: release_issue
+        if: always() && env.LINEAR_API_KEY != ''
+        env:
+          ISSUE_KEY: ${{ steps.linear_key.outputs.issue_key }}
+        run: |
+          npm run linear:release-upsert -- \
+            --issue "$ISSUE_KEY" \
+            --sha "${{ github.sha }}" \
+            --environment "prod" \
+            --source "github" \
+            --url "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            --qa-report "qa/reports/latest_release_gate.json" \
+            --github-output "$GITHUB_OUTPUT"
+
+      - name: Validate production hard gate in Linear
+        if: always() && env.LINEAR_API_KEY != '' && steps.release_issue.outputs.release_issue_key != ''
+        env:
+          RELEASE_ISSUE_KEY: ${{ steps.release_issue.outputs.release_issue_key }}
+        run: |
+          npm run linear:gate-hard -- \
+            --mode "prod" \
+            --issue "$RELEASE_ISSUE_KEY" \
+            --qa-report "qa/reports/latest_release_gate.json"
+
       - name: Upload QA reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: qa-reports
           path: qa/reports/
+
+      - name: Post QA workflow summary to Linear
+        if: always() && env.LINEAR_API_KEY != '' && steps.linear_key.outputs.issue_key != ''
+        env:
+          LINEAR_ISSUE_KEY: ${{ steps.linear_key.outputs.issue_key }}
+          LINEAR_EVENT_TYPE: qa-after-deploy
+          LINEAR_EVENT_SOURCE: github
+          LINEAR_ENVIRONMENT: prod
+          LINEAR_STATUS: ${{ job.status }}
+          LINEAR_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          LINEAR_SHA: ${{ github.sha }}
+          LINEAR_METADATA: '{"workflow":"QA Release Gate","artifact":"qa-reports"}'
+        run: npm run linear:post-ci-event
+
+      - name: Post QA workflow summary to release issue in Linear
+        if: always() && env.LINEAR_API_KEY != '' && steps.release_issue.outputs.release_issue_key != ''
+        env:
+          LINEAR_ISSUE_KEY: ${{ steps.release_issue.outputs.release_issue_key }}
+          LINEAR_EVENT_TYPE: qa-after-deploy
+          LINEAR_EVENT_SOURCE: github
+          LINEAR_ENVIRONMENT: prod
+          LINEAR_STATUS: ${{ job.status }}
+          LINEAR_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          LINEAR_SHA: ${{ github.sha }}
+          LINEAR_METADATA: '{"workflow":"QA Release Gate","artifact":"qa-reports","release":"true"}'
+        run: npm run linear:post-ci-event

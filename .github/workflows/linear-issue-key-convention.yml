@@ -1,0 +1,55 @@
+name: Linear Issue Key Convention
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+  push:
+    branches-ignore:
+      - main
+      - master
+
+jobs:
+  verify-linear-key:
+    name: verify-linear-key
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Verify PR branch/title/commits include Linear key
+        if: github.event_name == 'pull_request'
+        env:
+          LINEAR_BRANCH: ${{ github.head_ref }}
+          LINEAR_PR_TITLE: ${{ github.event.pull_request.title }}
+          LINEAR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          LINEAR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: npm run linear:verify
+
+      - name: Enforce Linear-only workflow files on PR
+        if: github.event_name == 'pull_request'
+        env:
+          LINEAR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          LINEAR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: npm run linear:enforce-linear-only
+
+      - name: Verify push branch/commits include Linear key
+        if: github.event_name == 'push'
+        env:
+          LINEAR_BRANCH: ${{ github.ref_name }}
+          LINEAR_BASE_SHA: ${{ github.event.before }}
+          LINEAR_HEAD_SHA: ${{ github.sha }}
+        run: npm run linear:verify
+
+      - name: Enforce Linear-only workflow files on push
+        if: github.event_name == 'push'
+        env:
+          LINEAR_BASE_SHA: ${{ github.event.before }}
+          LINEAR_HEAD_SHA: ${{ github.sha }}
+        run: npm run linear:enforce-linear-only

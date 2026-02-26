@@ -1,0 +1,114 @@
+{
+  "workflowStates": [
+    "TODO",
+    "READY",
+    "RUNNING",
+    "BLOCKED",
+    "REVIEW",
+    "DONE"
+  ],
+  "nonFlowTerminalStates": [
+    "CANCELED",
+    "DUPLICATE"
+  ],
+  "transitionGuard": {
+    "TODO": ["READY"],
+    "READY": ["RUNNING"],
+    "RUNNING": ["REVIEW", "BLOCKED"],
+    "BLOCKED": ["READY"],
+    "REVIEW": ["DONE", "RUNNING"],
+    "DONE": ["RUNNING"]
+  },
+  "labels": {
+    "types": [
+      "type:request",
+      "type:story",
+      "type:task",
+      "type:bug",
+      "type:decision",
+      "type:insight",
+      "type:build-event",
+      "type:incident"
+    ],
+    "roles": [
+      "role:pm",
+      "role:backend",
+      "role:ui",
+      "role:qa",
+      "role:ux-research",
+      "role:market-research"
+    ]
+  },
+  "ownerRoleMap": {
+    "PM": "role:pm",
+    "Backend": "role:backend",
+    "UI": "role:ui",
+    "QA": "role:qa",
+    "UX Research": "role:ux-research",
+    "Market Research": "role:market-research"
+  },
+  "taskTypeMap": {
+    "PM": "type:story",
+    "BE": "type:task",
+    "UI": "type:task",
+    "QA": "type:task",
+    "UXR": "type:task",
+    "MKT": "type:task"
+  },
+  "gatePolicy": {
+    "soft": {
+      "label": "gate:soft",
+      "failureLabel": "gate:soft-fail",
+      "nonBlocking": true
+    },
+    "hard": {
+      "label": "gate:hard",
+      "approvalLabel": "gate:hard-approved",
+      "failureLabel": "gate:hard-fail",
+      "requiredMainState": "REVIEW",
+      "requiredProdState": "DONE",
+      "requiredHandoffMarker": "## Role Handoff",
+      "requiredQaMarker": "## QA Evidence"
+    },
+    "release": {
+      "typeLabel": "type:release",
+      "environmentLabel": "env:prod",
+      "sourceLabel": "source:github",
+      "overrideLabel": "gate:override",
+      "requiredChecklistMarkers": [
+        "Included Issues:",
+        "QA Report:",
+        "PM Approval: APPROVED",
+        "QA Approval: APPROVED"
+      ],
+      "requiredOverrideMarkers": [
+        "Override approved by PM:",
+        "Override approved by QA:",
+        "Follow-up Issue:"
+      ]
+    }
+  },
+  "lineagePolicy": {
+    "parentStoryMarker": "Parent Story:",
+    "parentRequestMarker": "Parent Request:",
+    "minimumEvidenceMarkers": [
+      "## Role Handoff",
+      "## QA Evidence"
+    ]
+  },
+  "forbiddenWorkflowPaths": [
+    "agent_board.md",
+    "state_machine_rules.md",
+    "checkpoint_playbook.md"
+  ],
+  "forbiddenWorkflowPatterns": [
+    "artifacts/workflow/task-board.md",
+    "artifacts/workflow/state-transitions.jsonl"
+  ],
+  "defaultProjectName": "vocabpal-baseline-500",
+  "migration": {
+    "legacyBoardPath": "agent_board.md",
+    "legacyMirrorOutput": "knowledge-base/linear/agent_board_mirror.md",
+    "notes": "Migration-only fields. Linear is the operational source of truth."
+  }
+}

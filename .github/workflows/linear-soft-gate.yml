@@ -1,0 +1,63 @@
+name: Linear Soft Gate
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+  push:
+    branches-ignore:
+      - main
+      - master
+
+jobs:
+  linear-soft-gate:
+    name: linear-soft-gate
+    runs-on: ubuntu-latest
+    env:
+      LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+      LINEAR_TEAM_ID: ${{ secrets.LINEAR_TEAM_ID }}
+      LINEAR_PROJECT_ID: ${{ secrets.LINEAR_PROJECT_ID }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Extract Linear issue key
+        id: linear_key
+        run: |
+          TEXT="${{ github.head_ref }} ${{ github.ref_name }} ${{ github.event.pull_request.title }} ${{ github.event.head_commit.message }}"
+          ISSUE_KEY=$(echo "$TEXT" | grep -Eo '[A-Z][A-Z0-9]+-[0-9]+' | head -n1 || true)
+          echo "issue_key=$ISSUE_KEY" >> "$GITHUB_OUTPUT"
+
+      - name: Advisory key convention check
+        id: verify
+        continue-on-error: true
+        env:
+          LINEAR_BRANCH: ${{ github.head_ref || github.ref_name }}
+          LINEAR_PR_TITLE: ${{ github.event.pull_request.title }}
+          LINEAR_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          LINEAR_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: npm run linear:verify
+
+      - name: Record soft gate status in Linear
+        if: steps.linear_key.outputs.issue_key != ''
+        env:
+          ISSUE_KEY: ${{ steps.linear_key.outputs.issue_key }}
+          STATUS: ${{ steps.verify.outcome == 'success' && 'passed' || 'failed' }}
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          npm run linear:gate-soft -- \
+            --issue "$ISSUE_KEY" \
+            --status "$STATUS" \
+            --context "preview-validation" \
+            --source "github" \
+            --url "$RUN_URL"

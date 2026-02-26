@@ -56,6 +56,7 @@ npm run qa:cleanup
 ```bash
 npm run qa:release-gate
 ```
+This report (`latest_release_gate.json`) is consumed by `npm run linear:gate-hard -- --mode prod`.
 
 7. Weekly 500-student phased load profile:
 ```bash

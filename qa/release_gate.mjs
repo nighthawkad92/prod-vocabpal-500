@@ -25,6 +25,7 @@ const config = {
 };
 
 const report = {
+  schemaVersion: "linear-hard-gate-v1",
   runAt: new Date().toISOString(),
   targetUrl: config.targetUrl,
   codeGate: {
@@ -50,6 +51,12 @@ const report = {
     details: {},
   },
   overallStatus: "running",
+  hardGateEligible: false,
+  hardGateSummary: {
+    requiredLoadMode: "hard",
+    actualLoadMode: config.loadGateMode,
+    pass: false,
+  },
   blockers: [],
 };
 
@@ -242,6 +249,17 @@ async function main() {
   const loadGatePass = config.loadGateMode === "hard" ? report.loadGate.pass : true;
 
   report.overallStatus = hardGatePass && loadGatePass ? "passed" : "failed";
+  report.hardGateEligible = report.overallStatus === "passed" && config.loadGateMode === "hard";
+  report.hardGateSummary = {
+    requiredLoadMode: "hard",
+    actualLoadMode: config.loadGateMode,
+    pass: report.hardGateEligible,
+    codeGatePass: report.codeGate.pass,
+    uiUxGatePass: report.uiUxGate.pass,
+    dataGatePass: report.dataGate.pass,
+    apiGatePass: report.apiGate.pass,
+    loadGatePass: report.loadGate.pass,
+  };
 }
 
 const outDir = join(process.cwd(), "qa", "reports");
