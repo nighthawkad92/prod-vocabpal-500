@@ -37,6 +37,7 @@ type WindowRow = {
   test_id: string;
   scope: "all" | "allowlist";
   class_id: string | null;
+  is_open: boolean;
   start_at: string;
   end_at: string;
 };
@@ -213,13 +214,12 @@ export async function getOpenWindowForStudent(
   const now = new Date().toISOString();
   const { data, error } = await client
     .from("test_windows")
-    .select("id, test_id, scope, class_id, start_at, end_at")
+    .select("id, test_id, scope, class_id, is_open, start_at, end_at")
     .eq("test_id", testId)
-    .eq("is_open", true)
-    .lte("start_at", now)
-    .gte("end_at", now)
+    .gt("end_at", now)
     .or(`class_id.is.null,class_id.eq.${classId}`)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(100);
 
   if (error) {
     throw new Error(`Failed to query open windows: ${error.message}`);
@@ -228,29 +228,36 @@ export async function getOpenWindowForStudent(
     throw new Error("No baseline session is currently in progress");
   }
 
+  const latestWindow = (data as WindowRow[])[0];
+  if (!latestWindow.is_open) {
+    throw new Error("Baseline session is currently paused");
+  }
+  if (Date.parse(latestWindow.start_at) > Date.now()) {
+    throw new Error("No baseline session is currently in progress");
+  }
+
   const firstNorm = normalizeNameKey(firstName);
   const lastNorm = normalizeNameKey(lastName);
   const classNorm = normalizeClassName(className).toLowerCase();
 
-  for (const window of data as WindowRow[]) {
-    if (window.scope === "all") {
-      return window;
-    }
-    const allow = await client
-      .from("window_allowlist")
-      .select("id")
-      .eq("window_id", window.id)
-      .eq("first_name_norm", firstNorm)
-      .eq("last_name_norm", lastNorm)
-      .eq("class_name_norm", classNorm)
-      .maybeSingle();
+  if (latestWindow.scope === "all") {
+    return latestWindow;
+  }
 
-    if (allow.error) {
-      throw new Error(`Failed to query window allowlist: ${allow.error.message}`);
-    }
-    if (allow.data) {
-      return window;
-    }
+  const allow = await client
+    .from("window_allowlist")
+    .select("id")
+    .eq("window_id", latestWindow.id)
+    .eq("first_name_norm", firstNorm)
+    .eq("last_name_norm", lastNorm)
+    .eq("class_name_norm", classNorm)
+    .maybeSingle();
+
+  if (allow.error) {
+    throw new Error(`Failed to query window allowlist: ${allow.error.message}`);
+  }
+  if (allow.data) {
+    return latestWindow;
   }
 
   throw new Error("Student is not allowed in the current baseline session");

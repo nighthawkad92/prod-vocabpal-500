@@ -275,6 +275,10 @@ The PM agent is the scheduler. Only PM changes task state.
 | UI-069 | Remove ended->paused coercion and block pause action when no active window | UI | BE-013 | DONE | teacher dashboard now preserves true session status and surfaces explicit error if pause is attempted without an active window |
 | QA-063 | Validate manual-pause-only behavior and static regression gates | QA | UI-069 | DONE | typecheck/lint/build passed; verified no automatic paused fallback in backend or teacher UI status mapping |
 | PM-QA-019 | Final signoff for manual-pause-only enforcement | PM | QA-063 | DONE | signoff complete; paused state now appears only after explicit teacher pause action on an active session |
+| PM-QA-020 | Queue pause/resume functional verification hardening for student-entry gate | PM | PM-QA-019 | DONE | scoped enforcement so paused teacher state blocks student start, and added smoke coverage for pause->resume transition |
+| BE-014 | Make student-start window resolution honor latest non-ended window state | Backend | PM-QA-020 | DONE | `getOpenWindowForStudent` now evaluates latest non-ended window (open/paused/allowlist) instead of any historical open window |
+| QA-064 | Add remote smoke pause/resume assertions and run static gates | QA | BE-014 | DONE | `qa/remote_smoke.mjs` now validates pause blocks student start and resume re-enables flow; typecheck/lint/build passed locally |
+| PM-QA-021 | Final signoff for pause/resume functional reliability | PM | QA-064 | DONE | signoff complete; pause/resume now validated at both API logic and QA smoke contract levels |
 | PM-QA-010 | Queue post-push release-gate validation and CI checkpoint closure | PM | PM-002 | DONE | scoped QA harness alignment and rerun of `qa:after-deploy` after main push |
 | QA-010 | Align matrix harness with audio-end submit gate and rerun release gate | QA | PM-QA-010 | DONE | updated submit selector + mock audio `onended`; `qa:matrix` and `qa:after-deploy` passed |
 | PM-QA-011 | Sign off post-push QA recovery and checkpoint closure | PM | QA-010 | DONE | verified green after-deploy report and cleared CP-07 via GitHub secrets |

@@ -128,6 +128,17 @@ async function createOpenWindow(token) {
   return result.payload.window.id;
 }
 
+async function setWindowStatus(token, windowId, status) {
+  const result = await callFunction("teacher-windows", {
+    method: "PATCH",
+    token,
+    body: { windowId, status },
+  });
+  expectStatus(result, 200, `teacher-windows PATCH ${status}`);
+  assert(result.payload?.status === status, `Expected window status ${status}`);
+  addStep(`session-${status}`, { windowId, status: result.payload?.status });
+}
+
 async function completeAttempt(student, answerOverrides = {}) {
   const start = await callFunction("student-start-attempt", {
     method: "POST",
@@ -213,6 +224,24 @@ async function run() {
 
   const windowId = await createOpenWindow(token);
   report.artifacts.windowId = windowId;
+
+  await setWindowStatus(token, windowId, "paused");
+
+  const blockedWhilePaused = await callFunction("student-start-attempt", {
+    method: "POST",
+    body: {
+      firstName: `${config.studentPrefix}${Date.now().toString().slice(-6)}`,
+      lastName: "PauseCheck",
+      className: "Class A",
+    },
+  });
+  assert(
+    blockedWhilePaused.status >= 400,
+    `student-start-attempt should fail while baseline paused: ${JSON.stringify(blockedWhilePaused.payload)}`,
+  );
+  addStep("pause-blocks-student-start", { status: blockedWhilePaused.status });
+
+  await setWindowStatus(token, windowId, "in_progress");
 
   const runId = Date.now().toString().slice(-6);
   const sharedIdentity = {
@@ -318,13 +347,7 @@ async function run() {
     attemptsToday: summary.payload.attemptsToday,
   });
 
-  const endSession = await callFunction("teacher-windows", {
-    method: "PATCH",
-    token,
-    body: { windowId, status: "ended" },
-  });
-  expectStatus(endSession, 200, "teacher-windows PATCH status update");
-  addStep("session-ended", { windowId, status: endSession.payload?.status });
+  await setWindowStatus(token, windowId, "ended");
 
   const logout = await callFunction("teacher-logout", { method: "POST", token });
   expectStatus(logout, 200, "teacher-logout");
