@@ -252,6 +252,10 @@ The PM agent is the scheduler. Only PM changes task state.
 | UI-064 | Remove duplicate desktop horizontal inset inside teacher dashboard wrapper | UI | PM-DS-083 | DONE | changed teacher dashboard inner wrapper from `px-2` to `px-2 md:px-0` so desktop uses shell-level 16px gutters only |
 | QA-057 | Validate teacher dashboard spacing parity across mobile and desktop breakpoints | QA | UI-064 | DONE | typecheck/lint/build passed; desktop now aligns to 16px shell padding while mobile keeps 8px side inset |
 | PM-DS-084 | Final signoff for desktop teacher gutter normalization | PM | QA-057 | DONE | signoff complete; spacing fix is UI-only with no API/schema/behavioral impact |
+| PM-DS-085 | Queue teacher shell width-cap removal for true 16px desktop side gutters | PM | PM-002 | DONE | identified remaining desktop side gap root cause as `max-w-[850px]` shell cap and scoped full-width teacher shell fix |
+| UI-065 | Remove teacher app-shell max width cap while preserving breakpoint padding contract | UI | PM-DS-085 | DONE | changed teacher shell width from `max-w-[850px]` to `max-w-full` so content spans available width with `md:px-4` gutters |
+| QA-058 | Validate teacher shell width and side gutter behavior across desktop/tablet/mobile | QA | UI-065 | DONE | typecheck/lint/build passed; desktop now honors 16px side gutters without centered narrow-column cap |
+| PM-DS-086 | Final signoff for teacher shell width-cap removal | PM | QA-058 | DONE | signoff complete; desktop spacing now matches intent with no API/schema changes |
 | PM-QA-010 | Queue post-push release-gate validation and CI checkpoint closure | PM | PM-002 | DONE | scoped QA harness alignment and rerun of `qa:after-deploy` after main push |
 | QA-010 | Align matrix harness with audio-end submit gate and rerun release gate | QA | PM-QA-010 | DONE | updated submit selector + mock audio `onended`; `qa:matrix` and `qa:after-deploy` passed |
 | PM-QA-011 | Sign off post-push QA recovery and checkpoint closure | PM | QA-010 | DONE | verified green after-deploy report and cleared CP-07 via GitHub secrets |

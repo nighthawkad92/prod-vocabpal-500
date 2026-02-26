@@ -76,7 +76,7 @@ export function AppShell({
   utilityContext,
   children,
 }: AppShellProps) {
-  const widthClass = mode === "teacher" ? "max-w-[850px]" : "max-w-6xl";
+  const widthClass = mode === "teacher" ? "max-w-full" : "max-w-6xl";
   const paddingClass = mode === "teacher" ? "px-2 md:px-4" : "px-2 md:px-6";
   const headerRef = useRef<HTMLDivElement | null>(null);
   const logoRef = useRef<HTMLImageElement | null>(null);
