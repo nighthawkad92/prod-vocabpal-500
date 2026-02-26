@@ -55,6 +55,7 @@ export type TeacherAttempt = {
   id: string;
   attemptSource?: "student" | "qa";
   status: string;
+  archivedAt?: string | null;
   startedAt: string;
   endedAt: string | null;
   totalCorrect: number;

@@ -273,6 +273,7 @@ export async function getLatestAttempt(
     .select("id, student_id, test_id, status, started_at")
     .eq("student_id", studentId)
     .eq("test_id", testId)
+    .is("archived_at", null)
     .order("started_at", { ascending: false })
     .limit(1)
     .maybeSingle<AttemptRow>();
@@ -292,7 +293,8 @@ export async function isAttemptCreationAllowed(
     .from("attempts")
     .select("id", { count: "exact", head: true })
     .eq("student_id", studentId)
-    .eq("test_id", testId);
+    .eq("test_id", testId)
+    .is("archived_at", null);
   if (attemptsResult.error) {
     throw new Error(`Failed to count attempts: ${attemptsResult.error.message}`);
   }

@@ -36,8 +36,10 @@ import closeIcon from "@/assets/icons/times.svg";
 const TOKEN_KEY = "vocabpal.teacher.token";
 const ARCHIVE_CONFIRMATION_MESSAGE =
   "Archiving this attempt will reopen the baseline test for this student. Do you want to continue?";
+const RESTORE_CONFIRMATION_MESSAGE = "Restoring this attempt will move it back to active attempts. Continue?";
 const ATTEMPTS_PAGE_SIZE = 25;
 const MOBILE_BREAKPOINT_QUERY = "(max-width: 768px)";
+type AttemptArchiveView = "active" | "archived";
 
 type TeacherModeProps = {
   motionPolicy: MotionPolicy;
@@ -62,6 +64,18 @@ type TeacherAttemptListResponse = {
   page: number;
   totalPages: number;
   attempts: TeacherAttempt[];
+};
+
+type AttemptMutationResponse = {
+  archived?: boolean;
+  restored?: boolean;
+  reopened?: boolean;
+  archivedCount?: number;
+  restoredCount?: number;
+  students: Array<{
+    firstName: string | null;
+    lastName: string | null;
+  }>;
 };
 
 const cardMotion = {
@@ -159,6 +173,7 @@ export function TeacherMode({
   const [searchText, setSearchText] = useState("");
   const [classFilter, setClassFilter] = useState("all");
   const [stageFilter, setStageFilter] = useState<"all" | "0" | "1" | "2" | "3" | "4">("all");
+  const [attemptArchiveView, setAttemptArchiveView] = useState<AttemptArchiveView>("active");
   const [attemptPage, setAttemptPage] = useState(1);
   const [attemptsTotal, setAttemptsTotal] = useState(0);
   const [filteredAttemptsTotal, setFilteredAttemptsTotal] = useState(0);
@@ -189,6 +204,7 @@ export function TeacherMode({
     setSearchText("");
     setClassFilter("all");
     setStageFilter("all");
+    setAttemptArchiveView("active");
     setDraftClassFilter("all");
     setAttemptPage(1);
     setAttemptsTotal(0);
@@ -227,6 +243,7 @@ export function TeacherMode({
           limit: String(ATTEMPTS_PAGE_SIZE),
           offset: String(offset),
           source: "student",
+          archived: attemptArchiveView === "archived" ? "only" : "exclude",
         });
         const trimmedSearch = searchText.trim();
         if (classFilter !== "all") {
@@ -293,7 +310,7 @@ export function TeacherMode({
         }
       }
     },
-    [attemptPage, classFilter, expireTeacherSession, playSound, searchText, stageFilter, token],
+    [attemptArchiveView, attemptPage, classFilter, expireTeacherSession, playSound, searchText, stageFilter, token],
   );
 
   const loadAttempt = useCallback(
@@ -383,18 +400,13 @@ export function TeacherMode({
   }, []);
 
   const classOptions = useMemo(() => {
-    if (summary && summary.classBreakdown.length > 0) {
-      return summary.classBreakdown
-        .map((row) => row.className)
-        .sort((a, b) => a.localeCompare(b));
-    }
-    return Array.from(
-      new Set(
-        attempts
-          .map((attempt) => attempt.student.className)
-          .filter((value): value is string => Boolean(value)),
-      ),
-    ).sort((a, b) => a.localeCompare(b));
+    const classSet = new Set<string>();
+    summary?.classBreakdown.forEach((row) => classSet.add(row.className));
+    attempts
+      .map((attempt) => attempt.student.className)
+      .filter((value): value is string => Boolean(value))
+      .forEach((className) => classSet.add(className));
+    return Array.from(classSet).sort((a, b) => a.localeCompare(b));
   }, [attempts, summary]);
 
   const stageCards = useMemo(() => {
@@ -427,7 +439,7 @@ export function TeacherMode({
 
   useEffect(() => {
     setSelectedAttemptIds([]);
-  }, [attemptPage, classFilter, searchText, stageFilter]);
+  }, [attemptArchiveView, attemptPage, classFilter, searchText, stageFilter]);
 
   useEffect(() => {
     setDraftClassFilter(classFilter);
@@ -511,6 +523,7 @@ export function TeacherMode({
   const sessionStatus: SessionStatus = windowState?.status ?? "ended";
   const isStatusActionLoading = headerActionLoading === "status";
   const isRefreshActionLoading = headerActionLoading === "refresh";
+  const isRecycleBinView = attemptArchiveView === "archived";
   const totalPages = Math.max(1, Math.ceil(filteredAttemptsTotal / ATTEMPTS_PAGE_SIZE));
   const showingStart = filteredAttemptsTotal === 0
     ? 0
@@ -575,13 +588,16 @@ export function TeacherMode({
     [expireTeacherSession, playSound, refresh, token, windowState?.window?.id],
   );
 
-  const archiveAttempts = useCallback(
-    async (attemptIds: string[]) => {
+  const mutateAttempts = useCallback(
+    async (attemptIds: string[], action: "archive" | "restore") => {
       if (!token || attemptIds.length === 0) return;
 
       const uniqueAttemptIds = Array.from(new Set(attemptIds));
-      const shouldArchive = window.confirm(ARCHIVE_CONFIRMATION_MESSAGE);
-      if (!shouldArchive) {
+      const confirmationMessage = action === "archive"
+        ? ARCHIVE_CONFIRMATION_MESSAGE
+        : RESTORE_CONFIRMATION_MESSAGE;
+      const shouldProceed = window.confirm(confirmationMessage);
+      if (!shouldProceed) {
         return;
       }
 
@@ -590,15 +606,8 @@ export function TeacherMode({
       setNotice(null);
 
       try {
-        const response = await callFunction<{
-          archived: boolean;
-          reopened: boolean;
-          archivedCount: number;
-          students: Array<{
-            firstName: string | null;
-            lastName: string | null;
-          }>;
-        }>("teacher-attempt-archive", {
+        const endpoint = action === "archive" ? "teacher-attempt-archive" : "teacher-attempt-restore";
+        const response = await callFunction<AttemptMutationResponse>(endpoint, {
           method: "POST",
           token,
           body: {
@@ -606,14 +615,22 @@ export function TeacherMode({
           },
         });
 
-        const archivedCount = response.archivedCount ?? uniqueAttemptIds.length;
-        const successNotice = archivedCount === 1 && response.students[0]
-          ? `Attempt archived for ${
-            [response.students[0].firstName, response.students[0].lastName]
-              .filter(Boolean)
-              .join(" ") || "student"
-          }. Baseline test reopened.`
-          : `${archivedCount} attempts archived. Baseline test reopened for selected students.`;
+        const count = action === "archive"
+          ? response.archivedCount ?? uniqueAttemptIds.length
+          : response.restoredCount ?? uniqueAttemptIds.length;
+        const student = response.students[0];
+        const studentName = student
+          ? [student.firstName, student.lastName].filter(Boolean).join(" ") || "student"
+          : "student";
+        const successNotice = count === 0
+          ? `No attempts were ${action === "archive" ? "archived" : "restored"}.`
+          : count === 1
+          ? action === "archive"
+            ? `Attempt archived for ${studentName}. Baseline test reopened.`
+            : `Attempt restored for ${studentName}.`
+          : action === "archive"
+          ? `${count} attempts archived. Baseline test reopened for selected students.`
+          : `${count} attempts restored.`;
 
         setSelectedAttemptIds((current) =>
           current.filter((attemptId) => !uniqueAttemptIds.includes(attemptId))
@@ -626,7 +643,8 @@ export function TeacherMode({
           const refreshMessage = refreshError instanceof Error
             ? refreshError.message
             : "Failed to refresh dashboard";
-          setError(`Archive succeeded but dashboard refresh failed: ${refreshMessage}`);
+          const actionLabel = action === "archive" ? "Archive" : "Restore";
+          setError(`${actionLabel} succeeded but dashboard refresh failed: ${refreshMessage}`);
           setNotice(`${successNotice} Refresh failed, tap Refresh.`);
         }
 
@@ -636,7 +654,8 @@ export function TeacherMode({
           expireTeacherSession();
           return;
         }
-        setError(err instanceof Error ? err.message : "Failed to archive attempts");
+        const actionLabel = action === "archive" ? "archive" : "restore";
+        setError(err instanceof Error ? err.message : `Failed to ${actionLabel} attempts`);
         void playSound("error", { fromInteraction: true });
       } finally {
         setBusy(false);
@@ -647,13 +666,13 @@ export function TeacherMode({
 
   const archiveAttempt = useCallback(() => {
     if (!detail) return;
-    void archiveAttempts([detail.attempt.id]);
-  }, [archiveAttempts, detail]);
+    void mutateAttempts([detail.attempt.id], attemptArchiveView === "archived" ? "restore" : "archive");
+  }, [attemptArchiveView, detail, mutateAttempts]);
 
   const archiveSelectedAttempts = useCallback(() => {
     if (selectedAttemptIds.length === 0) return;
-    void archiveAttempts(selectedAttemptIds);
-  }, [archiveAttempts, selectedAttemptIds]);
+    void mutateAttempts(selectedAttemptIds, attemptArchiveView === "archived" ? "restore" : "archive");
+  }, [attemptArchiveView, mutateAttempts, selectedAttemptIds]);
 
   const toggleAttemptSelection = useCallback((attemptId: string, shouldSelect: boolean) => {
     setSelectedAttemptIds((current) => {
@@ -742,10 +761,15 @@ export function TeacherMode({
     );
   }
 
+  const emptyAttemptsMessage = isRecycleBinView ? "No archived attempts." : "No attempts recorded.";
+  const emptyFilteredAttemptsMessage = isRecycleBinView
+    ? "No archived attempts match this search/filter combination."
+    : "No attempts match this search/filter combination.";
+
   const attemptRows = filteredAttemptsTotal === 0 ? (
-    <Alert>No attempts recorded.</Alert>
+    <Alert>{emptyAttemptsMessage}</Alert>
   ) : attempts.length === 0 ? (
-    <Alert>No attempts match this search/filter combination.</Alert>
+    <Alert>{emptyFilteredAttemptsMessage}</Alert>
   ) : (
     attempts.map((attempt) => {
       const className = attempt.student.className ?? "Unknown";
@@ -812,8 +836,21 @@ export function TeacherMode({
       </CardHeader>
       <CardContent>
         <div className="space-y-3 xl:max-h-[calc(100vh-23rem)] xl:overflow-y-auto xl:pr-1">
-          <div className="space-y-3">
-            <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-3">
+          <AttemptArchiveToggle
+            value={attemptArchiveView}
+            disabled={busy}
+            onChange={(nextValue) => {
+              if (attemptArchiveView === nextValue) return;
+              setAttemptArchiveView(nextValue);
+              setAttemptPage(1);
+              setStageFilter("all");
+              setSelectedAttemptIds([]);
+              void playSound("tap", { fromInteraction: true });
+            }}
+          />
+
+          <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1">
                 <Label htmlFor="attempt-search">Search</Label>
                 <Input
@@ -850,7 +887,7 @@ export function TeacherMode({
             </div>
 
             <p className="text-xs font-semibold text-[color:var(--muted)]">
-              Showing {showingStart}-{showingEnd} of {filteredAttemptsTotal} attempts
+              Showing {showingStart}-{showingEnd} of {filteredAttemptsTotal} {isRecycleBinView ? "archived attempts" : "attempts"}
               {attemptsTotal !== filteredAttemptsTotal ? ` (total ${attemptsTotal})` : ""}
               {stageFilterLabel ? ` · ${stageFilterLabel}` : ""}
             </p>
@@ -890,17 +927,23 @@ export function TeacherMode({
                 </MotionButton>
                 <MotionButton
                   motionPolicy={motionPolicy}
-                  variant={selectedAttemptIds.length > 0 ? "destructive" : "secondary"}
+                  variant={
+                    isRecycleBinView
+                      ? "secondary"
+                      : selectedAttemptIds.length > 0
+                      ? "destructive"
+                      : "secondary"
+                  }
                   size="sm"
                   disabled={busy || selectedAttemptIds.length === 0}
-                  title={ARCHIVE_CONFIRMATION_MESSAGE}
+                  title={isRecycleBinView ? RESTORE_CONFIRMATION_MESSAGE : ARCHIVE_CONFIRMATION_MESSAGE}
                   onClick={() => {
                     void playSound("tap", { fromInteraction: true });
                     archiveSelectedAttempts();
                   }}
                 >
-                  <IconGlyph src={archiveIcon} alt="" />
-                  Archive selected
+                  <IconGlyph src={isRecycleBinView ? refreshIcon : archiveIcon} alt="" />
+                  {isRecycleBinView ? "Restore selected" : "Archive selected"}
                 </MotionButton>
               </div>
             </motion.div>
@@ -966,14 +1009,14 @@ export function TeacherMode({
               variant="secondary"
               className="self-start"
               disabled={busy}
-              title={ARCHIVE_CONFIRMATION_MESSAGE}
+              title={isRecycleBinView ? RESTORE_CONFIRMATION_MESSAGE : ARCHIVE_CONFIRMATION_MESSAGE}
               onClick={() => {
                 void playSound("tap", { fromInteraction: true });
                 archiveAttempt();
               }}
             >
-              <IconGlyph src={archiveIcon} alt="" />
-              Archive
+              <IconGlyph src={isRecycleBinView ? refreshIcon : archiveIcon} alt="" />
+              {isRecycleBinView ? "Restore" : "Archive"}
             </MotionButton>
           </CardHeader>
 
@@ -1054,47 +1097,55 @@ export function TeacherMode({
 
         {summary ? (
           <div className="space-y-3">
-            <div className="overflow-x-auto pb-1">
-              <div className="flex min-w-max items-stretch gap-3 pr-1">
-                {stageCards.map((stageSummary) => {
-                  const stageValue = String(stageSummary.stage) as "0" | "1" | "2" | "3" | "4";
-                  return (
-                    <StageDistributionCard
-                      key={`stage-${stageSummary.stage}`}
-                      summary={stageSummary}
-                      isActive={stageFilter === stageValue}
-                      onSelect={(selectedStage) => {
-                        const nextFilter = stageFilter === selectedStage ? "all" : selectedStage;
-                        setStageFilter(nextFilter);
-                        setAttemptPage(1);
-                        void playSound("tap", { fromInteraction: true });
-                      }}
-                    />
-                  );
-                })}
-              </div>
-            </div>
-
-            {summary.classBreakdown.length > 0 ? (
-              <div className="overflow-x-auto pb-1">
-                <div className="flex min-w-max items-stretch gap-3 pr-1">
-                  {summary.classBreakdown.map((classSummary) => (
-                    <ClassPerformanceRow
-                      key={classSummary.className}
-                      summary={classSummary}
-                      isActive={classFilter === classSummary.className}
-                      onSelect={(selectedClassName) => {
-                        const nextFilter = classFilter === selectedClassName ? "all" : selectedClassName;
-                        setClassFilter(nextFilter);
-                        setAttemptPage(1);
-                        void playSound("tap", { fromInteraction: true });
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
+            {isRecycleBinView ? (
+              <p className="text-sm font-semibold text-[color:var(--muted)]">
+                Recycle Bin view is active. Dashboard summaries show active attempts only.
+              </p>
             ) : (
-              <p className="text-sm text-[color:var(--muted)]">No class summaries yet.</p>
+              <>
+                <div className="overflow-x-auto pb-1">
+                  <div className="flex min-w-max items-stretch gap-3 pr-1">
+                    {stageCards.map((stageSummary) => {
+                      const stageValue = String(stageSummary.stage) as "0" | "1" | "2" | "3" | "4";
+                      return (
+                        <StageDistributionCard
+                          key={`stage-${stageSummary.stage}`}
+                          summary={stageSummary}
+                          isActive={stageFilter === stageValue}
+                          onSelect={(selectedStage) => {
+                            const nextFilter = stageFilter === selectedStage ? "all" : selectedStage;
+                            setStageFilter(nextFilter);
+                            setAttemptPage(1);
+                            void playSound("tap", { fromInteraction: true });
+                          }}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {summary.classBreakdown.length > 0 ? (
+                  <div className="overflow-x-auto pb-1">
+                    <div className="flex min-w-max items-stretch gap-3 pr-1">
+                      {summary.classBreakdown.map((classSummary) => (
+                        <ClassPerformanceRow
+                          key={classSummary.className}
+                          summary={classSummary}
+                          isActive={classFilter === classSummary.className}
+                          onSelect={(selectedClassName) => {
+                            const nextFilter = classFilter === selectedClassName ? "all" : selectedClassName;
+                            setClassFilter(nextFilter);
+                            setAttemptPage(1);
+                            void playSound("tap", { fromInteraction: true });
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-[color:var(--muted)]">No class summaries yet.</p>
+                )}
+              </>
             )}
           </div>
         ) : (
@@ -1110,6 +1161,20 @@ export function TeacherMode({
               Search by student name and filter by class before selecting an attempt.
             </CardDescription>
           </div>
+
+          <AttemptArchiveToggle
+            value={attemptArchiveView}
+            compact
+            disabled={busy}
+            onChange={(nextValue) => {
+              if (attemptArchiveView === nextValue) return;
+              setAttemptArchiveView(nextValue);
+              setAttemptPage(1);
+              setStageFilter("all");
+              setSelectedAttemptIds([]);
+              void playSound("tap", { fromInteraction: true });
+            }}
+          />
 
           <div className="flex items-end gap-2">
             <div className="flex-1 space-y-1">
@@ -1142,7 +1207,7 @@ export function TeacherMode({
           </div>
 
           <p className="text-xs font-semibold text-[color:var(--muted)]">
-            Showing {showingStart}-{showingEnd} of {filteredAttemptsTotal} attempts
+            Showing {showingStart}-{showingEnd} of {filteredAttemptsTotal} {isRecycleBinView ? "archived attempts" : "attempts"}
             {attemptsTotal !== filteredAttemptsTotal ? ` (total ${attemptsTotal})` : ""}
             {stageFilterLabel ? ` · ${stageFilterLabel}` : ""}
           </p>
@@ -1175,17 +1240,23 @@ export function TeacherMode({
                 </MotionButton>
                 <MotionButton
                   motionPolicy={motionPolicy}
-                  variant={selectedAttemptIds.length > 0 ? "destructive" : "secondary"}
+                  variant={
+                    isRecycleBinView
+                      ? "secondary"
+                      : selectedAttemptIds.length > 0
+                      ? "destructive"
+                      : "secondary"
+                  }
                   size="icon"
-                  title="Archive selected attempts"
-                  aria-label="Archive selected attempts"
+                  title={isRecycleBinView ? "Restore selected attempts" : "Archive selected attempts"}
+                  aria-label={isRecycleBinView ? "Restore selected attempts" : "Archive selected attempts"}
                   disabled={busy || selectedAttemptIds.length === 0}
                   onClick={() => {
                     void playSound("tap", { fromInteraction: true });
                     archiveSelectedAttempts();
                   }}
                 >
-                  <IconGlyph src={archiveIcon} alt="" />
+                  <IconGlyph src={isRecycleBinView ? refreshIcon : archiveIcon} alt="" />
                 </MotionButton>
               </motion.div>
             ) : null}
@@ -1376,15 +1447,15 @@ export function TeacherMode({
                     motionPolicy={motionPolicy}
                     variant="secondary"
                     size="icon"
-                    title="Archive attempt"
-                    aria-label="Archive attempt"
+                    title={isRecycleBinView ? "Restore attempt" : "Archive attempt"}
+                    aria-label={isRecycleBinView ? "Restore attempt" : "Archive attempt"}
                     disabled={busy}
                     onClick={() => {
                       void playSound("tap", { fromInteraction: true });
                       archiveAttempt();
                     }}
                   >
-                    <IconGlyph src={archiveIcon} alt="" />
+                    <IconGlyph src={isRecycleBinView ? refreshIcon : archiveIcon} alt="" />
                   </MotionButton>
                 </div>
               </div>
@@ -1410,6 +1481,13 @@ type SessionStatusToggleProps = {
   iconOnly?: boolean;
   disabled?: boolean;
   onChange: (status: "paused" | "in_progress") => void;
+};
+
+type AttemptArchiveToggleProps = {
+  value: AttemptArchiveView;
+  disabled?: boolean;
+  compact?: boolean;
+  onChange: (value: AttemptArchiveView) => void;
 };
 
 function SessionStatusToggle({
@@ -1461,6 +1539,55 @@ function SessionStatusToggle({
         onClick={() => onChange("in_progress")}
       >
         {iconOnly ? <IconGlyph src={playIcon} alt="" /> : "In Progress"}
+      </button>
+    </div>
+  );
+}
+
+function AttemptArchiveToggle({
+  value,
+  disabled = false,
+  compact = false,
+  onChange,
+}: AttemptArchiveToggleProps) {
+  return (
+    <div
+      className={cn(
+        "inline-flex items-center rounded-[var(--radius-xl)] border border-[color:var(--line)] bg-white p-1 shadow-[var(--shadow-2xs)]",
+        compact && "w-fit",
+      )}
+      role="group"
+      aria-label="Attempt list view"
+    >
+      <button
+        type="button"
+        className={cn(
+          "rounded-[var(--radius-lg)] font-semibold leading-none transition-colors",
+          compact ? "min-h-9 px-3 py-1 text-sm" : "px-3 py-1.5 text-sm",
+          value === "active"
+            ? "bg-[color:var(--secondary)] text-[color:var(--ink)]"
+            : "bg-transparent text-[color:var(--muted)]",
+        )}
+        disabled={disabled}
+        aria-pressed={value === "active"}
+        onClick={() => onChange("active")}
+      >
+        Active
+      </button>
+      <button
+        type="button"
+        className={cn(
+          "rounded-[var(--radius-lg)] font-semibold leading-none transition-colors",
+          compact ? "min-h-9 px-3 py-1 text-sm" : "px-3 py-1.5 text-sm",
+          value === "archived"
+            ? "bg-[color:var(--secondary)] text-[color:var(--ink)]"
+            : "bg-transparent text-[color:var(--muted)]",
+        )}
+        disabled={disabled}
+        aria-pressed={value === "archived"}
+        onClick={() => onChange("archived")}
+      >
+        Recycle Bin
       </button>
     </div>
   );

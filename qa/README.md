@@ -17,7 +17,8 @@ Optional:
 4. `QA_LOAD_*` overrides for weekly load profile thresholds/concurrency
 5. `QA_LOAD_GATE_MODE` (`advisory` default, `hard` optional)
 6. `QA_SOURCE_TOKEN` (required to mark automated attempts as `qa` source)
-7. `QA_CLEANUP_PREFIXES` (comma-separated prefixes for legacy QA residue cleanup)
+7. `QA_CLEANUP_MODE` (`strict` default: archive only `attempt_source=qa`; `hybrid`: include legacy prefix heuristics)
+8. `QA_CLEANUP_PREFIXES` (used only in `hybrid` mode for legacy QA residue cleanup)
 
 ## Suites
 
@@ -46,7 +47,7 @@ npm run qa:data
 npm run qa:after-deploy
 ```
 
-5. Cleanup QA attempts (archives tagged and legacy-prefix QA attempts):
+5. Cleanup QA attempts (strict default archives only tagged `qa` attempts):
 ```bash
 npm run qa:cleanup
 ```

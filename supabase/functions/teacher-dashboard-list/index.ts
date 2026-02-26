@@ -7,6 +7,7 @@ type AttemptRow = {
   id: string;
   attempt_source: "student" | "qa";
   status: string;
+  archived_at: string | null;
   started_at: string;
   ended_at: string | null;
   total_correct: number;
@@ -49,6 +50,13 @@ function parseSourceFilter(value: string): "student" | "qa" | "all" {
   return "student";
 }
 
+function parseArchivedFilter(value: string): "exclude" | "only" | "include" | null {
+  if (!value || value === "exclude") return "exclude";
+  if (value === "only") return "only";
+  if (value === "include") return "include";
+  return null;
+}
+
 function parseStageFilter(value: string): number | null {
   if (!value) return null;
   const parsed = Number(value);
@@ -74,10 +82,15 @@ Deno.serve(async (req) => {
     const className = (url.searchParams.get("className") ?? "").trim();
     const search = (url.searchParams.get("search") ?? "").trim();
     const source = parseSourceFilter((url.searchParams.get("source") ?? "student").trim().toLowerCase());
+    const archivedRaw = (url.searchParams.get("archived") ?? "exclude").trim().toLowerCase();
+    const archived = parseArchivedFilter(archivedRaw);
     const stageRaw = (url.searchParams.get("stage") ?? "").trim();
     const stage = parseStageFilter(stageRaw);
     const limit = clampLimit(Number(url.searchParams.get("limit") ?? "25"));
     const offset = clampOffset(Number(url.searchParams.get("offset") ?? "0"));
+    if (archived === null) {
+      return json(req, 400, { error: "archived must be one of: exclude, only, include" });
+    }
     if (stageRaw && stage === null) {
       return json(req, 400, { error: "stage must be an integer between 0 and 4" });
     }
@@ -88,6 +101,11 @@ Deno.serve(async (req) => {
 
     if (source !== "all") {
       totalCountQuery = totalCountQuery.eq("attempt_source", source);
+    }
+    if (archived === "exclude") {
+      totalCountQuery = totalCountQuery.is("archived_at", null);
+    } else if (archived === "only") {
+      totalCountQuery = totalCountQuery.not("archived_at", "is", null);
     }
     if (status) {
       totalCountQuery = totalCountQuery.eq("status", status);
@@ -176,6 +194,11 @@ Deno.serve(async (req) => {
     if (source !== "all") {
       filteredCountQuery = filteredCountQuery.eq("attempt_source", source);
     }
+    if (archived === "exclude") {
+      filteredCountQuery = filteredCountQuery.is("archived_at", null);
+    } else if (archived === "only") {
+      filteredCountQuery = filteredCountQuery.not("archived_at", "is", null);
+    }
     if (status) {
       filteredCountQuery = filteredCountQuery.eq("status", status);
     }
@@ -216,6 +239,7 @@ Deno.serve(async (req) => {
         id,
         attempt_source,
         status,
+        archived_at,
         started_at,
         ended_at,
         total_correct,
@@ -241,6 +265,11 @@ Deno.serve(async (req) => {
     }
     if (source !== "all") {
       dataQuery = dataQuery.eq("attempt_source", source);
+    }
+    if (archived === "exclude") {
+      dataQuery = dataQuery.is("archived_at", null);
+    } else if (archived === "only") {
+      dataQuery = dataQuery.not("archived_at", "is", null);
     }
     if (stage !== null) {
       dataQuery = dataQuery
@@ -269,6 +298,7 @@ Deno.serve(async (req) => {
       attempts: rows.map((row) => ({
         id: row.id,
         status: row.status,
+        archivedAt: row.archived_at,
         startedAt: row.started_at,
         endedAt: row.ended_at,
         totalCorrect: row.total_correct,

@@ -22,6 +22,9 @@ const config = {
   teacherPasscode: process.env.TEACHER_PASSCODE.trim(),
   teacherName: (process.env.TEACHER_NAME ?? "QA Cleanup Agent").trim(),
   qaSourceToken: (process.env.QA_SOURCE_TOKEN ?? "").trim(),
+  cleanupMode: (process.env.QA_CLEANUP_MODE ?? "strict").trim().toLowerCase() === "hybrid"
+    ? "hybrid"
+    : "strict",
   prefixes: (process.env.QA_CLEANUP_PREFIXES ?? "QA,Mx,QD,LD,TEST,DEMO")
     .split(",")
     .map((value) => value.trim())
@@ -203,14 +206,24 @@ async function archiveAttempts(token, attemptIds) {
 async function run() {
   const token = await loginTeacher();
   try {
+    addCheck("qa-cleanup-mode", true, { mode: config.cleanupMode });
+
     const taggedIds = await collectQaTaggedAttempts(token);
     addCheck("qa-tagged-attempts-detected", true, { count: taggedIds.size });
 
-    const legacyIds = await collectLegacyQaAttempts(token);
-    addCheck("legacy-prefix-attempts-detected", true, {
-      count: legacyIds.size,
-      prefixes: config.prefixes,
-    });
+    let legacyIds = new Set();
+    if (config.cleanupMode === "hybrid") {
+      legacyIds = await collectLegacyQaAttempts(token);
+      addCheck("legacy-prefix-attempts-detected", true, {
+        count: legacyIds.size,
+        prefixes: config.prefixes,
+      });
+    } else {
+      addCheck("legacy-prefix-attempts-detected", true, {
+        skipped: true,
+        reason: "strict mode",
+      });
+    }
 
     const allAttemptIds = Array.from(new Set([...taggedIds, ...legacyIds]));
     report.artifacts.detectedAttemptIds = allAttemptIds;

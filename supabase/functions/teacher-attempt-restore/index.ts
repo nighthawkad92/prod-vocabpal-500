@@ -9,7 +9,7 @@ import {
 } from "../_shared/auth.ts";
 import { getBaselineTest } from "../_shared/student.ts";
 
-type ArchiveAttemptRequest = {
+type RestoreAttemptRequest = {
   attemptId?: string;
   attemptIds?: string[];
 };
@@ -32,7 +32,7 @@ type AttemptRow = {
   students: AttemptStudentRow | null;
 };
 
-function normalizeAttemptIds(body: ArchiveAttemptRequest): string[] {
+function normalizeAttemptIds(body: RestoreAttemptRequest): string[] {
   const rawIds: Array<string> = [];
 
   if (typeof body.attemptId === "string") {
@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
       return json(req, 405, { error: "Method not allowed" });
     }
 
-    const body = (await req.json()) as ArchiveAttemptRequest;
+    const body = (await req.json()) as RestoreAttemptRequest;
     const attemptIds = normalizeAttemptIds(body);
     if (attemptIds.length === 0) {
       return json(req, 400, { error: "attemptId or attemptIds[] is required" });
@@ -89,7 +89,7 @@ Deno.serve(async (req) => {
       .in("id", attemptIds);
 
     if (attemptResult.error) {
-      throw new Error(`Failed to load attempt for archiving: ${attemptResult.error.message}`);
+      throw new Error(`Failed to load attempt for restore: ${attemptResult.error.message}`);
     }
 
     const attempts = (attemptResult.data ?? []) as AttemptRow[];
@@ -103,29 +103,29 @@ Deno.serve(async (req) => {
     }
 
     if (attempts.some((attempt) => attempt.test_id !== baselineTest.id)) {
-      return json(req, 400, { error: "Only baseline attempts can be archived" });
+      return json(req, 400, { error: "Only baseline attempts can be restored" });
     }
 
-    const alreadyArchivedAttemptIds = attempts
-      .filter((attempt) => attempt.archived_at !== null)
-      .map((attempt) => attempt.id);
-    const candidateIds = attempts
+    const alreadyActiveAttemptIds = attempts
       .filter((attempt) => attempt.archived_at === null)
       .map((attempt) => attempt.id);
+    const candidateIds = attempts
+      .filter((attempt) => attempt.archived_at !== null)
+      .map((attempt) => attempt.id);
 
-    let archivedCount = 0;
+    let restoredCount = 0;
     if (candidateIds.length > 0) {
-      const archiveResult = await client
+      const restoreResult = await client
         .from("attempts")
-        .update({ archived_at: new Date().toISOString() })
+        .update({ archived_at: null })
         .in("id", candidateIds)
-        .is("archived_at", null);
+        .not("archived_at", "is", null);
 
-      if (archiveResult.error) {
-        throw new Error(`Failed to archive attempt: ${archiveResult.error.message}`);
+      if (restoreResult.error) {
+        throw new Error(`Failed to restore attempt: ${restoreResult.error.message}`);
       }
 
-      archivedCount = candidateIds.length;
+      restoredCount = candidateIds.length;
     }
 
     const studentMap = new Map<string, {
@@ -148,26 +148,24 @@ Deno.serve(async (req) => {
 
     const students = Array.from(studentMap.values());
 
-    await logTeacherEvent(client, teacherSession.teacher_name, "attempt_archived", {
+    await logTeacherEvent(client, teacherSession.teacher_name, "attempt_restored", {
       attemptIds,
-      archivedCount,
+      restoredCount,
       studentCount: students.length,
       previousStatuses: attempts.map((attempt) => ({
         attemptId: attempt.id,
         status: attempt.status,
       })),
-      alreadyArchivedCount: alreadyArchivedAttemptIds.length,
-      alreadyArchivedAttemptIds,
-      reopenMode: "archive_unlocked",
+      alreadyActiveCount: alreadyActiveAttemptIds.length,
+      alreadyActiveAttemptIds,
     });
 
     return json(req, 200, {
-      archived: true,
-      reopened: true,
-      archivedCount,
-      archivedAttemptIds: candidateIds,
-      alreadyArchivedCount: alreadyArchivedAttemptIds.length,
-      alreadyArchivedAttemptIds,
+      restored: true,
+      restoredCount,
+      restoredAttemptIds: candidateIds,
+      alreadyActiveCount: alreadyActiveAttemptIds.length,
+      alreadyActiveAttemptIds,
       students,
       student: students[0] ?? null,
     });
