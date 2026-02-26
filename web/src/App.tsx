@@ -9,6 +9,7 @@ import { useMotionPolicy } from "@/hooks/use-motion-policy";
 import { useSoundEffects } from "@/hooks/use-sound-effects";
 import { useUiPreferences } from "@/hooks/use-ui-preferences";
 import { getClientConfigError } from "@/lib/env";
+import { claritySet, initClarity } from "@/lib/clarity";
 import logoVocabPal from "@/assets/branding/logo-vocabpal.png";
 
 export type AppRoute = "app" | "designsystem";
@@ -49,6 +50,10 @@ function BaselineAssessmentApp() {
   const welcomedModesRef = useRef<Set<AppMode>>(new Set());
 
   useEffect(() => {
+    initClarity();
+  }, []);
+
+  useEffect(() => {
     if (!soundEnabled || !hasInteracted) return;
 
     if (welcomedModesRef.current.has(mode)) {
@@ -58,6 +63,15 @@ function BaselineAssessmentApp() {
     welcomedModesRef.current.add(mode);
     void play("welcome");
   }, [hasInteracted, mode, play, soundEnabled]);
+
+  useEffect(() => {
+    claritySet({
+      vp_app_mode: mode,
+      vp_motion_policy: motionPolicy,
+      vp_sound_enabled: soundEnabled,
+      vp_student_view_state: mode === "student" ? studentViewState : undefined,
+    });
+  }, [mode, motionPolicy, soundEnabled, studentViewState]);
 
   const sectionTransition =
     motionPolicy === "full"

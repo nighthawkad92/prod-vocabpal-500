@@ -12,7 +12,8 @@ import { RadioOption } from "@/components/ui/radio-option";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { MotionPolicy } from "@/hooks/use-motion-policy";
 import type { SfxEvent } from "@/lib/sfx";
-import { callFunction } from "@/lib/env";
+import { ApiError, callFunction } from "@/lib/env";
+import { clarityEvent, clarityIdentifyAttempt, claritySet } from "@/lib/clarity";
 import type { Question, StudentComplete } from "@/features/shared/types";
 import {
   QUESTION_VISUAL_BY_ORDER,
@@ -59,6 +60,38 @@ type SectionLetter = "A" | "B" | "C" | "D" | "E" | "F";
 
 const CLASS_OPTIONS: ClassNumber[] = [1, 2, 3, 4, 5, 6];
 const SECTION_OPTIONS: SectionLetter[] = ["A", "B", "C", "D", "E", "F"];
+
+type StudentErrorSurface =
+  | "start_attempt"
+  | "question_audio"
+  | "submit_answer"
+  | "complete_attempt"
+  | "unknown";
+
+type StudentErrorCategory =
+  | "network"
+  | "auth"
+  | "function_error"
+  | "validation"
+  | "unknown";
+
+function classifyErrorCategory(error: unknown): StudentErrorCategory {
+  if (error instanceof TypeError) {
+    return "network";
+  }
+
+  if (error instanceof ApiError) {
+    if (error.status === 401 || error.status === 403) {
+      return "auth";
+    }
+    if (error.status === 400 || error.status === 404 || error.status === 409 || error.status === 422) {
+      return "validation";
+    }
+    return "function_error";
+  }
+
+  return "unknown";
+}
 
 function parseClassNumber(value: string): ClassNumber | null {
   const numeric = Number(value);
@@ -108,6 +141,13 @@ export function StudentMode({
 
   const autoPlayedQuestionIdRef = useRef<string | null>(null);
   const activeAudioRef = useRef<HTMLAudioElement | null>(null);
+  const attemptAliasRef = useRef<string | null>(null);
+  const lastTrackedAttemptIdRef = useRef<string | null>(null);
+  const hasTrackedEntryViewRef = useRef(false);
+  const trackedQuestionViewIdsRef = useRef<Set<string>>(new Set());
+  const trackedPreludeViewIdsRef = useRef<Set<string>>(new Set());
+  const trackedDictationInputStartedRef = useRef<Set<string>>(new Set());
+  const completionViewedTrackedRef = useRef(false);
   const isCompletionView = Boolean(attemptId && completion && !question);
   const studentViewState: "entry" | "attempt" | "completion" = !attemptId
     ? "entry"
@@ -129,10 +169,68 @@ export function StudentMode({
   }, [question]);
   const activeQuestionPromptText = readingPrelude?.questionPrompt ?? question?.promptText ?? "";
 
+  const setQuestionClarityTags = useCallback(
+    (
+      sourceQuestion: Question,
+      extraTags?: {
+        vp_audio_source?: "auto" | "manual";
+        vp_audio_gate_locked?: boolean;
+        vp_progress_answered_count?: number;
+      },
+    ) => {
+      claritySet({
+        vp_attempt_alias: attemptAliasRef.current ?? undefined,
+        vp_question_order: sourceQuestion.displayOrder,
+        vp_question_type: sourceQuestion.itemType,
+        vp_stage_no: sourceQuestion.stageNo,
+        vp_has_reading_prelude: Boolean(
+          QUESTION_READING_PRELUDE_BY_ORDER[sourceQuestion.displayOrder],
+        ),
+        vp_audio_source: extraTags?.vp_audio_source,
+        vp_audio_gate_locked: extraTags?.vp_audio_gate_locked,
+        vp_progress_answered_count: extraTags?.vp_progress_answered_count,
+      });
+    },
+    [],
+  );
+
+  const trackStudentError = useCallback(
+    (surface: StudentErrorSurface, errorValue: unknown) => {
+      claritySet({
+        vp_error_surface: surface,
+        vp_error_category: classifyErrorCategory(errorValue),
+      });
+    },
+    [],
+  );
+
+  const handleDictationAnswerChange = useCallback(
+    (value: string) => {
+      setAnswer(value);
+      if (!question || question.itemType !== "dictation") return;
+      if (!value.trim()) return;
+      if (trackedDictationInputStartedRef.current.has(question.id)) return;
+
+      trackedDictationInputStartedRef.current.add(question.id);
+      setQuestionClarityTags(question, {
+        vp_audio_gate_locked: Boolean(question.ttsText) && !audioPlayedForQuestion,
+        vp_progress_answered_count: answeredItems,
+      });
+      clarityEvent("vp_dictation_input_started");
+    },
+    [answeredItems, audioPlayedForQuestion, question, setQuestionClarityTags],
+  );
+
   const playQuestionAudio = useCallback(
     async (source: "auto" | "manual") => {
       if (!question || !question.ttsText) return;
 
+      setQuestionClarityTags(question, {
+        vp_audio_source: source,
+        vp_audio_gate_locked: true,
+        vp_progress_answered_count: answeredItems,
+      });
+      clarityEvent("vp_audio_play_requested");
       setAudioBusy(true);
       if (source === "manual") {
         setError(null);
@@ -154,15 +252,26 @@ export function StudentMode({
         player.onended = () => {
           setAudioPlaying(false);
           setAudioPlayedForQuestion(true);
+          setQuestionClarityTags(question, {
+            vp_audio_source: source,
+            vp_audio_gate_locked: false,
+            vp_progress_answered_count: answeredItems,
+          });
+          clarityEvent("vp_audio_play_ended");
         };
         player.onerror = () => {
           setAudioPlaying(false);
+          trackStudentError("question_audio", new Error("Audio player error"));
+          clarityEvent("vp_audio_play_failed");
         };
         activeAudioRef.current = player;
         await player.play();
         setAudioPlaying(true);
+        clarityEvent("vp_audio_play_started");
       } catch (err) {
         setAudioPlaying(false);
+        trackStudentError("question_audio", err);
+        clarityEvent("vp_audio_play_failed");
         if (source === "auto") {
           return;
         } else {
@@ -173,7 +282,7 @@ export function StudentMode({
         setAudioBusy(false);
       }
     },
-    [question, playSound],
+    [answeredItems, playSound, question, setQuestionClarityTags, trackStudentError],
   );
 
   useEffect(() => {
@@ -224,16 +333,102 @@ export function StudentMode({
     };
   }, [onViewStateChange]);
 
+  useEffect(() => {
+    if (attemptId) return;
+    claritySet({
+      vp_onboarding_step: step,
+      vp_class_number: classNumber ?? undefined,
+      vp_section_letter: sectionLetter ?? undefined,
+    });
+
+    if (hasTrackedEntryViewRef.current) return;
+    hasTrackedEntryViewRef.current = true;
+    clarityEvent("vp_student_entry_viewed");
+  }, [attemptId, classNumber, sectionLetter, step]);
+
+  useEffect(() => {
+    if (lastTrackedAttemptIdRef.current === attemptId) {
+      return;
+    }
+
+    lastTrackedAttemptIdRef.current = attemptId;
+    trackedQuestionViewIdsRef.current.clear();
+    trackedPreludeViewIdsRef.current.clear();
+    trackedDictationInputStartedRef.current.clear();
+    completionViewedTrackedRef.current = false;
+
+    if (!attemptId) {
+      attemptAliasRef.current = null;
+      return;
+    }
+
+    void clarityIdentifyAttempt(attemptId).then((alias) => {
+      if (lastTrackedAttemptIdRef.current !== attemptId) return;
+      attemptAliasRef.current = alias;
+      claritySet({ vp_attempt_alias: alias });
+    });
+  }, [attemptId]);
+
+  useEffect(() => {
+    if (!question) return;
+
+    setQuestionClarityTags(question, {
+      vp_audio_gate_locked: Boolean(question.ttsText) && !audioPlayedForQuestion,
+      vp_progress_answered_count: answeredItems,
+    });
+
+    if (showReadingPrelude && readingPrelude) {
+      if (!trackedPreludeViewIdsRef.current.has(question.id)) {
+        trackedPreludeViewIdsRef.current.add(question.id);
+        clarityEvent("vp_reading_prelude_viewed");
+      }
+      return;
+    }
+
+    if (!trackedQuestionViewIdsRef.current.has(question.id)) {
+      trackedQuestionViewIdsRef.current.add(question.id);
+      clarityEvent("vp_question_viewed");
+    }
+  }, [
+    answeredItems,
+    audioPlayedForQuestion,
+    question,
+    readingPrelude,
+    setQuestionClarityTags,
+    showReadingPrelude,
+  ]);
+
+  useEffect(() => {
+    if (!completion || !isCompletionView || completionViewedTrackedRef.current) return;
+    completionViewedTrackedRef.current = true;
+    claritySet({
+      vp_total_score_10: completion.totalScore10,
+      vp_total_correct: completion.totalCorrect,
+      vp_total_wrong: completion.totalWrong,
+      vp_stars_collected: completion.stars,
+      vp_placement_stage: completion.placementStage,
+    });
+    clarityEvent("vp_completion_viewed");
+  }, [completion, isCompletionView]);
+
   const startAttempt = useCallback(
     async (event: FormEvent) => {
       event.preventDefault();
       if (!classNumber || !sectionLetter) {
         setError("Please select class and section.");
+        trackStudentError("start_attempt", new ApiError("Missing class/section", 400));
+        clarityEvent("vp_student_attempt_start_failed");
         return;
       }
 
       setBusy(true);
       setError(null);
+      claritySet({
+        vp_onboarding_step: step,
+        vp_class_number: classNumber,
+        vp_section_letter: sectionLetter,
+      });
+      clarityEvent("vp_student_attempt_start_requested");
 
       try {
         const className = `Class ${classNumber} - Section ${sectionLetter}`;
@@ -243,18 +438,26 @@ export function StudentMode({
         });
 
         setAttemptId(result.attemptId);
+        void clarityIdentifyAttempt(result.attemptId).then((alias) => {
+          if (lastTrackedAttemptIdRef.current !== result.attemptId) return;
+          attemptAliasRef.current = alias;
+          claritySet({ vp_attempt_alias: alias });
+        });
         setQuestion(result.firstQuestion ?? result.nextQuestion ?? null);
         setAnsweredItems(result.progress.answeredItems);
         setCompletion(null);
+        clarityEvent("vp_student_attempt_started");
         void playSound("progress", { fromInteraction: true });
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to start attempt");
+        trackStudentError("start_attempt", err);
+        clarityEvent("vp_student_attempt_start_failed");
         void playSound("error", { fromInteraction: true });
       } finally {
         setBusy(false);
       }
     },
-    [classNumber, firstName, lastName, playSound, sectionLetter],
+    [classNumber, firstName, lastName, playSound, sectionLetter, step, trackStudentError],
   );
 
   const submitAnswer = useCallback(
@@ -262,6 +465,13 @@ export function StudentMode({
       event.preventDefault();
       if (!attemptId || !question || !answer.trim()) return;
 
+      const audioGateLockedForSubmit = Boolean(question.ttsText) &&
+        (!audioPlayedForQuestion || audioBusy || audioPlaying);
+      setQuestionClarityTags(question, {
+        vp_audio_gate_locked: audioGateLockedForSubmit,
+        vp_progress_answered_count: answeredItems,
+      });
+      clarityEvent("vp_submit_answer_requested");
       setBusy(true);
       setError(null);
       try {
@@ -280,8 +490,14 @@ export function StudentMode({
 
         void playSound("submit", { fromInteraction: true });
 
+        claritySet({
+          vp_progress_answered_count: submit.progress.answeredItems,
+          vp_audio_gate_locked: false,
+        });
+        clarityEvent("vp_submit_answer_success");
         setAnsweredItems(submit.progress.answeredItems);
         if (submit.isCorrect) {
+          clarityEvent("vp_answer_correct");
           setStarPulseTick((current) => current + 1);
           if (motionPolicy === "full") {
             setShowProgressSweep(true);
@@ -290,6 +506,8 @@ export function StudentMode({
             window.setTimeout(resolve, motionPolicy === "full" ? 220 : 90);
           });
           setShowProgressSweep(false);
+        } else {
+          clarityEvent("vp_answer_wrong");
         }
 
         setQuestion(submit.nextQuestion);
@@ -302,16 +520,39 @@ export function StudentMode({
             body: { attemptId },
           });
           setCompletion(complete);
+          claritySet({
+            vp_total_score_10: complete.totalScore10,
+            vp_total_correct: complete.totalCorrect,
+            vp_total_wrong: complete.totalWrong,
+            vp_stars_collected: complete.stars,
+            vp_placement_stage: complete.placementStage,
+          });
+          clarityEvent("vp_attempt_completed");
           void playSound("end", { fromInteraction: true });
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to submit answer");
+        trackStudentError("submit_answer", err);
+        clarityEvent("vp_submit_answer_failed");
         void playSound("error", { fromInteraction: true });
       } finally {
         setBusy(false);
       }
     },
-    [answer, attemptId, motionPolicy, playSound, question, shownAtIso],
+    [
+      answer,
+      answeredItems,
+      attemptId,
+      audioBusy,
+      audioPlayedForQuestion,
+      audioPlaying,
+      motionPolicy,
+      playSound,
+      question,
+      setQuestionClarityTags,
+      shownAtIso,
+      trackStudentError,
+    ],
   );
 
   const questionTransition =
@@ -376,6 +617,13 @@ export function StudentMode({
     </div>
   );
   const revealQuestion = useCallback(() => {
+    if (question) {
+      setQuestionClarityTags(question, {
+        vp_audio_gate_locked: Boolean(question.ttsText) && !audioPlayedForQuestion,
+        vp_progress_answered_count: answeredItems,
+      });
+    }
+    clarityEvent("vp_show_question_clicked");
     setShowReadingPrelude(false);
     setShownAtIso(new Date().toISOString());
     void playSound("tap", { fromInteraction: true });
@@ -384,7 +632,7 @@ export function StudentMode({
       autoPlayedQuestionIdRef.current = question.id;
       void playQuestionAudio("auto");
     }
-  }, [playQuestionAudio, playSound, question]);
+  }, [answeredItems, audioPlayedForQuestion, playQuestionAudio, playSound, question, setQuestionClarityTags]);
 
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -488,6 +736,8 @@ export function StudentMode({
               onSubmit={step === 1 ? (event) => {
                 event.preventDefault();
                 if (!stepOneComplete) return;
+                claritySet({ vp_onboarding_step: 1 });
+                clarityEvent("vp_student_step1_next_clicked");
                 setStep(2);
               } : startAttempt}
             >
@@ -530,6 +780,8 @@ export function StudentMode({
                         const next = parseClassNumber(value);
                         if (!next) return;
                         setClassNumber(next);
+                        claritySet({ vp_class_number: next, vp_onboarding_step: 2 });
+                        clarityEvent("vp_student_class_selected");
                         void playSound("tap", { fromInteraction: true });
                       }}
                       data-testid="onboarding-class-tabs"
@@ -557,6 +809,8 @@ export function StudentMode({
                         const next = parseSectionLetter(value);
                         if (!next) return;
                         setSectionLetter(next);
+                        claritySet({ vp_section_letter: next, vp_onboarding_step: 2 });
+                        clarityEvent("vp_student_section_selected");
                         void playSound("tap", { fromInteraction: true });
                       }}
                       data-testid="onboarding-section-tabs"
@@ -696,6 +950,11 @@ export function StudentMode({
                                     label={toSentenceCase(option)}
                                     onSelect={() => {
                                       setAnswer(option);
+                                      setQuestionClarityTags(question, {
+                                        vp_audio_gate_locked: Boolean(question.ttsText) && !audioPlayedForQuestion,
+                                        vp_progress_answered_count: answeredItems,
+                                      });
+                                      clarityEvent("vp_mcq_option_selected");
                                       void playSound("tap", { fromInteraction: true });
                                     }}
                                   />
@@ -750,7 +1009,7 @@ export function StudentMode({
                               id="dictation-answer"
                               value={answer}
                               className="text-base font-semibold leading-6"
-                              onChange={(event) => setAnswer(event.target.value)}
+                              onChange={(event) => handleDictationAnswerChange(event.target.value)}
                               required
                             />
                           </div>
@@ -784,7 +1043,7 @@ export function StudentMode({
                                 id="dictation-answer"
                                 value={answer}
                                 className="text-base font-semibold leading-6"
-                                onChange={(event) => setAnswer(event.target.value)}
+                                onChange={(event) => handleDictationAnswerChange(event.target.value)}
                                 required
                               />
                             </div>

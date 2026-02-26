@@ -256,6 +256,12 @@ The PM agent is the scheduler. Only PM changes task state.
 | UI-065 | Remove teacher app-shell max width cap while preserving breakpoint padding contract | UI | PM-DS-085 | DONE | changed teacher shell width from `max-w-[850px]` to `max-w-full` so content spans available width with `md:px-4` gutters |
 | QA-058 | Validate teacher shell width and side gutter behavior across desktop/tablet/mobile | QA | UI-065 | DONE | typecheck/lint/build passed; desktop now honors 16px side gutters without centered narrow-column cap |
 | PM-DS-086 | Final signoff for teacher shell width-cap removal | PM | QA-058 | DONE | signoff complete; desktop spacing now matches intent with no API/schema changes |
+| PM-ANL-001 | Queue Microsoft Clarity student-journey instrumentation rollout | PM | PM-002 | DONE | queued script-based Clarity integration, strict event/tag taxonomy, alias-based attempt linking, and no-PII policy |
+| UI-066 | Add Clarity loader/env-gating/client wrapper and app-root context tagging | UI | PM-ANL-001 | DONE | added `web/src/lib/clarity.ts`, global typings, app-root `initClarity` call, and context tags for mode/motion/sound/student view state |
+| UI-067 | Instrument student funnel milestones and key question actions/tags | UI | UI-066 | DONE | added student entry/start/question/audio/submit/completion events + tags with per-question dedupe and attempt aliasing |
+| QA-059 | Validate Clarity event/tag emission and no-PII contract | QA | UI-067 | DONE | local static gates passed; verified instrumentation uses class/section primitives + hashed attempt alias and no student name fields |
+| QA-060 | Validate journey reconstruction readiness and rollout env docs | QA | QA-059 | DONE | funnel taxonomy documented for Clarity; env keys added to `.env.example` for production gating (`VITE_CLARITY_ENABLED`, `VITE_CLARITY_PROJECT_ID`) |
+| PM-ANL-002 | Final signoff for Clarity student journey rollout | PM | QA-060 | DONE | signoff complete; frontend-only analytics instrumentation accepted pending Vercel env configuration checkpoint |
 | PM-QA-010 | Queue post-push release-gate validation and CI checkpoint closure | PM | PM-002 | DONE | scoped QA harness alignment and rerun of `qa:after-deploy` after main push |
 | QA-010 | Align matrix harness with audio-end submit gate and rerun release gate | QA | PM-QA-010 | DONE | updated submit selector + mock audio `onended`; `qa:matrix` and `qa:after-deploy` passed |
 | PM-QA-011 | Sign off post-push QA recovery and checkpoint closure | PM | QA-010 | DONE | verified green after-deploy report and cleared CP-07 via GitHub secrets |
@@ -290,6 +296,8 @@ Only these checkpoints pause autonomous flow for user input/credentials.
 | CP-05-VERCEL-LINK | Before first preview/prod deploy | Run `vercel login` and `vercel link` | REL-001 | CLEARED |
 | CP-06-VERCEL-ENV | Before deploy uses runtime vars | Add required `VITE_*` env vars in Vercel | REL-001 | CLEARED |
 | CP-07-CI-SECRETS | Before enabling fully automated CI deploy | Add Supabase/Vercel secrets in GitHub Actions | REL-001 | CLEARED |
+| CP-08-CLARITY-PROJECT | Before first production Clarity collection | Create/get Microsoft Clarity project ID | PM-ANL-001 onward | PENDING |
+| CP-09-VERCEL-ENV-CLARITY | Before releasing Clarity instrumentation | Add `VITE_CLARITY_ENABLED=true` and `VITE_CLARITY_PROJECT_ID` in Vercel Production env | PM-ANL-002 | PENDING |
 
 ## 6. Autonomous Run Loop
 1. PM selects next `READY` task with highest dependency priority.

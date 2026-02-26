@@ -23,6 +23,7 @@ const config = {
   anonKey: process.env.SUPABASE_ANON_KEY.trim(),
   teacherName: (process.env.TEACHER_NAME ?? "QA Agent").trim(),
   teacherPasscode: process.env.TEACHER_PASSCODE.trim(),
+  studentPrefix: (process.env.QA_STUDENT_PREFIX ?? "QA").trim(),
 };
 
 const answerByDisplayOrder = {
@@ -215,9 +216,14 @@ async function run() {
 
   const runId = Date.now().toString().slice(-6);
   const sharedIdentity = {
-    firstName: `QA${runId}`,
+    firstName: `${config.studentPrefix}${runId}`,
     lastName: "Patel",
   };
+  addStep("test-identities", {
+    studentPrefix: config.studentPrefix,
+    firstName: sharedIdentity.firstName,
+    lastName: sharedIdentity.lastName,
+  });
   const classAStudent = { ...sharedIdentity, className: "Class A" };
   const classBStudent = { ...sharedIdentity, className: "Class B" };
 
