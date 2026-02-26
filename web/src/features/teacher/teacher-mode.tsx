@@ -964,7 +964,7 @@ export function TeacherMode({
         </div>
       ) : null}
 
-      <div className="space-y-4 px-2">
+      <div className="space-y-4 px-2 md:px-0">
         <div className={cn("flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between", isMobileTeacher && "gap-2")}>
           <div className={cn(isMobileTeacher && "space-y-1")}>
             <CardTitle className={cn("text-4xl", isMobileTeacher && "text-3xl leading-tight")}>Teacher Dashboard</CardTitle>

@@ -248,6 +248,10 @@ The PM agent is the scheduler. Only PM changes task state.
 | UI-063 | Apply 8px mobile shell side padding and improve top utility icon spacing/centering | UI | UI-062 | DONE | base shell mobile padding now 8px and icon-mode top utility triggers use explicit centered 44px targets with improved spacing |
 | QA-056 | Validate mobile utility and filter sheet polish across student and teacher contexts | QA | UI-063 | DONE | typecheck/lint/build passed; reviewed top utility icon alignment and filter action affordances on mobile |
 | PM-DS-082 | Final signoff for mobile utility polish pass | PM | QA-056 | DONE | signoff complete for mobile utility polish without backend/API/schema changes |
+| PM-DS-083 | Queue desktop teacher padding normalization to 16px side gutters | PM | PM-002 | DONE | scoped desktop-only teacher dashboard gutter correction to preserve 8px mobile / 16px desktop breakpoint behavior |
+| UI-064 | Remove duplicate desktop horizontal inset inside teacher dashboard wrapper | UI | PM-DS-083 | DONE | changed teacher dashboard inner wrapper from `px-2` to `px-2 md:px-0` so desktop uses shell-level 16px gutters only |
+| QA-057 | Validate teacher dashboard spacing parity across mobile and desktop breakpoints | QA | UI-064 | DONE | typecheck/lint/build passed; desktop now aligns to 16px shell padding while mobile keeps 8px side inset |
+| PM-DS-084 | Final signoff for desktop teacher gutter normalization | PM | QA-057 | DONE | signoff complete; spacing fix is UI-only with no API/schema/behavioral impact |
 | PM-QA-010 | Queue post-push release-gate validation and CI checkpoint closure | PM | PM-002 | DONE | scoped QA harness alignment and rerun of `qa:after-deploy` after main push |
 | QA-010 | Align matrix harness with audio-end submit gate and rerun release gate | QA | PM-QA-010 | DONE | updated submit selector + mock audio `onended`; `qa:matrix` and `qa:after-deploy` passed |
 | PM-QA-011 | Sign off post-push QA recovery and checkpoint closure | PM | QA-010 | DONE | verified green after-deploy report and cleared CP-07 via GitHub secrets |
