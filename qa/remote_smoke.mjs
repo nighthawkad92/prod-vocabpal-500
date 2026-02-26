@@ -139,6 +139,17 @@ async function setWindowStatus(token, windowId, status) {
   addStep(`session-${status}`, { windowId, status: result.payload?.status });
 }
 
+async function getWindowStatus(token) {
+  const result = await callFunction("teacher-windows", { token });
+  expectStatus(result, 200, "teacher-windows GET");
+  addStep("session-status-read", {
+    status: result.payload?.status ?? null,
+    windowId: result.payload?.window?.id ?? null,
+    hasWindow: Boolean(result.payload?.hasWindow),
+  });
+  return result.payload;
+}
+
 async function completeAttempt(student, answerOverrides = {}) {
   const start = await callFunction("student-start-attempt", {
     method: "POST",
@@ -226,6 +237,9 @@ async function run() {
   report.artifacts.windowId = windowId;
 
   await setWindowStatus(token, windowId, "paused");
+  const pausedState = await getWindowStatus(token);
+  assert(pausedState?.status === "paused", "teacher-windows should report paused after pause action");
+  assert(pausedState?.window?.id === windowId, "pause action should apply to current window");
 
   const blockedWhilePaused = await callFunction("student-start-attempt", {
     method: "POST",
