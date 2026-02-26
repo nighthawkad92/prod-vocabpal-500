@@ -1,5 +1,4 @@
 import { AnimatePresence, motion } from "motion/react";
-import { Volume2, VolumeX } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert } from "@/components/ui/alert";
@@ -8,8 +7,13 @@ import { Switch } from "@/components/ui/switch";
 import type { MotionPolicy } from "@/hooks/use-motion-policy";
 import type { AppMode } from "@/features/shared/types";
 import menuIcon from "@/assets/icons/menu.svg";
+import userIcon from "@/assets/icons/user.svg";
+import teacherIcon from "@/assets/icons/book-reader.svg";
+import volumeOnIcon from "@/assets/icons/volume-up.svg";
+import volumeOffIcon from "@/assets/icons/volume-mute.svg";
 
 const COLLAPSE_THRESHOLD_PX = 48;
+const MOBILE_BREAKPOINT_QUERY = "(max-width: 768px)";
 
 type AppShellProps = {
   mode: AppMode;
@@ -34,13 +38,21 @@ export function AppShell({
   utilityLogoSrc,
   children,
 }: AppShellProps) {
-  const widthClass = mode === "teacher" ? "max-w-[85vw]" : "max-w-6xl";
+  const widthClass = mode === "teacher" ? "max-w-[850px]" : "max-w-6xl";
+  const paddingClass = mode === "teacher" ? "px-4" : "px-4 md:px-6";
   const headerRef = useRef<HTMLDivElement | null>(null);
   const logoRef = useRef<HTMLImageElement | null>(null);
   const inlineControlsRef = useRef<HTMLDivElement | null>(null);
   const [controlsCollapsed, setControlsCollapsed] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [cachedControlsWidth, setCachedControlsWidth] = useState(0);
+  const [isPhone, setIsPhone] = useState(() => {
+    if (typeof window === "undefined") {
+      return false;
+    }
+    return window.matchMedia(MOBILE_BREAKPOINT_QUERY).matches;
+  });
+  const isTeacherMobileIcons = mode === "teacher" && isPhone;
   const isDrawerVisible = controlsCollapsed && drawerOpen;
 
   const evaluateControlCollapse = useCallback(() => {
@@ -96,6 +108,22 @@ export function AppShell({
   }, [evaluateControlCollapse]);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mediaQuery = window.matchMedia(MOBILE_BREAKPOINT_QUERY);
+    const handleChange = (event: MediaQueryListEvent) => {
+      setIsPhone(event.matches);
+    };
+
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", handleChange);
+      return () => mediaQuery.removeEventListener("change", handleChange);
+    }
+
+    mediaQuery.addListener(handleChange);
+    return () => mediaQuery.removeListener(handleChange);
+  }, []);
+
+  useEffect(() => {
     if (!isDrawerVisible) return;
 
     const closeOnEscape = (event: KeyboardEvent) => {
@@ -114,16 +142,50 @@ export function AppShell({
     };
   }, [isDrawerVisible]);
 
-  const controls = (
+  const controls = isTeacherMobileIcons ? (
+    <>
+      <Button
+        variant="secondary"
+        size="icon"
+        className="h-11 w-11"
+        onClick={onSoundToggle}
+        aria-label={soundEnabled ? "Mute sound" : "Enable sound"}
+        title={soundEnabled ? "Mute sound" : "Enable sound"}
+      >
+        <img
+          src={soundEnabled ? volumeOnIcon : volumeOffIcon}
+          alt=""
+          aria-hidden
+          className="h-5 w-5"
+        />
+      </Button>
+
+      <Tabs
+        value={mode}
+        onValueChange={(nextMode) => onModeChange(nextMode as AppMode)}
+        className="space-y-0"
+      >
+        <TabsList className="border-none bg-transparent p-0 shadow-none">
+          <TabsTrigger value="student" aria-label="Student mode" title="Student mode">
+            <img src={userIcon} alt="" aria-hidden className="h-5 w-5" />
+          </TabsTrigger>
+          <TabsTrigger value="teacher" aria-label="Teacher mode" title="Teacher mode">
+            <img src={teacherIcon} alt="" aria-hidden className="h-5 w-5" />
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
+    </>
+  ) : (
     <>
       <div className="flex items-center gap-3">
         <span className="text-sm font-semibold text-[color:var(--ink)]">Sound</span>
         <div className="flex items-center gap-2">
-          {soundEnabled ? (
-            <Volume2 className="h-4 w-4 text-[color:var(--ink)]" />
-          ) : (
-            <VolumeX className="h-4 w-4 text-[color:var(--ink)]" />
-          )}
+          <img
+            src={soundEnabled ? volumeOnIcon : volumeOffIcon}
+            alt=""
+            aria-hidden
+            className="h-4 w-4"
+          />
           <Switch checked={soundEnabled} onCheckedChange={onSoundToggle} />
         </div>
       </div>
@@ -143,7 +205,7 @@ export function AppShell({
 
   return (
     <main
-      className={`mx-auto w-full ${widthClass} space-y-4 px-4 pb-8 pt-5 text-[color:var(--ink)] md:px-6`}
+      className={`mx-auto w-full ${widthClass} ${paddingClass} space-y-4 pb-8 pt-5 text-[color:var(--ink)]`}
       data-motion-policy={motionPolicy}
       data-sound-enabled={soundEnabled ? "true" : "false"}
     >
@@ -169,13 +231,15 @@ export function AppShell({
           {controlsCollapsed ? (
             <Button
               variant="secondary"
-              className="h-11 px-4"
+              size={isTeacherMobileIcons ? "icon" : undefined}
+              className={isTeacherMobileIcons ? "h-11 w-11" : "h-11 px-4"}
               onClick={() => setDrawerOpen((current) => !current)}
               aria-expanded={isDrawerVisible}
               aria-label="Open utility menu"
+              title="Open utility menu"
             >
               <img src={menuIcon} alt="" aria-hidden className="h-4 w-4" />
-              Menu
+              {isTeacherMobileIcons ? null : "Menu"}
             </Button>
           ) : (
             <div
@@ -216,29 +280,57 @@ export function AppShell({
                 <p className="text-sm font-semibold tracking-wide text-[color:var(--ink)]">Menu</p>
                 <Button
                   variant="secondary"
-                  size="sm"
+                  size={isTeacherMobileIcons ? "icon" : "sm"}
                   onClick={() => setDrawerOpen(false)}
                   aria-label="Close utility menu"
+                  title="Close utility menu"
                 >
-                  Close
+                  <img src={menuIcon} alt="" aria-hidden className="h-4 w-4" />
+                  {isTeacherMobileIcons ? null : "Close"}
                 </Button>
               </div>
 
               <div className="flex flex-col gap-5">
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-sm font-semibold text-[color:var(--ink)]">Sound</span>
-                  <div className="flex items-center gap-2">
-                    {soundEnabled ? (
-                      <Volume2 className="h-4 w-4 text-[color:var(--ink)]" />
-                    ) : (
-                      <VolumeX className="h-4 w-4 text-[color:var(--ink)]" />
-                    )}
-                    <Switch checked={soundEnabled} onCheckedChange={onSoundToggle} />
-                  </div>
+                  {isTeacherMobileIcons ? (
+                    <Button
+                      variant="secondary"
+                      size="icon"
+                      className="h-11 w-11"
+                      onClick={() => {
+                        onSoundToggle();
+                        setDrawerOpen(false);
+                      }}
+                      aria-label={soundEnabled ? "Mute sound" : "Enable sound"}
+                      title={soundEnabled ? "Mute sound" : "Enable sound"}
+                    >
+                      <img
+                        src={soundEnabled ? volumeOnIcon : volumeOffIcon}
+                        alt=""
+                        aria-hidden
+                        className="h-5 w-5"
+                      />
+                    </Button>
+                  ) : (
+                    <>
+                      <span className="text-sm font-semibold text-[color:var(--ink)]">Sound</span>
+                      <div className="flex items-center gap-2">
+                        <img
+                          src={soundEnabled ? volumeOnIcon : volumeOffIcon}
+                          alt=""
+                          aria-hidden
+                          className="h-4 w-4"
+                        />
+                        <Switch checked={soundEnabled} onCheckedChange={onSoundToggle} />
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 <div className="space-y-2">
-                  <p className="text-sm font-semibold text-[color:var(--ink)]">Mode</p>
+                  {isTeacherMobileIcons ? null : (
+                    <p className="text-sm font-semibold text-[color:var(--ink)]">Mode</p>
+                  )}
                   <Tabs
                     value={mode}
                     onValueChange={(nextMode) => {
@@ -248,11 +340,29 @@ export function AppShell({
                     className="space-y-0"
                   >
                     <TabsList className="w-full border-none bg-transparent p-0 shadow-none">
-                      <TabsTrigger className="w-full" value="student">
-                        Student
+                      <TabsTrigger
+                        className={isTeacherMobileIcons ? "w-full" : "w-full"}
+                        value="student"
+                        aria-label="Student mode"
+                        title="Student mode"
+                      >
+                        {isTeacherMobileIcons ? (
+                          <img src={userIcon} alt="" aria-hidden className="h-5 w-5" />
+                        ) : (
+                          "Student"
+                        )}
                       </TabsTrigger>
-                      <TabsTrigger className="w-full" value="teacher">
-                        Teacher
+                      <TabsTrigger
+                        className={isTeacherMobileIcons ? "w-full" : "w-full"}
+                        value="teacher"
+                        aria-label="Teacher mode"
+                        title="Teacher mode"
+                      >
+                        {isTeacherMobileIcons ? (
+                          <img src={teacherIcon} alt="" aria-hidden className="h-5 w-5" />
+                        ) : (
+                          "Teacher"
+                        )}
                       </TabsTrigger>
                     </TabsList>
                   </Tabs>
