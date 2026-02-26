@@ -1,6 +1,7 @@
 const CLARITY_SCRIPT_ID = "vp-clarity-script";
 const CLARITY_PAGE_ID = "student_baseline";
 const CLARITY_FRIENDLY_NAME = "VocabPal Student Attempt";
+const CLARITY_PROJECT_ID_FALLBACK = "vn9eedzs4w";
 
 type ClarityPrimitive = string | number | boolean;
 
@@ -79,15 +80,20 @@ function isBrowser(): boolean {
 }
 
 function isClarityEnabled(): boolean {
-  return import.meta.env.PROD &&
-    import.meta.env.VITE_CLARITY_ENABLED === "true" &&
-    typeof import.meta.env.VITE_CLARITY_PROJECT_ID === "string" &&
-    import.meta.env.VITE_CLARITY_PROJECT_ID.trim().length > 0;
+  if (!import.meta.env.PROD) return false;
+
+  const envFlag = typeof import.meta.env.VITE_CLARITY_ENABLED === "string"
+    ? import.meta.env.VITE_CLARITY_ENABLED.trim().toLowerCase()
+    : "";
+  if (envFlag === "false") return false;
+
+  return getProjectId().length > 0;
 }
 
 function getProjectId(): string {
   const projectId = import.meta.env.VITE_CLARITY_PROJECT_ID as string | undefined;
-  return projectId?.trim() ?? "";
+  const envProjectId = projectId?.trim() ?? "";
+  return envProjectId || CLARITY_PROJECT_ID_FALLBACK;
 }
 
 function ensureDebugStore(): void {
