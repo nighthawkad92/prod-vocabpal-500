@@ -919,29 +919,29 @@ export function StudentMode({
                             {`Q${question.displayOrder}: ${activeQuestionPromptText}`}
                           </p>
 
-                          {question.ttsText && (
-                            <MotionButton
-                              type="button"
-                              variant="secondary"
-                              motionPolicy={motionPolicy}
-                              className="secondary w-fit"
-                              data-testid="question-audio-button"
-                              onClick={() => {
-                                void playSound("tap", { fromInteraction: true });
-                                void playQuestionAudio("manual");
-                              }}
-                              disabled={audioBusy || audioPlaying}
+                          {question.ttsText ? (
+                            <div className="flex flex-wrap items-center gap-4">
+                              <MotionButton
+                                type="button"
+                                variant="secondary"
+                                motionPolicy={motionPolicy}
+                                className="secondary w-fit"
+                                data-testid="question-audio-button"
+                                onClick={() => {
+                                  void playSound("tap", { fromInteraction: true });
+                                  void playQuestionAudio("manual");
+                                }}
+                                disabled={audioBusy || audioPlaying}
                               >
                                 {!audioBusy && (
                                   <img src={playIcon} alt="" aria-hidden="true" className="h-4 w-4" />
                                 )}
                                 {audioBusy ? "Loading audio..." : "Play audio"}
                               </MotionButton>
-                          )}
-                          {question.ttsText ? (
-                            <p className="min-h-5 text-xs font-semibold text-[color:var(--muted)]">
-                              {audioStateHint}
-                            </p>
+                              <p className="min-h-5 text-xs font-semibold text-[color:var(--muted)]">
+                                {audioStateHint}
+                              </p>
+                            </div>
                           ) : null}
 
                           {question.displayOrder === 1 && questionVisual
@@ -993,29 +993,29 @@ export function StudentMode({
                         question.displayOrder === 8 ||
                         question.displayOrder === 10 ? (
                           <div className="grid gap-3">
-                            {question.ttsText && (
-                              <MotionButton
-                                type="button"
-                                variant="secondary"
-                                motionPolicy={motionPolicy}
-                                className="secondary w-fit"
-                                data-testid="question-audio-button"
-                                onClick={() => {
-                                  void playSound("tap", { fromInteraction: true });
-                                  void playQuestionAudio("manual");
-                                }}
-                                disabled={audioBusy || audioPlaying}
-                              >
-                                {!audioBusy && (
-                                  <img src={playIcon} alt="" aria-hidden="true" className="h-4 w-4" />
-                                )}
-                                {audioBusy ? "Loading audio..." : "Play audio"}
-                              </MotionButton>
-                            )}
                             {question.ttsText ? (
-                              <p className="min-h-5 text-xs font-semibold text-[color:var(--muted)]">
-                                {audioStateHint}
-                              </p>
+                              <div className="flex flex-wrap items-center gap-4">
+                                <MotionButton
+                                  type="button"
+                                  variant="secondary"
+                                  motionPolicy={motionPolicy}
+                                  className="secondary w-fit"
+                                  data-testid="question-audio-button"
+                                  onClick={() => {
+                                    void playSound("tap", { fromInteraction: true });
+                                    void playQuestionAudio("manual");
+                                  }}
+                                  disabled={audioBusy || audioPlaying}
+                                >
+                                  {!audioBusy && (
+                                    <img src={playIcon} alt="" aria-hidden="true" className="h-4 w-4" />
+                                  )}
+                                  {audioBusy ? "Loading audio..." : "Play audio"}
+                                </MotionButton>
+                                <p className="min-h-5 text-xs font-semibold text-[color:var(--muted)]">
+                                  {audioStateHint}
+                                </p>
+                              </div>
                             ) : null}
 
                             {question.displayOrder === 2 || question.displayOrder === 4
@@ -1046,29 +1046,29 @@ export function StudentMode({
                             {renderQuestionVisual("Picture clue")}
 
                             <div className="dictation-work grid content-start gap-3">
-                              {question.ttsText && (
-                                <MotionButton
-                                  type="button"
-                                  variant="secondary"
-                                  motionPolicy={motionPolicy}
-                                  className="secondary w-fit"
-                                  data-testid="question-audio-button"
-                                  onClick={() => {
-                                    void playSound("tap", { fromInteraction: true });
-                                    void playQuestionAudio("manual");
-                                  }}
-                                  disabled={audioBusy || audioPlaying}
-                                >
-                                  {!audioBusy && (
-                                    <img src={playIcon} alt="" aria-hidden="true" className="h-4 w-4" />
-                                  )}
-                                  {audioBusy ? "Loading audio..." : "Play audio"}
-                                </MotionButton>
-                              )}
                               {question.ttsText ? (
-                                <p className="min-h-5 text-xs font-semibold text-[color:var(--muted)]">
-                                  {audioStateHint}
-                                </p>
+                                <div className="flex flex-wrap items-center gap-4">
+                                  <MotionButton
+                                    type="button"
+                                    variant="secondary"
+                                    motionPolicy={motionPolicy}
+                                    className="secondary w-fit"
+                                    data-testid="question-audio-button"
+                                    onClick={() => {
+                                      void playSound("tap", { fromInteraction: true });
+                                      void playQuestionAudio("manual");
+                                    }}
+                                    disabled={audioBusy || audioPlaying}
+                                  >
+                                    {!audioBusy && (
+                                      <img src={playIcon} alt="" aria-hidden="true" className="h-4 w-4" />
+                                    )}
+                                    {audioBusy ? "Loading audio..." : "Play audio"}
+                                  </MotionButton>
+                                  <p className="min-h-5 text-xs font-semibold text-[color:var(--muted)]">
+                                    {audioStateHint}
+                                  </p>
+                                </div>
                               ) : null}
 
                               <Label htmlFor="dictation-answer">Your answer</Label>
