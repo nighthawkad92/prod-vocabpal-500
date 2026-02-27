@@ -28,6 +28,7 @@
     "linear:post-ci-event": "node ops/linear/post_ci_event.mjs",
     "qa:remote": "node qa/remote_smoke.mjs",
     "qa:matrix": "node qa/matrix_ui_network.mjs",
+    "qa:unit": "node qa/scoring_timing_contract.mjs",
     "qa:data": "node qa/data_integrity_audit.mjs",
     "qa:cleanup": "node qa/cleanup_qa_attempts.mjs",
     "qa:after-deploy": "node qa/run_after_deploy.mjs",
