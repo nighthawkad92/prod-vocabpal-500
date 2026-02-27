@@ -211,6 +211,7 @@ async function main() {
   await runGateStage("apiGate", "remote-smoke", "npm", ["run", "qa:remote"]);
   await runGateStage("uiUxGate", "matrix-ui-network", "npm", ["run", "qa:matrix"]);
   await runGateStage("dataGate", "data-integrity-audit", "npm", ["run", "qa:data"]);
+  await runGateStage("apiGate", "archive-contract-canary", "npm", ["run", "qa:archive-canary"]);
   await runGateStage("dataGate", "cleanup-qa-attempts", "npm", ["run", "qa:cleanup"]);
 
   const afterDeploy = await runGateStage("apiGate", "after-deploy", "npm", ["run", "qa:after-deploy"]);

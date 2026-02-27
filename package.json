@@ -30,10 +30,12 @@
     "qa:matrix": "node qa/matrix_ui_network.mjs",
     "qa:unit": "node qa/scoring_timing_contract.mjs",
     "qa:data": "node qa/data_integrity_audit.mjs",
+    "qa:archive-canary": "node qa/archive_contract_canary.mjs",
     "qa:cleanup": "node qa/cleanup_qa_attempts.mjs",
     "qa:after-deploy": "node qa/run_after_deploy.mjs",
     "qa:release-gate": "node qa/release_gate.mjs",
     "qa:load-500": "node qa/load_profile_500.mjs",
+    "supabase:functions:deploy:teacher-critical": "npx supabase functions deploy teacher-dashboard-list && npx supabase functions deploy teacher-dashboard-summary && npx supabase functions deploy teacher-attempt-archive && npx supabase functions deploy teacher-attempt-restore && npx supabase functions deploy teacher-attempt-detail && npx supabase functions deploy teacher-windows",
     "supabase": "npx supabase"
   },
   "devDependencies": {

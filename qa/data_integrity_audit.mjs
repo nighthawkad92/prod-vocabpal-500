@@ -209,6 +209,39 @@ function sumResponseTimes(rows) {
   return rows.reduce((acc, row) => acc + (Number(row.responseTimeMs) || 0), 0);
 }
 
+function getAttemptIdsFromListPayload(payload) {
+  return (payload?.attempts ?? [])
+    .map((attempt) => attempt?.id)
+    .filter((value) => typeof value === "string");
+}
+
+function sortedIdSignature(attemptIds) {
+  return [...new Set(attemptIds)].sort((a, b) => a.localeCompare(b)).join(",");
+}
+
+function hasArchiveTimestampFields(payload) {
+  return (payload?.attempts ?? []).every(
+    (attempt) => "archiveAt" in attempt && "archivedAt" in attempt,
+  );
+}
+
+function mapArchiveModeToLegacy(mode) {
+  if (mode === "active") return "exclude";
+  if (mode === "archives") return "only";
+  return "include";
+}
+
+function buildListPath({ mode, legacy, source = "all", search = "", limit = 250 }) {
+  const params = new URLSearchParams({
+    limit: String(limit),
+    source,
+    ...(search ? { search } : {}),
+  });
+  if (mode) params.set("archive", mode);
+  if (legacy) params.set("archived", legacy);
+  return `teacher-dashboard-list?${params.toString()}`;
+}
+
 async function run() {
   const token = await loginTeacher();
   report.artifacts.teacherTokenIssued = true;
@@ -273,6 +306,70 @@ async function run() {
     attemptIds: [attemptA.attemptId, attemptB.attemptId],
   });
 
+  const archiveModes = ["active", "archives", "all"];
+  const listsBeforeArchive = {};
+  for (const mode of archiveModes) {
+    const canonicalPath = buildListPath({ mode, search: sharedIdentity.firstName });
+    const legacyPath = buildListPath({
+      mode: null,
+      legacy: mapArchiveModeToLegacy(mode),
+      search: sharedIdentity.firstName,
+    });
+    const [canonical, legacy] = await Promise.all([
+      callFunction(canonicalPath, { token }),
+      callFunction(legacyPath, { token }),
+    ]);
+    expectStatus(canonical, 200, `teacher-dashboard-list canonical (${mode}) before archive`);
+    expectStatus(legacy, 200, `teacher-dashboard-list legacy (${mode}) before archive`);
+    listsBeforeArchive[mode] = { canonical, legacy };
+  }
+
+  const beforeParityPass = archiveModes.every((mode) =>
+    sortedIdSignature(getAttemptIdsFromListPayload(listsBeforeArchive[mode].canonical.payload)) ===
+      sortedIdSignature(getAttemptIdsFromListPayload(listsBeforeArchive[mode].legacy.payload))
+  );
+  addCheck("archive-filter-canonical-legacy-parity-before-archive", beforeParityPass, {
+    activeCanonicalCount: getAttemptIdsFromListPayload(listsBeforeArchive.active.canonical.payload).length,
+    activeLegacyCount: getAttemptIdsFromListPayload(listsBeforeArchive.active.legacy.payload).length,
+    archivesCanonicalCount: getAttemptIdsFromListPayload(listsBeforeArchive.archives.canonical.payload).length,
+    archivesLegacyCount: getAttemptIdsFromListPayload(listsBeforeArchive.archives.legacy.payload).length,
+    allCanonicalCount: getAttemptIdsFromListPayload(listsBeforeArchive.all.canonical.payload).length,
+    allLegacyCount: getAttemptIdsFromListPayload(listsBeforeArchive.all.legacy.payload).length,
+  });
+
+  const activeBeforeIds = new Set(getAttemptIdsFromListPayload(listsBeforeArchive.active.canonical.payload));
+  const archivesBeforeIds = new Set(getAttemptIdsFromListPayload(listsBeforeArchive.archives.canonical.payload));
+  const allBeforeIds = new Set(getAttemptIdsFromListPayload(listsBeforeArchive.all.canonical.payload));
+  const beforeOverlap = [...activeBeforeIds].filter((id) => archivesBeforeIds.has(id));
+  const beforeUnionSize = new Set([...activeBeforeIds, ...archivesBeforeIds]).size;
+  const beforeInvariantPass = beforeOverlap.length === 0 && beforeUnionSize === allBeforeIds.size;
+  addCheck("archive-set-invariants-before-archive", beforeInvariantPass, {
+    activeCount: activeBeforeIds.size,
+    archivesCount: archivesBeforeIds.size,
+    allCount: allBeforeIds.size,
+    overlapCount: beforeOverlap.length,
+    unionCount: beforeUnionSize,
+  });
+
+  const listConflict = await callFunction(
+    buildListPath({ mode: "active", legacy: "only", search: sharedIdentity.firstName }),
+    { token },
+  );
+  const listConflictPass = listConflict.status === 400;
+  addCheck("archive-filter-conflict-list-returns-400", listConflictPass, {
+    status: listConflict.status,
+    error: listConflict.payload?.error ?? null,
+  });
+
+  const summaryConflict = await callFunction("teacher-dashboard-summary?archive=active&archived=only&source=all", {
+    token,
+  });
+  const summaryConflictPass = summaryConflict.status === 400;
+  addCheck("archive-filter-conflict-summary-returns-400", summaryConflictPass, {
+    status: summaryConflict.status,
+    error: summaryConflict.payload?.error ?? null,
+  });
+
   const archive = await callFunction("teacher-attempt-archive", {
     method: "POST",
     token,
@@ -289,22 +386,133 @@ async function run() {
     archivedCount: archive.payload?.archivedCount ?? null,
   });
 
-  const listAfterArchive = await callFunction("teacher-dashboard-list?limit=250&source=all", { token });
-  expectStatus(listAfterArchive, 200, "teacher-dashboard-list (after archive)");
-  const listContractPass = (listAfterArchive.payload?.attempts ?? []).every(
-    (attempt) => "archiveAt" in attempt && "archivedAt" in attempt,
-  );
-  addCheck("attempt-list-archive-contract", listContractPass, {
-    checkedAttempts: (listAfterArchive.payload?.attempts ?? []).length,
+  const archiveIdsContractPass = Array.isArray(archive.payload?.movedToArchiveAttemptIds) &&
+    Array.isArray(archive.payload?.archivedAttemptIds);
+  addCheck("archive-response-id-array-contract", archiveIdsContractPass, {
+    movedToArchiveAttemptIdsLength: Array.isArray(archive.payload?.movedToArchiveAttemptIds)
+      ? archive.payload.movedToArchiveAttemptIds.length
+      : null,
+    archivedAttemptIdsLength: Array.isArray(archive.payload?.archivedAttemptIds)
+      ? archive.payload.archivedAttemptIds.length
+      : null,
   });
 
-  const visibleAttemptIds = new Set((listAfterArchive.payload?.attempts ?? []).map((row) => row.id));
-  const archiveVisibilityPass = !visibleAttemptIds.has(attemptA.attemptId) && visibleAttemptIds.has(attemptB.attemptId);
+  const listsAfterArchive = {};
+  for (const mode of archiveModes) {
+    const canonicalPath = buildListPath({ mode, search: sharedIdentity.firstName });
+    const legacyPath = buildListPath({
+      mode: null,
+      legacy: mapArchiveModeToLegacy(mode),
+      search: sharedIdentity.firstName,
+    });
+    const [canonical, legacy] = await Promise.all([
+      callFunction(canonicalPath, { token }),
+      callFunction(legacyPath, { token }),
+    ]);
+    expectStatus(canonical, 200, `teacher-dashboard-list canonical (${mode}) after archive`);
+    expectStatus(legacy, 200, `teacher-dashboard-list legacy (${mode}) after archive`);
+    listsAfterArchive[mode] = { canonical, legacy };
+  }
+
+  const afterParityPass = archiveModes.every((mode) =>
+    sortedIdSignature(getAttemptIdsFromListPayload(listsAfterArchive[mode].canonical.payload)) ===
+      sortedIdSignature(getAttemptIdsFromListPayload(listsAfterArchive[mode].legacy.payload))
+  );
+  addCheck("archive-filter-canonical-legacy-parity-after-archive", afterParityPass, {
+    activeCanonicalCount: getAttemptIdsFromListPayload(listsAfterArchive.active.canonical.payload).length,
+    activeLegacyCount: getAttemptIdsFromListPayload(listsAfterArchive.active.legacy.payload).length,
+    archivesCanonicalCount: getAttemptIdsFromListPayload(listsAfterArchive.archives.canonical.payload).length,
+    archivesLegacyCount: getAttemptIdsFromListPayload(listsAfterArchive.archives.legacy.payload).length,
+    allCanonicalCount: getAttemptIdsFromListPayload(listsAfterArchive.all.canonical.payload).length,
+    allLegacyCount: getAttemptIdsFromListPayload(listsAfterArchive.all.legacy.payload).length,
+  });
+
+  const activeAfterIds = new Set(getAttemptIdsFromListPayload(listsAfterArchive.active.canonical.payload));
+  const archivesAfterIds = new Set(getAttemptIdsFromListPayload(listsAfterArchive.archives.canonical.payload));
+  const allAfterIds = new Set(getAttemptIdsFromListPayload(listsAfterArchive.all.canonical.payload));
+  const afterOverlap = [...activeAfterIds].filter((id) => archivesAfterIds.has(id));
+  const afterUnionSize = new Set([...activeAfterIds, ...archivesAfterIds]).size;
+  const afterInvariantPass = afterOverlap.length === 0 && afterUnionSize === allAfterIds.size;
+  addCheck("archive-set-invariants-after-archive", afterInvariantPass, {
+    activeCount: activeAfterIds.size,
+    archivesCount: archivesAfterIds.size,
+    allCount: allAfterIds.size,
+    overlapCount: afterOverlap.length,
+    unionCount: afterUnionSize,
+  });
+
+  const listContractPass = hasArchiveTimestampFields(listsAfterArchive.all.canonical.payload) &&
+    hasArchiveTimestampFields(listsAfterArchive.all.legacy.payload);
+  addCheck("attempt-list-archive-contract", listContractPass, {
+    checkedCanonicalAttempts: (listsAfterArchive.all.canonical.payload?.attempts ?? []).length,
+    checkedLegacyAttempts: (listsAfterArchive.all.legacy.payload?.attempts ?? []).length,
+  });
+
+  const archiveVisibilityPass = !activeAfterIds.has(attemptA.attemptId) &&
+    archivesAfterIds.has(attemptA.attemptId) &&
+    allAfterIds.has(attemptA.attemptId) &&
+    activeAfterIds.has(attemptB.attemptId);
 
   addCheck("archives-removes-only-target-attempt", archiveVisibilityPass, {
     archivedAttemptId: attemptA.attemptId,
     retainedAttemptId: attemptB.attemptId,
   });
+
+  const restore = await callFunction("teacher-attempt-restore", {
+    method: "POST",
+    token,
+    body: {
+      attemptIds: [attemptA.attemptId],
+    },
+  });
+  expectStatus(restore, 200, "teacher-attempt-restore");
+  const restoreCompatibilityPass =
+    Number.isFinite(Number(restore.payload?.restoredFromArchivesCount)) &&
+    typeof restore.payload?.restoredCount === "number";
+  addCheck("restore-response-compatibility", restoreCompatibilityPass, {
+    restoredFromArchivesCount: restore.payload?.restoredFromArchivesCount ?? null,
+    restoredCount: restore.payload?.restoredCount ?? null,
+  });
+
+  const restoreIdsContractPass = Array.isArray(restore.payload?.restoredFromArchiveAttemptIds) &&
+    Array.isArray(restore.payload?.restoredAttemptIds);
+  addCheck("restore-response-id-array-contract", restoreIdsContractPass, {
+    restoredFromArchiveAttemptIdsLength: Array.isArray(restore.payload?.restoredFromArchiveAttemptIds)
+      ? restore.payload.restoredFromArchiveAttemptIds.length
+      : null,
+    restoredAttemptIdsLength: Array.isArray(restore.payload?.restoredAttemptIds)
+      ? restore.payload.restoredAttemptIds.length
+      : null,
+  });
+
+  const activeAfterRestore = await callFunction(buildListPath({
+    mode: "active",
+    search: sharedIdentity.firstName,
+  }), { token });
+  const archivesAfterRestore = await callFunction(buildListPath({
+    mode: "archives",
+    search: sharedIdentity.firstName,
+  }), { token });
+  expectStatus(activeAfterRestore, 200, "teacher-dashboard-list active after restore");
+  expectStatus(archivesAfterRestore, 200, "teacher-dashboard-list archives after restore");
+  const activeAfterRestoreIds = new Set(getAttemptIdsFromListPayload(activeAfterRestore.payload));
+  const archivesAfterRestoreIds = new Set(getAttemptIdsFromListPayload(archivesAfterRestore.payload));
+  const restoreVisibilityPass = activeAfterRestoreIds.has(attemptA.attemptId) &&
+    !archivesAfterRestoreIds.has(attemptA.attemptId);
+  addCheck("restore-returns-attempt-to-active", restoreVisibilityPass, {
+    restoredAttemptId: attemptA.attemptId,
+    activeCount: activeAfterRestoreIds.size,
+    archivesCount: archivesAfterRestoreIds.size,
+  });
+
+  const rearchive = await callFunction("teacher-attempt-archive", {
+    method: "POST",
+    token,
+    body: {
+      attemptIds: [attemptA.attemptId],
+    },
+  });
+  expectStatus(rearchive, 200, "teacher-attempt-archive (rearchive after restore)");
 
   const retakeAfterArchive = await callFunction("student-start-attempt", {
     method: "POST",

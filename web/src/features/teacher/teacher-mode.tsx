@@ -253,11 +253,14 @@ export function TeacherMode({
 
       try {
         const offset = (attemptPage - 1) * ATTEMPTS_PAGE_SIZE;
+        const archiveMode = attemptListView === "archives" ? "archives" : "active";
+        // TODO(PM-QA-023): Remove legacy archived=* shim after two consecutive post-deploy parity passes.
         const listParams = new URLSearchParams({
           limit: String(ATTEMPTS_PAGE_SIZE),
           offset: String(offset),
           source: "student",
-          archive: attemptListView === "archives" ? "archives" : "active",
+          archive: archiveMode,
+          archived: archiveMode === "archives" ? "only" : "exclude",
         });
         const trimmedSearch = searchText.trim();
         if (classFilter !== "all") {

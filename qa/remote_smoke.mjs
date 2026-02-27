@@ -389,6 +389,35 @@ async function run() {
     attemptsToday: summary.payload.attemptsToday,
   });
 
+  const archiveProbe = await callFunction("teacher-attempt-archive", {
+    method: "POST",
+    token,
+    body: { attemptIds: [classAFirstAttempt.attemptId] },
+  });
+  expectStatus(archiveProbe, 200, "teacher-attempt-archive probe");
+  addStep("archive-probe-mutation", {
+    attemptId: classAFirstAttempt.attemptId,
+    movedToArchivesCount: archiveProbe.payload?.movedToArchivesCount ?? null,
+    archivedCount: archiveProbe.payload?.archivedCount ?? null,
+  });
+
+  const archivesView = await callFunction(
+    `teacher-dashboard-list?archive=archives&archived=only&search=${encodeURIComponent(sharedIdentity.firstName)}&limit=200&source=all`,
+    { token },
+  );
+  expectStatus(archivesView, 200, "teacher-dashboard-list archives view");
+  const archivedProbeRow = (archivesView.payload.attempts ?? []).find(
+    (attempt) => attempt.id === classAFirstAttempt.attemptId,
+  );
+  assert(archivedProbeRow, "Archived probe attempt missing from archives view");
+  assert(archivedProbeRow.archiveAt && archivedProbeRow.archivedAt, "Archived probe row missing archive timestamps");
+  addStep("archives-view-retrieval-validated", {
+    archivesCount: archivesView.payload.count ?? (archivesView.payload.attempts ?? []).length,
+    archivedAttemptId: classAFirstAttempt.attemptId,
+    archiveAt: archivedProbeRow.archiveAt,
+    archivedAt: archivedProbeRow.archivedAt,
+  });
+
   report.artifacts.identity = sharedIdentity;
   report.artifacts.attemptIds = [
     classAFirstAttempt.attemptId,

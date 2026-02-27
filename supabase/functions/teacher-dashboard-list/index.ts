@@ -1,13 +1,13 @@
 import "@supabase/functions-js/edge-runtime.d.ts";
 
 import { createAdminClient, handleOptions, json, requireTeacherSession } from "../_shared/auth.ts";
+import { applyArchiveFilter, resolveArchiveFilter } from "../_shared/archive_filters.ts";
 import { normalizeClassName } from "../_shared/student.ts";
 
 type AttemptRow = {
   id: string;
   attempt_source: "student" | "qa";
   status: string;
-  archive_at: string | null;
   archived_at: string | null;
   started_at: string;
   ended_at: string | null;
@@ -51,49 +51,25 @@ function parseSourceFilter(value: string): "student" | "qa" | "all" {
   return "student";
 }
 
-type ArchiveFilter = "active" | "archives" | "all";
-
-function parseArchiveFilter(
-  canonicalRaw: string | null,
-  legacyRaw: string | null,
-): ArchiveFilter | null {
-  const canonical = (canonicalRaw ?? "").trim().toLowerCase();
-  if (canonical) {
-    if (canonical === "active") return "active";
-    if (canonical === "archives") return "archives";
-    if (canonical === "all") return "all";
-    return null;
-  }
-
-  const legacy = (legacyRaw ?? "").trim().toLowerCase();
-  if (!legacy || legacy === "exclude") return "active";
-  if (legacy === "only") return "archives";
-  if (legacy === "include") return "all";
-  return null;
-}
-
-type ArchiveFilterQuery = {
-  is: (column: string, value: null) => ArchiveFilterQuery;
-  or: (filters: string) => ArchiveFilterQuery;
-};
-
-function applyArchiveFilter<T extends ArchiveFilterQuery>(query: T, archiveFilter: ArchiveFilter): T {
-  const q = query as ArchiveFilterQuery;
-  if (archiveFilter === "active") {
-    return q.is("archive_at", null).is("archived_at", null) as T;
-  }
-  if (archiveFilter === "archives") {
-    return q.or("archive_at.not.is.null,archived_at.not.is.null") as T;
-  }
-  return query;
-}
-
 function parseStageFilter(value: string): number | null {
   if (!value) return null;
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return null;
   if (parsed < 0 || parsed > 4) return null;
   return Math.trunc(parsed);
+}
+
+function describeSupabaseError(error: { message?: string | null; details?: string | null; hint?: string | null; code?: string | null }) {
+  const message = (error.message ?? "").trim();
+  const details = (error.details ?? "").trim();
+  const hint = (error.hint ?? "").trim();
+  const code = (error.code ?? "").trim();
+  return JSON.stringify({
+    message: message || null,
+    details: details || null,
+    hint: hint || null,
+    code: code || null,
+  });
 }
 
 Deno.serve(async (req) => {
@@ -113,15 +89,17 @@ Deno.serve(async (req) => {
     const className = (url.searchParams.get("className") ?? "").trim();
     const search = (url.searchParams.get("search") ?? "").trim();
     const source = parseSourceFilter((url.searchParams.get("source") ?? "student").trim().toLowerCase());
-    const archiveFilter = parseArchiveFilter(url.searchParams.get("archive"), url.searchParams.get("archived"));
+    const archiveFilterResult = resolveArchiveFilter(
+      url.searchParams.get("archive"),
+      url.searchParams.get("archived"),
+    );
+    const archiveFilter = archiveFilterResult.filter;
     const stageRaw = (url.searchParams.get("stage") ?? "").trim();
     const stage = parseStageFilter(stageRaw);
     const limit = clampLimit(Number(url.searchParams.get("limit") ?? "25"));
     const offset = clampOffset(Number(url.searchParams.get("offset") ?? "0"));
     if (archiveFilter === null) {
-      return json(req, 400, {
-        error: "archive must be one of: active, archives, all (or archived: exclude, only, include)",
-      });
+      return json(req, 400, { error: archiveFilterResult.error ?? "Invalid archive filter" });
     }
     if (stageRaw && stage === null) {
       return json(req, 400, { error: "stage must be an integer between 0 and 4" });
@@ -129,7 +107,8 @@ Deno.serve(async (req) => {
 
     let totalCountQuery = client
       .from("attempts")
-      .select("id", { count: "exact", head: true });
+      .select("id", { count: "exact" })
+      .limit(1);
 
     if (source !== "all") {
       totalCountQuery = totalCountQuery.eq("attempt_source", source);
@@ -146,7 +125,7 @@ Deno.serve(async (req) => {
 
     const totalCountResult = await totalCountQuery;
     if (totalCountResult.error) {
-      throw new Error(`Failed to count attempts: ${totalCountResult.error.message}`);
+      throw new Error(`Failed to count attempts: ${describeSupabaseError(totalCountResult.error)}`);
     }
 
     let studentIds: string[] | null = null;
@@ -217,7 +196,8 @@ Deno.serve(async (req) => {
 
     let filteredCountQuery = client
       .from("attempts")
-      .select("id", { count: "exact", head: true });
+      .select("id", { count: "exact" })
+      .limit(1);
 
     if (source !== "all") {
       filteredCountQuery = filteredCountQuery.eq("attempt_source", source);
@@ -237,7 +217,7 @@ Deno.serve(async (req) => {
 
     const filteredCountResult = await filteredCountQuery;
     if (filteredCountResult.error) {
-      throw new Error(`Failed to count filtered attempts: ${filteredCountResult.error.message}`);
+      throw new Error(`Failed to count filtered attempts: ${describeSupabaseError(filteredCountResult.error)}`);
     }
 
     const filteredCount = filteredCountResult.count ?? 0;
@@ -263,7 +243,6 @@ Deno.serve(async (req) => {
         id,
         attempt_source,
         status,
-        archive_at,
         archived_at,
         started_at,
         ended_at,
@@ -303,7 +282,7 @@ Deno.serve(async (req) => {
 
     const result = await dataQuery;
     if (result.error) {
-      throw new Error(`Failed to load attempts: ${result.error.message}`);
+      throw new Error(`Failed to load attempts: ${describeSupabaseError(result.error)}`);
     }
 
     const rows = (result.data ?? []) as AttemptRow[];
@@ -319,8 +298,8 @@ Deno.serve(async (req) => {
       attempts: rows.map((row) => ({
         id: row.id,
         status: row.status,
-        archiveAt: row.archive_at ?? row.archived_at,
-        archivedAt: row.archive_at ?? row.archived_at,
+        archiveAt: row.archived_at,
+        archivedAt: row.archived_at,
         startedAt: row.started_at,
         endedAt: row.ended_at,
         totalCorrect: row.total_correct,
