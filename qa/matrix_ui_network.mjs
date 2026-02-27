@@ -748,11 +748,12 @@ async function cleanupQaAttempts(token, attemptIds) {
     cleanup.status === 404 &&
     missingAttemptIds.length > 0 &&
     missingAttemptIds.length <= uniqueAttemptIds.length;
-  addApiCheck("qa-cleanup-archived", cleanup.status === 200 || idempotentMissingOnly, {
+  addApiCheck("qa-cleanup-archives", cleanup.status === 200 || idempotentMissingOnly, {
     status: cleanup.status,
     requested: uniqueAttemptIds.length,
-    archivedCount: cleanup.payload?.archivedCount ?? null,
+    movedToArchivesCount: cleanup.payload?.movedToArchivesCount ?? cleanup.payload?.archivedCount ?? null,
     skippedMissing: missingAttemptIds.length,
+    legacyArchivedCountPresent: typeof cleanup.payload?.archivedCount === "number",
   });
 }
 

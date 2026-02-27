@@ -7,6 +7,7 @@ type AttemptRow = {
   id: string;
   attempt_source: "student" | "qa";
   status: string;
+  archive_at: string | null;
   archived_at: string | null;
   started_at: string;
   ended_at: string | null;
@@ -50,11 +51,41 @@ function parseSourceFilter(value: string): "student" | "qa" | "all" {
   return "student";
 }
 
-function parseArchivedFilter(value: string): "exclude" | "only" | "include" | null {
-  if (!value || value === "exclude") return "exclude";
-  if (value === "only") return "only";
-  if (value === "include") return "include";
+type ArchiveFilter = "active" | "archives" | "all";
+
+function parseArchiveFilter(
+  canonicalRaw: string | null,
+  legacyRaw: string | null,
+): ArchiveFilter | null {
+  const canonical = (canonicalRaw ?? "").trim().toLowerCase();
+  if (canonical) {
+    if (canonical === "active") return "active";
+    if (canonical === "archives") return "archives";
+    if (canonical === "all") return "all";
+    return null;
+  }
+
+  const legacy = (legacyRaw ?? "").trim().toLowerCase();
+  if (!legacy || legacy === "exclude") return "active";
+  if (legacy === "only") return "archives";
+  if (legacy === "include") return "all";
   return null;
+}
+
+type ArchiveFilterQuery = {
+  is: (column: string, value: null) => ArchiveFilterQuery;
+  or: (filters: string) => ArchiveFilterQuery;
+};
+
+function applyArchiveFilter<T extends ArchiveFilterQuery>(query: T, archiveFilter: ArchiveFilter): T {
+  const q = query as ArchiveFilterQuery;
+  if (archiveFilter === "active") {
+    return q.is("archive_at", null).is("archived_at", null) as T;
+  }
+  if (archiveFilter === "archives") {
+    return q.or("archive_at.not.is.null,archived_at.not.is.null") as T;
+  }
+  return query;
 }
 
 function parseStageFilter(value: string): number | null {
@@ -82,14 +113,15 @@ Deno.serve(async (req) => {
     const className = (url.searchParams.get("className") ?? "").trim();
     const search = (url.searchParams.get("search") ?? "").trim();
     const source = parseSourceFilter((url.searchParams.get("source") ?? "student").trim().toLowerCase());
-    const archivedRaw = (url.searchParams.get("archived") ?? "exclude").trim().toLowerCase();
-    const archived = parseArchivedFilter(archivedRaw);
+    const archiveFilter = parseArchiveFilter(url.searchParams.get("archive"), url.searchParams.get("archived"));
     const stageRaw = (url.searchParams.get("stage") ?? "").trim();
     const stage = parseStageFilter(stageRaw);
     const limit = clampLimit(Number(url.searchParams.get("limit") ?? "25"));
     const offset = clampOffset(Number(url.searchParams.get("offset") ?? "0"));
-    if (archived === null) {
-      return json(req, 400, { error: "archived must be one of: exclude, only, include" });
+    if (archiveFilter === null) {
+      return json(req, 400, {
+        error: "archive must be one of: active, archives, all (or archived: exclude, only, include)",
+      });
     }
     if (stageRaw && stage === null) {
       return json(req, 400, { error: "stage must be an integer between 0 and 4" });
@@ -102,11 +134,7 @@ Deno.serve(async (req) => {
     if (source !== "all") {
       totalCountQuery = totalCountQuery.eq("attempt_source", source);
     }
-    if (archived === "exclude") {
-      totalCountQuery = totalCountQuery.is("archived_at", null);
-    } else if (archived === "only") {
-      totalCountQuery = totalCountQuery.not("archived_at", "is", null);
-    }
+    totalCountQuery = applyArchiveFilter(totalCountQuery, archiveFilter);
     if (status) {
       totalCountQuery = totalCountQuery.eq("status", status);
     }
@@ -194,11 +222,7 @@ Deno.serve(async (req) => {
     if (source !== "all") {
       filteredCountQuery = filteredCountQuery.eq("attempt_source", source);
     }
-    if (archived === "exclude") {
-      filteredCountQuery = filteredCountQuery.is("archived_at", null);
-    } else if (archived === "only") {
-      filteredCountQuery = filteredCountQuery.not("archived_at", "is", null);
-    }
+    filteredCountQuery = applyArchiveFilter(filteredCountQuery, archiveFilter);
     if (status) {
       filteredCountQuery = filteredCountQuery.eq("status", status);
     }
@@ -239,6 +263,7 @@ Deno.serve(async (req) => {
         id,
         attempt_source,
         status,
+        archive_at,
         archived_at,
         started_at,
         ended_at,
@@ -266,11 +291,7 @@ Deno.serve(async (req) => {
     if (source !== "all") {
       dataQuery = dataQuery.eq("attempt_source", source);
     }
-    if (archived === "exclude") {
-      dataQuery = dataQuery.is("archived_at", null);
-    } else if (archived === "only") {
-      dataQuery = dataQuery.not("archived_at", "is", null);
-    }
+    dataQuery = applyArchiveFilter(dataQuery, archiveFilter);
     if (stage !== null) {
       dataQuery = dataQuery
         .eq("status", "completed")
@@ -298,7 +319,8 @@ Deno.serve(async (req) => {
       attempts: rows.map((row) => ({
         id: row.id,
         status: row.status,
-        archivedAt: row.archived_at,
+        archiveAt: row.archive_at ?? row.archived_at,
+        archivedAt: row.archive_at ?? row.archived_at,
         startedAt: row.started_at,
         endedAt: row.ended_at,
         totalCorrect: row.total_correct,

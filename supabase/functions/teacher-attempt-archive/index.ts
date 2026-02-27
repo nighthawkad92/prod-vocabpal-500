@@ -28,6 +28,7 @@ type AttemptRow = {
   student_id: string;
   test_id: string;
   status: string;
+  archive_at: string | null;
   archived_at: string | null;
   students: AttemptStudentRow | null;
 };
@@ -76,6 +77,7 @@ Deno.serve(async (req) => {
         student_id,
         test_id,
         status,
+        archive_at,
         archived_at,
         students!inner(
           id,
@@ -103,26 +105,28 @@ Deno.serve(async (req) => {
     }
 
     if (attempts.some((attempt) => attempt.test_id !== baselineTest.id)) {
-      return json(req, 400, { error: "Only baseline attempts can be archived" });
+      return json(req, 400, { error: "Only baseline attempts can be moved to Archives" });
     }
 
     const alreadyArchivedAttemptIds = attempts
-      .filter((attempt) => attempt.archived_at !== null)
+      .filter((attempt) => attempt.archive_at !== null || attempt.archived_at !== null)
       .map((attempt) => attempt.id);
     const candidateIds = attempts
-      .filter((attempt) => attempt.archived_at === null)
+      .filter((attempt) => attempt.archive_at === null && attempt.archived_at === null)
       .map((attempt) => attempt.id);
 
     let archivedCount = 0;
     if (candidateIds.length > 0) {
+      const archiveAt = new Date().toISOString();
       const archiveResult = await client
         .from("attempts")
-        .update({ archived_at: new Date().toISOString() })
+        .update({ archive_at: archiveAt, archived_at: archiveAt })
         .in("id", candidateIds)
+        .is("archive_at", null)
         .is("archived_at", null);
 
       if (archiveResult.error) {
-        throw new Error(`Failed to archive attempt: ${archiveResult.error.message}`);
+        throw new Error(`Failed to move attempt to Archives: ${archiveResult.error.message}`);
       }
 
       archivedCount = candidateIds.length;
@@ -162,6 +166,9 @@ Deno.serve(async (req) => {
     });
 
     return json(req, 200, {
+      movedToArchives: true,
+      movedToArchivesCount: archivedCount,
+      movedToArchiveAttemptIds: candidateIds,
       archived: true,
       reopened: true,
       archivedCount,

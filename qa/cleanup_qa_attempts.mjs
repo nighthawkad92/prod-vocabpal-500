@@ -38,6 +38,7 @@ const report = {
   checks: [],
   artifacts: {
     detectedAttemptIds: [],
+    movedToArchivesCount: 0,
     archivedCount: 0,
   },
 };
@@ -181,7 +182,7 @@ function splitIntoBatches(values, batchSize) {
 
 async function archiveAttempts(token, attemptIds) {
   const batches = splitIntoBatches(attemptIds, config.batchSize);
-  let archivedCount = 0;
+  let movedToArchivesCount = 0;
   for (const batch of batches) {
     const result = await callFunction("teacher-attempt-archive", {
       method: "POST",
@@ -198,9 +199,13 @@ async function archiveAttempts(token, attemptIds) {
     if (!result.ok && !idempotentMissingOnly) {
       throw new Error(`teacher-attempt-archive failed (${result.status}): ${JSON.stringify(result.payload)}`);
     }
-    archivedCount += Number(result.payload?.archivedCount ?? Math.max(batch.length - missingAttemptIds.length, 0));
+    movedToArchivesCount += Number(
+      result.payload?.movedToArchivesCount ??
+      result.payload?.archivedCount ??
+      Math.max(batch.length - missingAttemptIds.length, 0),
+    );
   }
-  return archivedCount;
+  return movedToArchivesCount;
 }
 
 async function run() {
@@ -229,17 +234,20 @@ async function run() {
     report.artifacts.detectedAttemptIds = allAttemptIds;
 
     if (allAttemptIds.length === 0) {
-      addCheck("qa-cleanup-archive", true, { archivedCount: 0 });
+      addCheck("qa-cleanup-archives", true, { movedToArchivesCount: 0 });
+      report.artifacts.movedToArchivesCount = 0;
       report.artifacts.archivedCount = 0;
       report.status = "passed";
       return;
     }
 
-    const archivedCount = await archiveAttempts(token, allAttemptIds);
-    report.artifacts.archivedCount = archivedCount;
-    addCheck("qa-cleanup-archive", true, {
+    const movedToArchivesCount = await archiveAttempts(token, allAttemptIds);
+    report.artifacts.movedToArchivesCount = movedToArchivesCount;
+    report.artifacts.archivedCount = movedToArchivesCount;
+    addCheck("qa-cleanup-archives", true, {
       requested: allAttemptIds.length,
-      archivedCount,
+      movedToArchivesCount,
+      legacyArchivedCountAlias: report.artifacts.archivedCount,
       batchSize: config.batchSize,
     });
     report.status = "passed";

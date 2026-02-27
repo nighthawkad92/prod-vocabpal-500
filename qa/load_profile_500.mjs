@@ -92,6 +92,7 @@ const report = {
     teacherTokenIssued: false,
     startedAttemptCount: 0,
     submittedAttemptCount: 0,
+    movedToArchivesAttemptCount: 0,
     archivedAttemptCount: 0,
   },
 };
@@ -382,6 +383,9 @@ async function executeLoad(token, students) {
         batchSize: batchAttemptIds.length,
         status: archived.status,
         durationMs: archived.durationMs,
+        movedToArchivesCount: Number(
+          archived.payload?.movedToArchivesCount ?? archived.payload?.archivedCount ?? 0,
+        ),
         archivedCount: Number(archived.payload?.archivedCount ?? 0),
         error: archived.error,
       };
@@ -401,7 +405,7 @@ async function executeLoad(token, students) {
   const p95Archive = p95(archiveDurations);
 
   const uniqueAttemptIds = new Set(attemptIds);
-  const archivedTotal = archiveResults.reduce((sum, item) => sum + item.archivedCount, 0);
+  const archivedTotal = archiveResults.reduce((sum, item) => sum + item.movedToArchivesCount, 0);
 
   report.metrics.totalOperations = totalOperations;
   report.metrics.failedOperations = failedOperations;
@@ -413,6 +417,7 @@ async function executeLoad(token, students) {
 
   report.artifacts.startedAttemptCount = attemptIds.length;
   report.artifacts.submittedAttemptCount = startResults.filter((item) => item.submitStatus === 200).length;
+  report.artifacts.movedToArchivesAttemptCount = archivedTotal;
   report.artifacts.archivedAttemptCount = archivedTotal;
 
   const thresholdsPass = {
@@ -437,7 +442,8 @@ async function executeLoad(token, students) {
   addCheck("load-data-invariants", invariantsPass, {
     startedAttempts: attemptIds.length,
     uniqueAttempts: uniqueAttemptIds.size,
-    archivedCount: archivedTotal,
+    movedToArchivesCount: archivedTotal,
+    legacyArchivedCountAlias: report.artifacts.archivedAttemptCount,
     summaryStatus: summaryCheck.status,
   });
 

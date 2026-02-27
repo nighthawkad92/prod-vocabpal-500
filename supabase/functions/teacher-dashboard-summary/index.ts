@@ -7,6 +7,7 @@ type AttemptSummaryRow = {
   id: string;
   attempt_source: "student" | "qa";
   status: string;
+  archive_at: string | null;
   archived_at: string | null;
   total_score_10: number;
   placement_stage: number | null;
@@ -21,6 +22,43 @@ type AttemptSummaryRow = {
     } | null;
   } | null;
 };
+
+type ArchiveFilter = "active" | "archives" | "all";
+
+function parseArchiveFilter(
+  canonicalRaw: string | null,
+  legacyRaw: string | null,
+): ArchiveFilter | null {
+  const canonical = (canonicalRaw ?? "").trim().toLowerCase();
+  if (canonical) {
+    if (canonical === "active") return "active";
+    if (canonical === "archives") return "archives";
+    if (canonical === "all") return "all";
+    return null;
+  }
+
+  const legacy = (legacyRaw ?? "").trim().toLowerCase();
+  if (!legacy || legacy === "exclude") return "active";
+  if (legacy === "only") return "archives";
+  if (legacy === "include") return "all";
+  return null;
+}
+
+type ArchiveFilterQuery = {
+  is: (column: string, value: null) => ArchiveFilterQuery;
+  or: (filters: string) => ArchiveFilterQuery;
+};
+
+function applyArchiveFilter<T extends ArchiveFilterQuery>(query: T, archiveFilter: ArchiveFilter): T {
+  const q = query as ArchiveFilterQuery;
+  if (archiveFilter === "active") {
+    return q.is("archive_at", null).is("archived_at", null) as T;
+  }
+  if (archiveFilter === "archives") {
+    return q.or("archive_at.not.is.null,archived_at.not.is.null") as T;
+  }
+  return query;
+}
 
 Deno.serve(async (req) => {
   try {
@@ -37,21 +75,22 @@ Deno.serve(async (req) => {
     const url = new URL(req.url);
     const classFilter = (url.searchParams.get("className") ?? "").trim();
     const sourceFilter = (url.searchParams.get("source") ?? "student").trim().toLowerCase();
-    const archivedFilter = (url.searchParams.get("archived") ?? "exclude").trim().toLowerCase();
+    const archiveFilter = parseArchiveFilter(url.searchParams.get("archive"), url.searchParams.get("archived"));
     const dateFrom = url.searchParams.get("dateFrom");
     const dateTo = url.searchParams.get("dateTo");
     const includeAllSources = sourceFilter === "all";
-    const includeArchived = archivedFilter === "include";
-    const archivedOnly = archivedFilter === "only";
 
-    if (!["exclude", "only", "include"].includes(archivedFilter)) {
-      return json(req, 400, { error: "archived must be one of: exclude, only, include" });
+    if (archiveFilter === null) {
+      return json(req, 400, {
+        error: "archive must be one of: active, archives, all (or archived: exclude, only, include)",
+      });
     }
 
     let query = client.from("attempts").select(`
       id,
       attempt_source,
       status,
+      archive_at,
       archived_at,
       total_score_10,
       placement_stage,
@@ -71,13 +110,7 @@ Deno.serve(async (req) => {
       const resolvedSource = sourceFilter === "qa" ? "qa" : "student";
       query = query.eq("attempt_source", resolvedSource);
     }
-    if (!includeArchived) {
-      if (archivedOnly) {
-        query = query.not("archived_at", "is", null);
-      } else {
-        query = query.is("archived_at", null);
-      }
-    }
+    query = applyArchiveFilter(query, archiveFilter);
     if (dateFrom) query = query.gte("started_at", dateFrom);
     if (dateTo) query = query.lte("started_at", dateTo);
 

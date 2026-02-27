@@ -194,10 +194,14 @@ async function cleanupQaAttempts(token, attemptIds) {
   if (cleanup.status !== 200 && !idempotentMissingOnly) {
     throw new Error(`teacher-attempt-archive cleanup failed with ${cleanup.status}: ${JSON.stringify(cleanup.payload)}`);
   }
-  addCheck("qa-cleanup-archived", true, {
+  addCheck("qa-cleanup-archives", true, {
     requested: uniqueAttemptIds.length,
-    archivedCount: cleanup.payload?.archivedCount ?? Math.max(uniqueAttemptIds.length - missingAttemptIds.length, 0),
+    movedToArchivesCount:
+      cleanup.payload?.movedToArchivesCount ??
+      cleanup.payload?.archivedCount ??
+      Math.max(uniqueAttemptIds.length - missingAttemptIds.length, 0),
     skippedMissing: missingAttemptIds.length,
+    legacyArchivedCountPresent: typeof cleanup.payload?.archivedCount === "number",
   });
 }
 
@@ -277,14 +281,27 @@ async function run() {
     },
   });
   expectStatus(archive, 200, "teacher-attempt-archive");
+  const archiveCompatibilityPass =
+    Number.isFinite(Number(archive.payload?.movedToArchivesCount)) &&
+    typeof archive.payload?.archivedCount === "number";
+  addCheck("archive-response-compatibility", archiveCompatibilityPass, {
+    movedToArchivesCount: archive.payload?.movedToArchivesCount ?? null,
+    archivedCount: archive.payload?.archivedCount ?? null,
+  });
 
   const listAfterArchive = await callFunction("teacher-dashboard-list?limit=250&source=all", { token });
   expectStatus(listAfterArchive, 200, "teacher-dashboard-list (after archive)");
+  const listContractPass = (listAfterArchive.payload?.attempts ?? []).every(
+    (attempt) => "archiveAt" in attempt && "archivedAt" in attempt,
+  );
+  addCheck("attempt-list-archive-contract", listContractPass, {
+    checkedAttempts: (listAfterArchive.payload?.attempts ?? []).length,
+  });
 
   const visibleAttemptIds = new Set((listAfterArchive.payload?.attempts ?? []).map((row) => row.id));
   const archiveVisibilityPass = !visibleAttemptIds.has(attemptA.attemptId) && visibleAttemptIds.has(attemptB.attemptId);
 
-  addCheck("archive-removes-only-target-attempt", archiveVisibilityPass, {
+  addCheck("archives-removes-only-target-attempt", archiveVisibilityPass, {
     archivedAttemptId: attemptA.attemptId,
     retainedAttemptId: attemptB.attemptId,
   });
@@ -300,7 +317,7 @@ async function run() {
   });
 
   const reopenPass = retakeAfterArchive.status === 200 && untouchedClassRetake.status === 409;
-  addCheck("archive-reopens-only-target-student", reopenPass, {
+  addCheck("archives-reopens-only-target-student", reopenPass, {
     archivedClassStatus: retakeAfterArchive.status,
     untouchedClassStatus: untouchedClassRetake.status,
   });

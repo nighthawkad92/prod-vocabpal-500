@@ -28,6 +28,7 @@ type AttemptRow = {
   student_id: string;
   test_id: string;
   status: string;
+  archive_at: string | null;
   archived_at: string | null;
   students: AttemptStudentRow | null;
 };
@@ -76,6 +77,7 @@ Deno.serve(async (req) => {
         student_id,
         test_id,
         status,
+        archive_at,
         archived_at,
         students!inner(
           id,
@@ -103,26 +105,26 @@ Deno.serve(async (req) => {
     }
 
     if (attempts.some((attempt) => attempt.test_id !== baselineTest.id)) {
-      return json(req, 400, { error: "Only baseline attempts can be restored" });
+      return json(req, 400, { error: "Only baseline attempts can be restored from Archives" });
     }
 
     const alreadyActiveAttemptIds = attempts
-      .filter((attempt) => attempt.archived_at === null)
+      .filter((attempt) => attempt.archive_at === null && attempt.archived_at === null)
       .map((attempt) => attempt.id);
     const candidateIds = attempts
-      .filter((attempt) => attempt.archived_at !== null)
+      .filter((attempt) => attempt.archive_at !== null || attempt.archived_at !== null)
       .map((attempt) => attempt.id);
 
     let restoredCount = 0;
     if (candidateIds.length > 0) {
       const restoreResult = await client
         .from("attempts")
-        .update({ archived_at: null })
+        .update({ archive_at: null, archived_at: null })
         .in("id", candidateIds)
-        .not("archived_at", "is", null);
+        .or("archive_at.not.is.null,archived_at.not.is.null");
 
       if (restoreResult.error) {
-        throw new Error(`Failed to restore attempt: ${restoreResult.error.message}`);
+        throw new Error(`Failed to restore attempt from Archives: ${restoreResult.error.message}`);
       }
 
       restoredCount = candidateIds.length;
@@ -161,6 +163,9 @@ Deno.serve(async (req) => {
     });
 
     return json(req, 200, {
+      restoredFromArchives: true,
+      restoredFromArchivesCount: restoredCount,
+      restoredFromArchiveAttemptIds: candidateIds,
       restored: true,
       restoredCount,
       restoredAttemptIds: candidateIds,

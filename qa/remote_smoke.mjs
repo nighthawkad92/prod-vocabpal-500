@@ -215,9 +215,13 @@ async function cleanupQaAttempts(token, attemptIds) {
       `QA cleanup archive failed (${cleanup.status}): ${JSON.stringify(cleanup.payload)}`,
     );
   }
-  addStep("qa-cleanup-archived", {
+  addStep("qa-cleanup-archives", {
     requested: uniqueAttemptIds.length,
-    archivedCount: cleanup.payload?.archivedCount ?? uniqueAttemptIds.length,
+    movedToArchivesCount:
+      cleanup.payload?.movedToArchivesCount ??
+      cleanup.payload?.archivedCount ??
+      uniqueAttemptIds.length,
+    legacyArchivedCountPresent: typeof cleanup.payload?.archivedCount === "number",
   });
 }
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { MotionButton } from "@/components/motion-button";
 import { Alert } from "@/components/ui/alert";
@@ -39,7 +39,7 @@ const ARCHIVE_CONFIRMATION_MESSAGE =
 const RESTORE_CONFIRMATION_MESSAGE = "Restoring this attempt will move it back to active attempts. Continue?";
 const ATTEMPTS_PAGE_SIZE = 25;
 const MOBILE_BREAKPOINT_QUERY = "(max-width: 768px)";
-type AttemptArchiveView = "active" | "archived";
+type AttemptListView = "active" | "archives";
 
 type TeacherModeProps = {
   motionPolicy: MotionPolicy;
@@ -67,6 +67,12 @@ type TeacherAttemptListResponse = {
 };
 
 type AttemptMutationResponse = {
+  movedToArchives?: boolean;
+  movedToArchivesCount?: number;
+  movedToArchiveAttemptIds?: string[];
+  restoredFromArchives?: boolean;
+  restoredFromArchivesCount?: number;
+  restoredFromArchiveAttemptIds?: string[];
   archived?: boolean;
   restored?: boolean;
   reopened?: boolean;
@@ -173,14 +179,14 @@ export function TeacherMode({
   const [searchText, setSearchText] = useState("");
   const [classFilter, setClassFilter] = useState("all");
   const [stageFilter, setStageFilter] = useState<"all" | "0" | "1" | "2" | "3" | "4">("all");
-  const [attemptArchiveView, setAttemptArchiveView] = useState<AttemptArchiveView>("active");
+  const [attemptListView, setAttemptListView] = useState<AttemptListView>("active");
   const [attemptPage, setAttemptPage] = useState(1);
   const [attemptsTotal, setAttemptsTotal] = useState(0);
   const [filteredAttemptsTotal, setFilteredAttemptsTotal] = useState(0);
 
   const [busy, setBusy] = useState(false);
   const [detailBusy, setDetailBusy] = useState(false);
-  const [headerActionLoading, setHeaderActionLoading] = useState<"status" | "refresh" | null>(null);
+  const [headerActionLoading, setHeaderActionLoading] = useState<"status" | "refresh" | "attempt-view" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [isMobileTeacher, setIsMobileTeacher] = useState(() => {
@@ -193,6 +199,7 @@ export function TeacherMode({
   const [detailAttemptId, setDetailAttemptId] = useState<string | null>(null);
   const [isClassFilterSheetOpen, setIsClassFilterSheetOpen] = useState(false);
   const [draftClassFilter, setDraftClassFilter] = useState("all");
+  const pendingAttemptViewRefresh = useRef(false);
 
   const resetDashboardState = useCallback(() => {
     setSummary(null);
@@ -204,7 +211,7 @@ export function TeacherMode({
     setSearchText("");
     setClassFilter("all");
     setStageFilter("all");
-    setAttemptArchiveView("active");
+    setAttemptListView("active");
     setDraftClassFilter("all");
     setAttemptPage(1);
     setAttemptsTotal(0);
@@ -212,6 +219,7 @@ export function TeacherMode({
     setIsDetailSheetOpen(false);
     setDetailAttemptId(null);
     setIsClassFilterSheetOpen(false);
+    pendingAttemptViewRefresh.current = false;
   }, []);
 
   const expireTeacherSession = useCallback(() => {
@@ -230,9 +238,15 @@ export function TeacherMode({
     ) => {
       if (!authToken) return;
       const throwOnError = opts?.throwOnError ?? false;
+      let resolvedSource: "auto" | "refresh" | "status" | "attempt-view" = source;
 
-      if (source !== "auto") {
-        setHeaderActionLoading(source);
+      if (source === "auto" && pendingAttemptViewRefresh.current) {
+        resolvedSource = "attempt-view";
+        pendingAttemptViewRefresh.current = false;
+      }
+
+      if (resolvedSource !== "auto") {
+        setHeaderActionLoading(resolvedSource);
       }
       setBusy(true);
       setError(null);
@@ -243,7 +257,7 @@ export function TeacherMode({
           limit: String(ATTEMPTS_PAGE_SIZE),
           offset: String(offset),
           source: "student",
-          archived: attemptArchiveView === "archived" ? "only" : "exclude",
+          archive: attemptListView === "archives" ? "archives" : "active",
         });
         const trimmedSearch = searchText.trim();
         if (classFilter !== "all") {
@@ -305,12 +319,12 @@ export function TeacherMode({
         }
       } finally {
         setBusy(false);
-        if (source !== "auto") {
+        if (resolvedSource !== "auto") {
           setHeaderActionLoading(null);
         }
       }
     },
-    [attemptArchiveView, attemptPage, classFilter, expireTeacherSession, playSound, searchText, stageFilter, token],
+    [attemptListView, attemptPage, classFilter, expireTeacherSession, playSound, searchText, stageFilter, token],
   );
 
   const loadAttempt = useCallback(
@@ -439,7 +453,7 @@ export function TeacherMode({
 
   useEffect(() => {
     setSelectedAttemptIds([]);
-  }, [attemptArchiveView, attemptPage, classFilter, searchText, stageFilter]);
+  }, [attemptListView, attemptPage, classFilter, searchText, stageFilter]);
 
   useEffect(() => {
     setDraftClassFilter(classFilter);
@@ -523,7 +537,8 @@ export function TeacherMode({
   const sessionStatus: SessionStatus = windowState?.status ?? "ended";
   const isStatusActionLoading = headerActionLoading === "status";
   const isRefreshActionLoading = headerActionLoading === "refresh";
-  const isRecycleBinView = attemptArchiveView === "archived";
+  const isAttemptViewActionLoading = headerActionLoading === "attempt-view";
+  const isArchiveView = attemptListView === "archives";
   const totalPages = Math.max(1, Math.ceil(filteredAttemptsTotal / ATTEMPTS_PAGE_SIZE));
   const showingStart = filteredAttemptsTotal === 0
     ? 0
@@ -616,21 +631,23 @@ export function TeacherMode({
         });
 
         const count = action === "archive"
-          ? response.archivedCount ?? uniqueAttemptIds.length
-          : response.restoredCount ?? uniqueAttemptIds.length;
+          ? response.movedToArchivesCount ?? response.archivedCount ?? uniqueAttemptIds.length
+          : response.restoredFromArchivesCount ?? response.restoredCount ?? uniqueAttemptIds.length;
         const student = response.students[0];
         const studentName = student
           ? [student.firstName, student.lastName].filter(Boolean).join(" ") || "student"
           : "student";
         const successNotice = count === 0
-          ? `No attempts were ${action === "archive" ? "archived" : "restored"}.`
+          ? action === "archive"
+            ? "No attempts were moved to Archives."
+            : "No attempts were restored from Archives."
           : count === 1
           ? action === "archive"
-            ? `Attempt archived for ${studentName}. Baseline test reopened.`
-            : `Attempt restored for ${studentName}.`
+            ? `Attempt moved to Archives for ${studentName}. Baseline test reopened.`
+            : `Attempt restored from Archives for ${studentName}.`
           : action === "archive"
-          ? `${count} attempts archived. Baseline test reopened for selected students.`
-          : `${count} attempts restored.`;
+          ? `${count} attempts moved to Archives. Baseline test reopened for selected students.`
+          : `${count} attempts restored from Archives.`;
 
         setSelectedAttemptIds((current) =>
           current.filter((attemptId) => !uniqueAttemptIds.includes(attemptId))
@@ -643,7 +660,7 @@ export function TeacherMode({
           const refreshMessage = refreshError instanceof Error
             ? refreshError.message
             : "Failed to refresh dashboard";
-          const actionLabel = action === "archive" ? "Archive" : "Restore";
+          const actionLabel = action === "archive" ? "Move to Archives" : "Restore from Archives";
           setError(`${actionLabel} succeeded but dashboard refresh failed: ${refreshMessage}`);
           setNotice(`${successNotice} Refresh failed, tap Refresh.`);
         }
@@ -666,13 +683,13 @@ export function TeacherMode({
 
   const archiveAttempt = useCallback(() => {
     if (!detail) return;
-    void mutateAttempts([detail.attempt.id], attemptArchiveView === "archived" ? "restore" : "archive");
-  }, [attemptArchiveView, detail, mutateAttempts]);
+    void mutateAttempts([detail.attempt.id], attemptListView === "archives" ? "restore" : "archive");
+  }, [attemptListView, detail, mutateAttempts]);
 
   const archiveSelectedAttempts = useCallback(() => {
     if (selectedAttemptIds.length === 0) return;
-    void mutateAttempts(selectedAttemptIds, attemptArchiveView === "archived" ? "restore" : "archive");
-  }, [attemptArchiveView, mutateAttempts, selectedAttemptIds]);
+    void mutateAttempts(selectedAttemptIds, attemptListView === "archives" ? "restore" : "archive");
+  }, [attemptListView, mutateAttempts, selectedAttemptIds]);
 
   const toggleAttemptSelection = useCallback((attemptId: string, shouldSelect: boolean) => {
     setSelectedAttemptIds((current) => {
@@ -761,9 +778,9 @@ export function TeacherMode({
     );
   }
 
-  const emptyAttemptsMessage = isRecycleBinView ? "No archived attempts." : "No attempts recorded.";
-  const emptyFilteredAttemptsMessage = isRecycleBinView
-    ? "No archived attempts match this search/filter combination."
+  const emptyAttemptsMessage = isArchiveView ? "No attempts in Archives." : "No attempts recorded.";
+  const emptyFilteredAttemptsMessage = isArchiveView
+    ? "No attempts in Archives match this search/filter combination."
     : "No attempts match this search/filter combination.";
 
   const attemptRows = filteredAttemptsTotal === 0 ? (
@@ -837,18 +854,23 @@ export function TeacherMode({
       <CardContent>
         <div className="space-y-3 xl:max-h-[calc(100vh-23rem)] xl:overflow-y-auto xl:pr-1">
         <div className="space-y-3">
-          <AttemptArchiveToggle
-            value={attemptArchiveView}
-            disabled={busy}
-            onChange={(nextValue) => {
-              if (attemptArchiveView === nextValue) return;
-              setAttemptArchiveView(nextValue);
-              setAttemptPage(1);
-              setStageFilter("all");
-              setSelectedAttemptIds([]);
-              void playSound("tap", { fromInteraction: true });
-            }}
-          />
+          {isAttemptViewActionLoading ? (
+            <HeaderActionSkeleton className="w-[184px]" />
+          ) : (
+            <AttemptListToggle
+              value={attemptListView}
+              disabled={busy}
+              onChange={(nextValue) => {
+                if (attemptListView === nextValue) return;
+                pendingAttemptViewRefresh.current = true;
+                setAttemptListView(nextValue);
+                setAttemptPage(1);
+                setStageFilter("all");
+                setSelectedAttemptIds([]);
+                void playSound("tap", { fromInteraction: true });
+              }}
+            />
+          )}
 
           <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1">
@@ -887,7 +909,7 @@ export function TeacherMode({
             </div>
 
             <p className="text-xs font-semibold text-[color:var(--muted)]">
-              Showing {showingStart}-{showingEnd} of {filteredAttemptsTotal} {isRecycleBinView ? "archived attempts" : "attempts"}
+              Showing {showingStart}-{showingEnd} of {filteredAttemptsTotal} {isArchiveView ? "attempts in Archives" : "attempts"}
               {attemptsTotal !== filteredAttemptsTotal ? ` (total ${attemptsTotal})` : ""}
               {stageFilterLabel ? ` · ${stageFilterLabel}` : ""}
             </p>
@@ -928,7 +950,7 @@ export function TeacherMode({
                 <MotionButton
                   motionPolicy={motionPolicy}
                   variant={
-                    isRecycleBinView
+                    isArchiveView
                       ? "secondary"
                       : selectedAttemptIds.length > 0
                       ? "destructive"
@@ -936,14 +958,14 @@ export function TeacherMode({
                   }
                   size="sm"
                   disabled={busy || selectedAttemptIds.length === 0}
-                  title={isRecycleBinView ? RESTORE_CONFIRMATION_MESSAGE : ARCHIVE_CONFIRMATION_MESSAGE}
+                  title={isArchiveView ? RESTORE_CONFIRMATION_MESSAGE : ARCHIVE_CONFIRMATION_MESSAGE}
                   onClick={() => {
                     void playSound("tap", { fromInteraction: true });
                     archiveSelectedAttempts();
                   }}
                 >
-                  <IconGlyph src={isRecycleBinView ? refreshIcon : archiveIcon} alt="" />
-                  {isRecycleBinView ? "Restore selected" : "Archive selected"}
+                  <IconGlyph src={isArchiveView ? refreshIcon : archiveIcon} alt="" />
+                  {isArchiveView ? "Restore selected" : "Archive selected"}
                 </MotionButton>
               </div>
             </motion.div>
@@ -1009,14 +1031,14 @@ export function TeacherMode({
               variant="secondary"
               className="self-start"
               disabled={busy}
-              title={isRecycleBinView ? RESTORE_CONFIRMATION_MESSAGE : ARCHIVE_CONFIRMATION_MESSAGE}
+              title={isArchiveView ? RESTORE_CONFIRMATION_MESSAGE : ARCHIVE_CONFIRMATION_MESSAGE}
               onClick={() => {
                 void playSound("tap", { fromInteraction: true });
                 archiveAttempt();
               }}
             >
-              <IconGlyph src={isRecycleBinView ? refreshIcon : archiveIcon} alt="" />
-              {isRecycleBinView ? "Restore" : "Archive"}
+              <IconGlyph src={isArchiveView ? refreshIcon : archiveIcon} alt="" />
+              {isArchiveView ? "Restore" : "Archive"}
             </MotionButton>
           </CardHeader>
 
@@ -1097,9 +1119,9 @@ export function TeacherMode({
 
         {summary ? (
           <div className="space-y-3">
-            {isRecycleBinView ? (
+            {isArchiveView ? (
               <p className="text-sm font-semibold text-[color:var(--muted)]">
-                Recycle Bin view is active. Dashboard summaries show active attempts only.
+                Archives view is active. Dashboard summaries show active attempts only.
               </p>
             ) : (
               <>
@@ -1162,19 +1184,24 @@ export function TeacherMode({
             </CardDescription>
           </div>
 
-          <AttemptArchiveToggle
-            value={attemptArchiveView}
-            compact
-            disabled={busy}
-            onChange={(nextValue) => {
-              if (attemptArchiveView === nextValue) return;
-              setAttemptArchiveView(nextValue);
-              setAttemptPage(1);
-              setStageFilter("all");
-              setSelectedAttemptIds([]);
-              void playSound("tap", { fromInteraction: true });
-            }}
-          />
+          {isAttemptViewActionLoading ? (
+            <HeaderActionSkeleton className="w-[172px]" />
+          ) : (
+            <AttemptListToggle
+              value={attemptListView}
+              compact
+              disabled={busy}
+              onChange={(nextValue) => {
+                if (attemptListView === nextValue) return;
+                pendingAttemptViewRefresh.current = true;
+                setAttemptListView(nextValue);
+                setAttemptPage(1);
+                setStageFilter("all");
+                setSelectedAttemptIds([]);
+                void playSound("tap", { fromInteraction: true });
+              }}
+            />
+          )}
 
           <div className="flex items-end gap-2">
             <div className="flex-1 space-y-1">
@@ -1207,7 +1234,7 @@ export function TeacherMode({
           </div>
 
           <p className="text-xs font-semibold text-[color:var(--muted)]">
-            Showing {showingStart}-{showingEnd} of {filteredAttemptsTotal} {isRecycleBinView ? "archived attempts" : "attempts"}
+            Showing {showingStart}-{showingEnd} of {filteredAttemptsTotal} {isArchiveView ? "attempts in Archives" : "attempts"}
             {attemptsTotal !== filteredAttemptsTotal ? ` (total ${attemptsTotal})` : ""}
             {stageFilterLabel ? ` · ${stageFilterLabel}` : ""}
           </p>
@@ -1241,22 +1268,22 @@ export function TeacherMode({
                 <MotionButton
                   motionPolicy={motionPolicy}
                   variant={
-                    isRecycleBinView
+                    isArchiveView
                       ? "secondary"
                       : selectedAttemptIds.length > 0
                       ? "destructive"
                       : "secondary"
                   }
                   size="icon"
-                  title={isRecycleBinView ? "Restore selected attempts" : "Archive selected attempts"}
-                  aria-label={isRecycleBinView ? "Restore selected attempts" : "Archive selected attempts"}
+                  title={isArchiveView ? "Restore selected attempts" : "Archive selected attempts"}
+                  aria-label={isArchiveView ? "Restore selected attempts" : "Archive selected attempts"}
                   disabled={busy || selectedAttemptIds.length === 0}
                   onClick={() => {
                     void playSound("tap", { fromInteraction: true });
                     archiveSelectedAttempts();
                   }}
                 >
-                  <IconGlyph src={isRecycleBinView ? refreshIcon : archiveIcon} alt="" />
+                  <IconGlyph src={isArchiveView ? refreshIcon : archiveIcon} alt="" />
                 </MotionButton>
               </motion.div>
             ) : null}
@@ -1447,15 +1474,15 @@ export function TeacherMode({
                     motionPolicy={motionPolicy}
                     variant="secondary"
                     size="icon"
-                    title={isRecycleBinView ? "Restore attempt" : "Archive attempt"}
-                    aria-label={isRecycleBinView ? "Restore attempt" : "Archive attempt"}
+                    title={isArchiveView ? "Restore attempt" : "Archive attempt"}
+                    aria-label={isArchiveView ? "Restore attempt" : "Archive attempt"}
                     disabled={busy}
                     onClick={() => {
                       void playSound("tap", { fromInteraction: true });
                       archiveAttempt();
                     }}
                   >
-                    <IconGlyph src={isRecycleBinView ? refreshIcon : archiveIcon} alt="" />
+                    <IconGlyph src={isArchiveView ? refreshIcon : archiveIcon} alt="" />
                   </MotionButton>
                 </div>
               </div>
@@ -1483,11 +1510,11 @@ type SessionStatusToggleProps = {
   onChange: (status: "paused" | "in_progress") => void;
 };
 
-type AttemptArchiveToggleProps = {
-  value: AttemptArchiveView;
+type AttemptListToggleProps = {
+  value: AttemptListView;
   disabled?: boolean;
   compact?: boolean;
-  onChange: (value: AttemptArchiveView) => void;
+  onChange: (value: AttemptListView) => void;
 };
 
 function SessionStatusToggle({
@@ -1544,12 +1571,12 @@ function SessionStatusToggle({
   );
 }
 
-function AttemptArchiveToggle({
+function AttemptListToggle({
   value,
   disabled = false,
   compact = false,
   onChange,
-}: AttemptArchiveToggleProps) {
+}: AttemptListToggleProps) {
   return (
     <div
       className={cn(
@@ -1579,15 +1606,15 @@ function AttemptArchiveToggle({
         className={cn(
           "rounded-[var(--radius-lg)] font-semibold leading-none transition-colors",
           compact ? "min-h-9 px-3 py-1 text-sm" : "px-3 py-1.5 text-sm",
-          value === "archived"
+          value === "archives"
             ? "bg-[color:var(--secondary)] text-[color:var(--ink)]"
             : "bg-transparent text-[color:var(--muted)]",
         )}
         disabled={disabled}
-        aria-pressed={value === "archived"}
-        onClick={() => onChange("archived")}
+        aria-pressed={value === "archives"}
+        onClick={() => onChange("archives")}
       >
-        Recycle Bin
+        Archives
       </button>
     </div>
   );
