@@ -7,11 +7,29 @@ import {
   logTeacherEvent,
   requireTeacherSession,
 } from "../_shared/auth.ts";
+import { getBaselineTest, getCanonicalBaselineWindow } from "../_shared/student.ts";
 
-type ToggleWindowRequest = {
-  windowId?: string;
-  isOpen?: boolean;
+type CanonicalWindow = {
+  id: string;
+  scope: "all" | "allowlist";
+  is_open: boolean;
+  start_at: string;
+  end_at: string;
+  class_id: string | null;
+  window_key: string | null;
 };
+
+function serializeWindow(window: CanonicalWindow) {
+  return {
+    id: window.id,
+    scope: window.scope,
+    is_open: true,
+    start_at: window.start_at,
+    end_at: window.end_at,
+    class_id: window.class_id,
+    window_key: window.window_key,
+  };
+}
 
 Deno.serve(async (req) => {
   try {
@@ -24,36 +42,29 @@ Deno.serve(async (req) => {
 
     const client = createAdminClient();
     const teacherSession = await requireTeacherSession(client, req);
-    const body = (await req.json()) as ToggleWindowRequest;
-    const windowId = (body.windowId ?? "").trim();
-    const isOpen = body.isOpen;
+    const test = await getBaselineTest(client);
+    const window = await getCanonicalBaselineWindow(client, test.id);
 
-    if (!windowId || typeof isOpen !== "boolean") {
-      return json(req, 400, { error: "windowId and isOpen(boolean) are required" });
+    let body: unknown = null;
+    try {
+      body = await req.json();
+    } catch {
+      body = null;
     }
 
-    const updateResult = await client
-      .from("test_windows")
-      .update({ is_open: isOpen })
-      .eq("id", windowId)
-      .select("id, is_open, scope, start_at, end_at")
-      .maybeSingle();
-
-    if (updateResult.error) {
-      throw new Error(`Failed to update test window: ${updateResult.error.message}`);
-    }
-    if (!updateResult.data) {
-      return json(req, 404, { error: "Window not found" });
-    }
-
-    await logTeacherEvent(client, teacherSession.teacher_name, "window_toggled", {
-      windowId,
-      isOpen,
+    await logTeacherEvent(client, teacherSession.teacher_name, "legacy_window_control_ignored", {
+      endpoint: "teacher-window-set",
+      method: req.method,
+      requestedBody: body,
+      canonicalWindowId: window.id,
     });
 
     return json(req, 200, {
-      updated: true,
-      window: updateResult.data,
+      deprecated: true,
+      ignored: true,
+      updated: false,
+      status: "in_progress",
+      window: serializeWindow(window),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";

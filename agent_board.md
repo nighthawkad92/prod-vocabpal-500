@@ -309,6 +309,12 @@ The PM agent is the scheduler. Only PM changes task state.
 | UI-079 | Implement student integrity lock/readability/input hardening and teacher stage-row + copy/style updates | UI | BE-018 | DONE | student active/completion utility controls locked, dictation anti-memory attributes + wait-state hinting, MCQ tile text scale increased, teacher stage cards/filter and `Unselect visible` + destructive bulk archive styling applied |
 | QA-072 | Enforce QA-attempt isolation/cleanup pipeline and verify canonical-domain + regression gates | QA | UI-079 | DONE | QA suites now tag attempts as `qa`, auto-cleanup run added, release/after-deploy include cleanup stage, and regression static gates verified |
 | PM-UX-ANL-013 | Final signoff for PM-UX-ANL-012 rollout | PM | QA-072 | DONE | signoff complete; pilot feedback bundle merged with no student scoring contract regression |
+| PM-QA-022 | Queue robust archive contract recovery rollout | PM | PM-002 | DONE | scoped backend-first archive contract normalization + temporary frontend shim + QA invariant/canary hardening |
+| BE-019 | Normalize archive filter parsing + dual-field response contract across teacher endpoints | Backend | PM-QA-022 | DONE | canonical `archive=` + legacy `archived=` conflict-aware parsing, transition-safe dual counters/IDs, and shared filter helper deployed |
+| UI-080 | Add temporary dual-param frontend safety shim for archive list calls | UI | BE-019 | DONE | teacher list requests now send both canonical and legacy archive params with shim-removal TODO marker |
+| QA-073 | Add archive invariants + canonical/legacy parity checks to data-integrity and smoke suites | QA | UI-080 | DONE | expanded `qa:data` parity/set-invariant checks and archive-view timestamp assertions in smoke coverage |
+| QA-074 | Run release-gate + after-deploy with archive canary evidence and publish report | QA | QA-073 | DONE | `qa:release-gate` and `qa:after-deploy` passed with new archive contract canary stage and zero blockers |
+| PM-QA-023 | Final signoff and shim-removal schedule | PM | QA-074 | DONE | signoff complete; retain shim for one release cycle pending two consecutive green post-deploy parity runs |
 | REL-001 | Vercel deployment wiring | PM/Backend/UI | UI-003, QA-003 | DONE | main push + auto-deploy + after-deploy QA gate passed |
 | REL-002 | Pilot readiness checklist signoff | PM | QA-004, UXR-002 | TODO | final go/no-go |
 

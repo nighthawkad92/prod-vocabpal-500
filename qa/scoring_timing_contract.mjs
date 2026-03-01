@@ -108,21 +108,15 @@ async function loginTeacher() {
   return result.payload.token;
 }
 
-async function createWindow(token) {
-  const now = Date.now();
+async function getBaselineWindowStatus(token) {
   const result = await callFunction("teacher-windows", {
-    method: "POST",
+    method: "GET",
     token,
-    body: {
-      scope: "all",
-      status: "in_progress",
-      startAt: new Date(now - 5 * 60 * 1000).toISOString(),
-      endAt: new Date(now + 60 * 60 * 1000).toISOString(),
-    },
   });
-  expectStatus(result, 200, "teacher-windows POST");
+  expectStatus(result, 200, "teacher-windows GET");
   assert(result.payload?.window?.id, "teacher-windows did not return window id");
-  addCheck("session-created", true, {
+  assert(result.payload?.status === "in_progress", "teacher-windows should report always-on baseline");
+  addCheck("baseline-always-on", true, {
     status: result.payload.status,
     windowId: result.payload.window.id,
   });
@@ -200,19 +194,10 @@ async function cleanupAttempts(token, attemptIds) {
   }
 }
 
-async function endWindow(token, windowId) {
-  if (!windowId) return;
-  await callFunction("teacher-windows", {
-    method: "PATCH",
-    token,
-    body: { windowId, status: "ended" },
-  });
-}
-
 async function run() {
   const runId = Date.now().toString().slice(-6);
   const token = await loginTeacher();
-  const windowId = await createWindow(token);
+  const windowId = await getBaselineWindowStatus(token);
 
   const perfectStudent = {
     firstName: `QSU${runId}`,
@@ -267,7 +252,6 @@ async function run() {
     };
   } finally {
     await cleanupAttempts(token, attemptIds);
-    await endWindow(token, windowId);
     await callFunction("teacher-logout", { method: "POST", token });
   }
 }

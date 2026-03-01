@@ -28,10 +28,33 @@ type AttemptRow = {
   student_id: string;
   test_id: string;
   status: string;
-  archive_at: string | null;
   archived_at: string | null;
   students: AttemptStudentRow | null;
 };
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((entry) => typeof entry === "string");
+}
+
+function assertRestoreResponseContract(payload: {
+  restoredFromArchivesCount: number;
+  restoredCount: number;
+  restoredFromArchiveAttemptIds: string[];
+  restoredAttemptIds: string[];
+}): void {
+  if (!Number.isFinite(payload.restoredFromArchivesCount)) {
+    throw new Error("Restore response contract violated: restoredFromArchivesCount must be numeric");
+  }
+  if (!Number.isFinite(payload.restoredCount)) {
+    throw new Error("Restore response contract violated: restoredCount must be numeric");
+  }
+  if (!isStringArray(payload.restoredFromArchiveAttemptIds)) {
+    throw new Error("Restore response contract violated: restoredFromArchiveAttemptIds must be string[]");
+  }
+  if (!isStringArray(payload.restoredAttemptIds)) {
+    throw new Error("Restore response contract violated: restoredAttemptIds must be string[]");
+  }
+}
 
 function normalizeAttemptIds(body: RestoreAttemptRequest): string[] {
   const rawIds: Array<string> = [];
@@ -77,7 +100,6 @@ Deno.serve(async (req) => {
         student_id,
         test_id,
         status,
-        archive_at,
         archived_at,
         students!inner(
           id,
@@ -109,19 +131,19 @@ Deno.serve(async (req) => {
     }
 
     const alreadyActiveAttemptIds = attempts
-      .filter((attempt) => attempt.archive_at === null && attempt.archived_at === null)
+      .filter((attempt) => attempt.archived_at === null)
       .map((attempt) => attempt.id);
     const candidateIds = attempts
-      .filter((attempt) => attempt.archive_at !== null || attempt.archived_at !== null)
+      .filter((attempt) => attempt.archived_at !== null)
       .map((attempt) => attempt.id);
 
     let restoredCount = 0;
     if (candidateIds.length > 0) {
       const restoreResult = await client
         .from("attempts")
-        .update({ archive_at: null, archived_at: null })
+        .update({ archived_at: null })
         .in("id", candidateIds)
-        .or("archive_at.not.is.null,archived_at.not.is.null");
+        .not("archived_at", "is", null);
 
       if (restoreResult.error) {
         throw new Error(`Failed to restore attempt from Archives: ${restoreResult.error.message}`);
@@ -162,7 +184,7 @@ Deno.serve(async (req) => {
       alreadyActiveAttemptIds,
     });
 
-    return json(req, 200, {
+    const responsePayload = {
       restoredFromArchives: true,
       restoredFromArchivesCount: restoredCount,
       restoredFromArchiveAttemptIds: candidateIds,
@@ -173,7 +195,10 @@ Deno.serve(async (req) => {
       alreadyActiveAttemptIds,
       students,
       student: students[0] ?? null,
-    });
+    };
+
+    assertRestoreResponseContract(responsePayload);
+    return json(req, 200, responsePayload);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     if (message.includes("Missing teacher session token") || message.includes("Invalid or expired teacher session")) {

@@ -1,5 +1,3 @@
-import type { SessionStatus } from "@/features/shared/types";
-
 export function formatDate(value: string | null): string {
   if (!value) return "-";
   return new Date(value).toLocaleString();
@@ -19,10 +17,4 @@ export function formatDurationMs(value: number): string {
     return `${minutes} min ${seconds} sec`;
   }
   return `${seconds} sec`;
-}
-
-export function formatSessionStatus(value: SessionStatus): string {
-  if (value === "in_progress") return "In Progress";
-  if (value === "paused") return "Paused";
-  return "Ended";
 }

@@ -10,14 +10,12 @@ import { Select } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import type { MotionPolicy } from "@/hooks/use-motion-policy";
 import type {
-  SessionStatus,
   TeacherAttempt,
   TeacherAttemptDetail,
   TeacherSummary,
-  TeacherWindowState,
 } from "@/features/shared/types";
 import { ApiError, callFunction } from "@/lib/env";
-import { formatDurationMs, formatSessionStatus } from "@/lib/format";
+import { formatDurationMs } from "@/lib/format";
 import type { SfxEvent } from "@/lib/sfx";
 import { cn } from "@/lib/utils";
 import logoVocabPal from "@/assets/branding/logo-vocabpal.png";
@@ -27,8 +25,6 @@ import arrowRightIcon from "@/assets/icons/arrow-right.svg";
 import cancelIcon from "@/assets/icons/cancel.svg";
 import checkSquareIcon from "@/assets/icons/check-square.svg";
 import filterIcon from "@/assets/icons/filter.svg";
-import pauseIcon from "@/assets/icons/pause.svg";
-import playIcon from "@/assets/icons/play.svg";
 import refreshIcon from "@/assets/icons/refresh.svg";
 import signoutIcon from "@/assets/icons/signout.svg";
 import closeIcon from "@/assets/icons/times.svg";
@@ -45,14 +41,6 @@ type TeacherModeProps = {
   motionPolicy: MotionPolicy;
   playSound: (event: SfxEvent, options?: { fromInteraction?: boolean }) => Promise<boolean>;
   onAuthStateChange?: (active: boolean) => void;
-};
-
-type WindowMutationResponse = {
-  status: SessionStatus;
-  usedLatest?: boolean;
-  window: {
-    id: string;
-  };
 };
 
 type TeacherAttemptListResponse = {
@@ -171,7 +159,6 @@ export function TeacherMode({
   const [passcode, setPasscode] = useState("");
   const [token, setToken] = useState(localStorage.getItem(TOKEN_KEY));
   const [summary, setSummary] = useState<TeacherSummary | null>(null);
-  const [windowState, setWindowState] = useState<TeacherWindowState | null>(null);
   const [attempts, setAttempts] = useState<TeacherAttempt[]>([]);
   const [selectedAttemptId, setSelectedAttemptId] = useState<string | null>(null);
   const [selectedAttemptIds, setSelectedAttemptIds] = useState<string[]>([]);
@@ -186,7 +173,7 @@ export function TeacherMode({
 
   const [busy, setBusy] = useState(false);
   const [detailBusy, setDetailBusy] = useState(false);
-  const [headerActionLoading, setHeaderActionLoading] = useState<"status" | "refresh" | "attempt-view" | null>(null);
+  const [headerActionLoading, setHeaderActionLoading] = useState<"refresh" | "attempt-view" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [isMobileTeacher, setIsMobileTeacher] = useState(() => {
@@ -203,7 +190,6 @@ export function TeacherMode({
 
   const resetDashboardState = useCallback(() => {
     setSummary(null);
-    setWindowState(null);
     setAttempts([]);
     setSelectedAttemptId(null);
     setSelectedAttemptIds([]);
@@ -233,12 +219,12 @@ export function TeacherMode({
   const refresh = useCallback(
     async (
       authToken = token ?? undefined,
-      source: "auto" | "refresh" | "status" = "auto",
+      source: "auto" | "refresh" = "auto",
       opts?: { throwOnError?: boolean },
     ) => {
       if (!authToken) return;
       const throwOnError = opts?.throwOnError ?? false;
-      let resolvedSource: "auto" | "refresh" | "status" | "attempt-view" = source;
+      let resolvedSource: "auto" | "refresh" | "attempt-view" = source;
 
       if (source === "auto" && pendingAttemptViewRefresh.current) {
         resolvedSource = "attempt-view";
@@ -253,11 +239,14 @@ export function TeacherMode({
 
       try {
         const offset = (attemptPage - 1) * ATTEMPTS_PAGE_SIZE;
+        const archiveMode = attemptListView === "archives" ? "archives" : "active";
+        // TODO(PM-QA-023): Remove legacy archived=* shim after two consecutive post-deploy parity passes.
         const listParams = new URLSearchParams({
           limit: String(ATTEMPTS_PAGE_SIZE),
           offset: String(offset),
           source: "student",
-          archive: attemptListView === "archives" ? "archives" : "active",
+          archive: archiveMode,
+          archived: archiveMode === "archives" ? "only" : "exclude",
         });
         const trimmedSearch = searchText.trim();
         if (classFilter !== "all") {
@@ -270,19 +259,17 @@ export function TeacherMode({
           listParams.set("search", trimmedSearch);
         }
 
-        const [nextSummary, list, nextWindowState] = await Promise.all([
+        const [nextSummary, list] = await Promise.all([
           callFunction<TeacherSummary>("teacher-dashboard-summary", { token: authToken }),
           callFunction<TeacherAttemptListResponse>(`teacher-dashboard-list?${listParams.toString()}`, {
             token: authToken,
           }),
-          callFunction<TeacherWindowState>("teacher-windows", { token: authToken }),
         ]);
 
         setSummary(nextSummary);
         setAttempts(list.attempts);
         setAttemptsTotal(list.totalCount);
         setFilteredAttemptsTotal(list.filteredCount);
-        setWindowState(nextWindowState);
 
         if (list.totalPages > 0 && attemptPage > list.totalPages) {
           setAttemptPage(list.totalPages);
@@ -534,8 +521,6 @@ export function TeacherMode({
     }
   }, [playSound, resetDashboardState, token]);
 
-  const sessionStatus: SessionStatus = windowState?.status ?? "ended";
-  const isStatusActionLoading = headerActionLoading === "status";
   const isRefreshActionLoading = headerActionLoading === "refresh";
   const isAttemptViewActionLoading = headerActionLoading === "attempt-view";
   const isArchiveView = attemptListView === "archives";
@@ -547,61 +532,6 @@ export function TeacherMode({
     ? 0
     : Math.min((attemptPage - 1) * ATTEMPTS_PAGE_SIZE + attempts.length, filteredAttemptsTotal);
   const stageFilterLabel = stageFilter === "all" ? null : `Stage ${stageFilter}`;
-
-  const updateSessionStatus = useCallback(
-    async (nextStatus: "paused" | "in_progress") => {
-      if (!token) return;
-
-      setBusy(true);
-      setError(null);
-      setNotice(null);
-
-      try {
-        if (!windowState?.window?.id && nextStatus === "paused") {
-          setError("No active baseline session to pause. Set baseline to In Progress first.");
-          void playSound("error", { fromInteraction: true });
-          return;
-        }
-
-        let response: WindowMutationResponse;
-        if (windowState?.window?.id) {
-          response = await callFunction<WindowMutationResponse>("teacher-windows", {
-            method: "PATCH",
-            token,
-            body: {
-              windowId: windowState.window.id,
-              status: nextStatus,
-            },
-          });
-        } else {
-          response = await callFunction<WindowMutationResponse>("teacher-windows", {
-            method: "POST",
-            token,
-            body: {
-              scope: "all",
-              status: nextStatus,
-              startAt: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
-              endAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-            },
-          });
-        }
-
-        setNotice(`Baseline set to ${formatSessionStatus(response.status)}.`);
-        await refresh(token, "status");
-        void playSound("submit", { fromInteraction: true });
-      } catch (err) {
-        if (isTeacherSessionError(err)) {
-          expireTeacherSession();
-          return;
-        }
-        setError(err instanceof Error ? err.message : "Failed to update baseline status");
-        void playSound("error", { fromInteraction: true });
-      } finally {
-        setBusy(false);
-      }
-    },
-    [expireTeacherSession, playSound, refresh, token, windowState?.window?.id],
-  );
 
   const mutateAttempts = useCallback(
     async (attemptIds: string[], action: "archive" | "restore") => {
@@ -1065,25 +995,11 @@ export function TeacherMode({
           <div className={cn(isMobileTeacher && "space-y-1")}>
             <CardTitle className={cn("text-4xl", isMobileTeacher && "text-3xl leading-tight")}>Teacher Dashboard</CardTitle>
             <CardDescription className={cn(isMobileTeacher && "max-w-[38ch] text-base")}>
-              Track class performance, inspect attempts, and control baseline availability.
+              Track class performance, review attempts, and manage archived results.
             </CardDescription>
           </div>
 
           <div className={cn("flex flex-wrap items-center gap-2", isMobileTeacher && "w-full")}>
-            {isStatusActionLoading ? (
-              <HeaderActionSkeleton className={isMobileTeacher ? "w-[88px]" : "w-[220px]"} />
-            ) : (
-              <SessionStatusToggle
-                status={sessionStatus}
-                compact={isMobileTeacher}
-                iconOnly={isMobileTeacher}
-                disabled={busy}
-                onChange={(nextStatus) => {
-                  void playSound("tap", { fromInteraction: true });
-                  void updateSessionStatus(nextStatus);
-                }}
-              />
-            )}
             {isRefreshActionLoading ? (
               <HeaderActionSkeleton className={isMobileTeacher ? "w-11" : "w-[128px]"} />
             ) : (
@@ -1502,74 +1418,12 @@ export function TeacherMode({
   );
 }
 
-type SessionStatusToggleProps = {
-  status: SessionStatus;
-  compact?: boolean;
-  iconOnly?: boolean;
-  disabled?: boolean;
-  onChange: (status: "paused" | "in_progress") => void;
-};
-
 type AttemptListToggleProps = {
   value: AttemptListView;
   disabled?: boolean;
   compact?: boolean;
   onChange: (value: AttemptListView) => void;
 };
-
-function SessionStatusToggle({
-  status,
-  compact = false,
-  iconOnly = false,
-  disabled = false,
-  onChange,
-}: SessionStatusToggleProps) {
-  return (
-    <div
-      className={cn(
-        "inline-flex items-center rounded-[var(--radius-xl)] border border-[color:var(--line)] bg-white p-1 shadow-[var(--shadow-2xs)]",
-        compact && "w-fit",
-      )}
-    >
-      <button
-        type="button"
-        className={cn(
-          "rounded-[var(--radius-lg)] font-semibold leading-none transition-colors",
-          compact
-            ? (iconOnly ? "inline-flex h-9 w-9 items-center justify-center p-0" : "min-h-9 px-3 py-1 text-sm")
-            : "px-3 py-1.5 text-sm",
-          status === "paused"
-            ? "bg-[color:var(--secondary)] text-[color:var(--ink)]"
-            : "bg-transparent text-[color:var(--muted)]",
-        )}
-        aria-label="Pause baseline"
-        title="Pause baseline"
-        disabled={disabled}
-        onClick={() => onChange("paused")}
-      >
-        {iconOnly ? <IconGlyph src={pauseIcon} alt="" /> : "Paused"}
-      </button>
-      <button
-        type="button"
-        className={cn(
-          "rounded-[var(--radius-lg)] font-semibold leading-none transition-colors",
-          compact
-            ? (iconOnly ? "inline-flex h-9 w-9 items-center justify-center p-0" : "min-h-9 px-3 py-1 text-sm")
-            : "px-3 py-1.5 text-sm",
-          status === "in_progress"
-            ? "bg-[color:var(--secondary)] text-[color:var(--ink)]"
-            : "bg-transparent text-[color:var(--muted)]",
-        )}
-        aria-label="Set baseline in progress"
-        title="Set baseline in progress"
-        disabled={disabled}
-        onClick={() => onChange("in_progress")}
-      >
-        {iconOnly ? <IconGlyph src={playIcon} alt="" /> : "In Progress"}
-      </button>
-    </div>
-  );
-}
 
 function AttemptListToggle({
   value,

@@ -1,6 +1,6 @@
 # QA Suites
 
-Run live QA against the deployed app and Supabase functions.
+Run live QA against the deployed app and Supabase functions. The baseline is treated as always available; the suites no longer create or toggle teacher-controlled availability windows.
 
 ## Required Environment
 
@@ -42,23 +42,28 @@ Includes explicit checks for:
 npm run qa:data
 ```
 
-4. After-deploy orchestrator (waits for deployment, then runs smoke + matrix + data audit):
+4. Archive contract canary (canonical vs legacy parity + archive/restore payload contract probe):
+```bash
+npm run qa:archive-canary
+```
+
+5. After-deploy orchestrator (waits for deployment, then runs smoke + matrix + data audit + archive canary):
 ```bash
 npm run qa:after-deploy
 ```
 
-5. Cleanup QA attempts (strict default archives only tagged `qa` attempts):
+6. Cleanup QA attempts (strict default archives only tagged `qa` attempts):
 ```bash
 npm run qa:cleanup
 ```
 
-6. Hard release gate (code gates + remote/matrix/data + after-deploy, writes aggregated decision report):
+7. Hard release gate (code gates + remote/matrix/data/archive-canary + after-deploy, writes aggregated decision report):
 ```bash
 npm run qa:release-gate
 ```
 This report (`latest_release_gate.json`) is consumed by `npm run linear:gate-hard -- --mode prod`.
 
-7. Weekly 500-student phased load profile:
+8. Weekly 500-student phased load profile:
 ```bash
 npm run qa:load-500
 ```
@@ -70,11 +75,12 @@ Reports are written to `qa/reports/`:
 1. `latest_remote_smoke.json` + timestamped smoke reports
 2. `latest_matrix_ui_network.json` + timestamped matrix reports
 3. `latest_data_integrity_audit.json` + timestamped data audit reports
-4. `latest_after_deploy.json` + timestamped after-deploy reports
-5. `latest_release_gate.json` + timestamped release-gate reports
-6. `latest_load_profile_500.json` + timestamped load-profile reports
-7. `latest_cleanup_qa_attempts.json` + timestamped cleanup reports
-8. Failure screenshots in `qa/reports/screenshots/`
+4. `latest_archive_contract_canary.json` + timestamped archive-canary reports
+5. `latest_after_deploy.json` + timestamped after-deploy reports
+6. `latest_release_gate.json` + timestamped release-gate reports
+7. `latest_load_profile_500.json` + timestamped load-profile reports
+8. `latest_cleanup_qa_attempts.json` + timestamped cleanup reports
+9. Failure screenshots in `qa/reports/screenshots/`
 
 ## CI Secrets
 
