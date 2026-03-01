@@ -3,6 +3,10 @@ import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.76.0
 import { createAdminClient } from "./auth.ts";
 
 export const BASELINE_TEST_CODE = "BASELINE_V1";
+export const BASELINE_ALWAYS_ON_WINDOW_KEY = "baseline_always_on";
+const BASELINE_ALWAYS_ON_END_AT = "2099-12-31T23:59:59Z";
+const BASELINE_ALWAYS_ON_TEACHER = "SYSTEM_ALWAYS_ON";
+const ONE_MINUTE_MS = 60 * 1000;
 
 const DICTATION_PUNCTUATION = /[.,/#!$%^&*;:{}=\-_`~()?"'[\]\\|<>@+]/g;
 
@@ -40,7 +44,10 @@ type WindowRow = {
   is_open: boolean;
   start_at: string;
   end_at: string;
+  window_key: string | null;
 };
+
+type LegacyWindowRow = Omit<WindowRow, "window_key">;
 
 export type QuestionItem = {
   id: string;
@@ -95,14 +102,13 @@ export async function getBaselineTest(client: SupabaseClient): Promise<TestRow> 
     .from("tests")
     .select("id, code")
     .eq("code", BASELINE_TEST_CODE)
-    .eq("is_active", true)
     .maybeSingle<TestRow>();
 
   if (error) {
     throw new Error(`Failed to load baseline test: ${error.message}`);
   }
   if (!data) {
-    throw new Error("No active baseline test configured");
+    throw new Error("Baseline test is not configured");
   }
   return data;
 }
@@ -203,64 +209,189 @@ export async function findOrCreateStudent(
   return retry.data;
 }
 
-export async function getOpenWindowForStudent(
+export async function getCanonicalBaselineWindow(
   client: SupabaseClient,
   testId: string,
-  classId: string,
-  firstName: string,
-  lastName: string,
-  className: string,
 ): Promise<WindowRow> {
-  const now = new Date().toISOString();
+  const { data, error } = await client
+    .from("test_windows")
+    .select("id, test_id, scope, class_id, is_open, start_at, end_at, window_key")
+    .eq("test_id", testId)
+    .eq("window_key", BASELINE_ALWAYS_ON_WINDOW_KEY)
+    .maybeSingle<WindowRow>();
+
+  if (!error && data) {
+    return data;
+  }
+  if (error && !isMissingColumnError(error.message, "window_key")) {
+    throw new Error(`Failed to load baseline window: ${error.message}`);
+  }
+
+  const legacyWindow = await getCanonicalBaselineWindowByAttributes(client, testId);
+  if (legacyWindow) {
+    if (!error) {
+      const upgradedWindow = await tryAttachCanonicalWindowKey(client, testId, legacyWindow.id);
+      if (upgradedWindow) return upgradedWindow;
+    }
+    return legacyWindow;
+  }
+
+  const insertedWindow = await insertCanonicalBaselineWindow(client, testId, !error);
+  if (insertedWindow) return insertedWindow;
+
+  throw new Error("Baseline availability window is not configured");
+}
+
+function isMissingColumnError(message: string | undefined, columnName: string): boolean {
+  const normalized = (message ?? "").toLowerCase();
+  return normalized.includes("column") && normalized.includes(columnName.toLowerCase());
+}
+
+async function getCanonicalBaselineWindowByAttributes(
+  client: SupabaseClient,
+  testId: string,
+): Promise<WindowRow | null> {
   const { data, error } = await client
     .from("test_windows")
     .select("id, test_id, scope, class_id, is_open, start_at, end_at")
     .eq("test_id", testId)
-    .gt("end_at", now)
-    .or(`class_id.is.null,class_id.eq.${classId}`)
+    .eq("created_by_teacher_name", BASELINE_ALWAYS_ON_TEACHER)
+    .eq("scope", "all")
+    .is("class_id", null)
+    .eq("is_open", true)
+    .eq("end_at", BASELINE_ALWAYS_ON_END_AT)
     .order("created_at", { ascending: false })
-    .limit(100);
+    .limit(1)
+    .maybeSingle<LegacyWindowRow>();
 
   if (error) {
-    throw new Error(`Failed to query open windows: ${error.message}`);
+    throw new Error(`Failed to load baseline window: ${error.message}`);
   }
-  if (!data || data.length === 0) {
-    throw new Error("No baseline session is currently in progress");
-  }
-
-  const latestWindow = (data as WindowRow[])[0];
-  if (!latestWindow.is_open) {
-    throw new Error("Baseline session is currently paused");
-  }
-  if (Date.parse(latestWindow.start_at) > Date.now()) {
-    throw new Error("No baseline session is currently in progress");
+  if (!data) {
+    return null;
   }
 
-  const firstNorm = normalizeNameKey(firstName);
-  const lastNorm = normalizeNameKey(lastName);
-  const classNorm = normalizeClassName(className).toLowerCase();
+  return {
+    ...data,
+    window_key: null,
+  };
+}
 
-  if (latestWindow.scope === "all") {
-    return latestWindow;
+async function tryAttachCanonicalWindowKey(
+  client: SupabaseClient,
+  testId: string,
+  windowId: string,
+): Promise<WindowRow | null> {
+  const { data, error } = await client
+    .from("test_windows")
+    .update({ window_key: BASELINE_ALWAYS_ON_WINDOW_KEY })
+    .eq("id", windowId)
+    .is("window_key", null)
+    .select("id, test_id, scope, class_id, is_open, start_at, end_at, window_key")
+    .maybeSingle<WindowRow>();
+
+  if (error) {
+    if (isMissingColumnError(error.message, "window_key")) {
+      return null;
+    }
+    if (error.message.toLowerCase().includes("duplicate key value")) {
+      const { data: existing, error: existingError } = await client
+        .from("test_windows")
+        .select("id, test_id, scope, class_id, is_open, start_at, end_at, window_key")
+        .eq("test_id", testId)
+        .eq("window_key", BASELINE_ALWAYS_ON_WINDOW_KEY)
+        .maybeSingle<WindowRow>();
+      if (existingError) {
+        throw new Error(`Failed to load baseline window: ${existingError.message}`);
+      }
+      return existing ?? null;
+    }
+    throw new Error(`Failed to update baseline window: ${error.message}`);
   }
 
-  const allow = await client
-    .from("window_allowlist")
-    .select("id")
-    .eq("window_id", latestWindow.id)
-    .eq("first_name_norm", firstNorm)
-    .eq("last_name_norm", lastNorm)
-    .eq("class_name_norm", classNorm)
-    .maybeSingle();
+  return data ?? null;
+}
 
-  if (allow.error) {
-    throw new Error(`Failed to query window allowlist: ${allow.error.message}`);
-  }
-  if (allow.data) {
-    return latestWindow;
+async function insertCanonicalBaselineWindow(
+  client: SupabaseClient,
+  testId: string,
+  supportsWindowKey: boolean,
+): Promise<WindowRow | null> {
+  const baseInsert = {
+    test_id: testId,
+    is_open: true,
+    scope: "all" as const,
+    class_id: null,
+    start_at: new Date(Date.now() - ONE_MINUTE_MS).toISOString(),
+    end_at: BASELINE_ALWAYS_ON_END_AT,
+    created_by_teacher_name: BASELINE_ALWAYS_ON_TEACHER,
+  };
+
+  const insertResult = supportsWindowKey
+    ? await client
+      .from("test_windows")
+      .insert({
+        ...baseInsert,
+        window_key: BASELINE_ALWAYS_ON_WINDOW_KEY,
+      })
+      .select("id, test_id, scope, class_id, is_open, start_at, end_at, window_key")
+      .single<WindowRow>()
+    : await client
+      .from("test_windows")
+      .insert(baseInsert)
+      .select("id, test_id, scope, class_id, is_open, start_at, end_at")
+      .single<LegacyWindowRow>();
+
+  if (!insertResult.error && insertResult.data) {
+    if (supportsWindowKey) {
+      return insertResult.data as WindowRow;
+    }
+    return {
+      ...(insertResult.data as LegacyWindowRow),
+      window_key: null,
+    };
   }
 
-  throw new Error("Student is not allowed in the current baseline session");
+  if (supportsWindowKey && isMissingColumnError(insertResult.error?.message, "window_key")) {
+    return await insertCanonicalBaselineWindow(client, testId, false);
+  }
+
+  const errorMessage = insertResult.error?.message ?? "";
+  if (errorMessage.toLowerCase().includes("duplicate key value")) {
+    const existing = supportsWindowKey
+      ? await client
+        .from("test_windows")
+        .select("id, test_id, scope, class_id, is_open, start_at, end_at, window_key")
+        .eq("test_id", testId)
+        .eq("window_key", BASELINE_ALWAYS_ON_WINDOW_KEY)
+        .maybeSingle<WindowRow>()
+      : await client
+        .from("test_windows")
+        .select("id, test_id, scope, class_id, is_open, start_at, end_at")
+        .eq("test_id", testId)
+        .eq("created_by_teacher_name", BASELINE_ALWAYS_ON_TEACHER)
+        .eq("scope", "all")
+        .is("class_id", null)
+        .eq("is_open", true)
+        .eq("end_at", BASELINE_ALWAYS_ON_END_AT)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle<LegacyWindowRow>();
+    if (existing.error) {
+      throw new Error(`Failed to load baseline window: ${existing.error.message}`);
+    }
+    if (existing.data) {
+      if (supportsWindowKey) {
+        return existing.data as WindowRow;
+      }
+      return {
+        ...(existing.data as LegacyWindowRow),
+        window_key: null,
+      };
+    }
+  }
+
+  throw new Error(`Failed to create baseline window: ${errorMessage || "unknown error"}`);
 }
 
 export async function getLatestAttempt(

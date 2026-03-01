@@ -112,35 +112,6 @@ async function loginTeacher() {
   return result.payload.token;
 }
 
-async function createOpenWindow(token) {
-  const now = Date.now();
-  const result = await callFunction("teacher-windows", {
-    method: "POST",
-    token,
-    body: {
-      scope: "all",
-      status: "in_progress",
-      startAt: new Date(now - 5 * 60 * 1000).toISOString(),
-      endAt: new Date(now + 60 * 60 * 1000).toISOString(),
-    },
-  });
-  expectStatus(result, 200, "teacher-windows POST");
-  assert(result.payload?.window?.id, "window creation did not return id");
-  addStep("session-created", { windowId: result.payload.window.id, status: result.payload.status });
-  return result.payload.window.id;
-}
-
-async function setWindowStatus(token, windowId, status) {
-  const result = await callFunction("teacher-windows", {
-    method: "PATCH",
-    token,
-    body: { windowId, status },
-  });
-  expectStatus(result, 200, `teacher-windows PATCH ${status}`);
-  assert(result.payload?.status === status, `Expected window status ${status}`);
-  addStep(`session-${status}`, { windowId, status: result.payload?.status });
-}
-
 async function getWindowStatus(token) {
   const result = await callFunction("teacher-windows", { token });
   expectStatus(result, 200, "teacher-windows GET");
@@ -259,29 +230,14 @@ async function run() {
   const token = await loginTeacher();
   report.artifacts.teacherTokenIssued = true;
 
-  const windowId = await createOpenWindow(token);
-  report.artifacts.windowId = windowId;
-
-  await setWindowStatus(token, windowId, "paused");
-  const pausedState = await getWindowStatus(token);
-  assert(pausedState?.status === "paused", "teacher-windows should report paused after pause action");
-  assert(pausedState?.window?.id === windowId, "pause action should apply to current window");
-
-  const blockedWhilePaused = await callFunction("student-start-attempt", {
-    method: "POST",
-    body: {
-      firstName: `${config.studentPrefix}${Date.now().toString().slice(-6)}`,
-      lastName: "PauseCheck",
-      className: "Class A",
-    },
+  const baselineState = await getWindowStatus(token);
+  assert(baselineState?.status === "in_progress", "teacher-windows should report baseline always in progress");
+  assert(baselineState?.window?.id, "teacher-windows should return the canonical baseline window");
+  addStep("baseline-always-on-verified", {
+    windowId: baselineState.window.id,
+    status: baselineState.status,
   });
-  assert(
-    blockedWhilePaused.status >= 400,
-    `student-start-attempt should fail while baseline paused: ${JSON.stringify(blockedWhilePaused.payload)}`,
-  );
-  addStep("pause-blocks-student-start", { status: blockedWhilePaused.status });
-
-  await setWindowStatus(token, windowId, "in_progress");
+  report.artifacts.windowId = baselineState.window.id;
 
   const runId = Date.now().toString().slice(-6);
   const sharedIdentity = {
@@ -426,8 +382,6 @@ async function run() {
   ];
 
   await cleanupQaAttempts(token, report.artifacts.attemptIds);
-
-  await setWindowStatus(token, windowId, "ended");
 
   const logout = await callFunction("teacher-logout", { method: "POST", token });
   expectStatus(logout, 200, "teacher-logout");

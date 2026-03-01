@@ -206,41 +206,23 @@ async function loginTeacher() {
   return login.payload.token;
 }
 
-async function createSessionWindow(token) {
-  const now = Date.now();
-  const created = await callFunction("teacher-windows", {
-    method: "POST",
+async function getBaselineWindowStatus(token) {
+  const result = await callFunction("teacher-windows", {
+    method: "GET",
     token,
-    body: {
-      scope: "all",
-      status: "in_progress",
-      startAt: new Date(now - 5 * 60 * 1000).toISOString(),
-      endAt: new Date(now + 3 * 60 * 60 * 1000).toISOString(),
-    },
   });
 
-  if (!created.ok || !created.payload?.window?.id) {
-    throw new Error(`teacher-windows create failed (${created.status}): ${JSON.stringify(created.payload)}`);
+  if (!result.ok || !result.payload?.window?.id || result.payload?.status !== "in_progress") {
+    throw new Error(`teacher-windows GET failed (${result.status}): ${JSON.stringify(result.payload)}`);
   }
 
-  addCheck("session-window-created", true, {
-    windowId: created.payload.window.id,
-    status: created.status,
-    durationMs: created.durationMs,
+  addCheck("baseline-always-on", true, {
+    windowId: result.payload.window.id,
+    status: result.payload.status,
+    durationMs: result.durationMs,
   });
 
-  return created.payload.window.id;
-}
-
-async function closeSessionWindow(token, windowId) {
-  await callFunction("teacher-windows", {
-    method: "PATCH",
-    token,
-    body: {
-      windowId,
-      status: "ended",
-    },
-  });
+  return result.payload.window.id;
 }
 
 async function logoutTeacher(token) {
@@ -465,7 +447,7 @@ async function run() {
   const token = await loginTeacher();
   report.artifacts.teacherTokenIssued = true;
 
-  const windowId = await createSessionWindow(token);
+  const windowId = await getBaselineWindowStatus(token);
   report.artifacts.windowId = windowId;
 
   try {
@@ -477,7 +459,6 @@ async function run() {
 
     report.status = allChecksPass && thresholdPass ? "passed" : "failed";
   } finally {
-    await closeSessionWindow(token, windowId);
     await logoutTeacher(token);
   }
 }

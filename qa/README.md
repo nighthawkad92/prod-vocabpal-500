@@ -1,6 +1,6 @@
 # QA Suites
 
-Run live QA against the deployed app and Supabase functions.
+Run live QA against the deployed app and Supabase functions. The baseline is treated as always available; the suites no longer create or toggle teacher-controlled availability windows.
 
 ## Required Environment
 

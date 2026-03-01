@@ -108,21 +108,15 @@ async function loginTeacher() {
   return result.payload.token;
 }
 
-async function createWindow(token) {
-  const now = Date.now();
+async function getBaselineWindowStatus(token) {
   const result = await callFunction("teacher-windows", {
-    method: "POST",
+    method: "GET",
     token,
-    body: {
-      scope: "all",
-      status: "in_progress",
-      startAt: new Date(now - 5 * 60 * 1000).toISOString(),
-      endAt: new Date(now + 60 * 60 * 1000).toISOString(),
-    },
   });
-  expectStatus(result, 200, "teacher-windows POST");
+  expectStatus(result, 200, "teacher-windows GET");
   assert(result.payload?.window?.id, "teacher-windows did not return window id");
-  addCheck("session-created", true, {
+  assert(result.payload?.status === "in_progress", "teacher-windows should report always-on baseline");
+  addCheck("baseline-always-on", true, {
     status: result.payload.status,
     windowId: result.payload.window.id,
   });
@@ -246,7 +240,7 @@ async function run() {
   const token = await loginTeacher();
   report.artifacts.teacherTokenIssued = true;
 
-  const windowId = await createWindow(token);
+  const windowId = await getBaselineWindowStatus(token);
   report.artifacts.windowId = windowId;
 
   const runId = Date.now().toString().slice(-6);
@@ -544,11 +538,6 @@ async function run() {
   }
   await cleanupQaAttempts(token, cleanupAttemptIds);
 
-  await callFunction("teacher-windows", {
-    method: "PATCH",
-    token,
-    body: { windowId, status: "ended" },
-  });
   await callFunction("teacher-logout", { method: "POST", token });
 
   const allPass = report.checks.every((check) => check.pass);

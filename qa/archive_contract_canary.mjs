@@ -145,6 +145,13 @@ async function run() {
   const token = login.payload?.token;
   assert(token, "teacher-login did not return token");
 
+  const baselineState = await callFunction("teacher-windows", { token });
+  expectStatus(baselineState, 200, "teacher-windows baseline state");
+  addCheck("baseline-always-on", baselineState.payload?.status === "in_progress" && Boolean(baselineState.payload?.window?.id), {
+    status: baselineState.payload?.status ?? null,
+    windowId: baselineState.payload?.window?.id ?? null,
+  });
+
   const modes = ["active", "archives", "all"];
   const listResponses = {};
 
@@ -213,40 +220,9 @@ async function run() {
   let activeProbeAttempt = probeActive.payload?.attempts?.[0] ?? null;
   let probeAttempt = archivedProbeAttempt ?? activeProbeAttempt;
   let startedArchived = Boolean(archivedProbeAttempt);
-  let createdWindowId = null;
-  let restorePausedWindowId = null;
   let createdProbeAttemptId = null;
 
   if (!probeAttempt?.id) {
-    const windowState = await callFunction("teacher-windows", { token });
-    expectStatus(windowState, 200, "teacher-windows state for canary probe");
-    const windowId = windowState.payload?.window?.id ?? null;
-    const windowStatus = windowState.payload?.status ?? "ended";
-
-    if (windowStatus === "paused" && windowId) {
-      const resumeWindow = await callFunction("teacher-windows", {
-        method: "PATCH",
-        token,
-        body: { windowId, status: "in_progress" },
-      });
-      expectStatus(resumeWindow, 200, "resume paused window for canary probe");
-      restorePausedWindowId = windowId;
-    } else if (windowStatus !== "in_progress") {
-      const now = Date.now();
-      const createdWindow = await callFunction("teacher-windows", {
-        method: "POST",
-        token,
-        body: {
-          scope: "all",
-          status: "in_progress",
-          startAt: new Date(now - 5 * 60 * 1000).toISOString(),
-          endAt: new Date(now + 60 * 60 * 1000).toISOString(),
-        },
-      });
-      expectStatus(createdWindow, 200, "create in-progress window for canary probe");
-      createdWindowId = createdWindow.payload?.window?.id ?? null;
-    }
-
     const className =
       listResponses.all.canonical.payload?.attempts?.[0]?.student?.className ??
       "Class 5 - Section A";
@@ -276,12 +252,6 @@ async function run() {
 
     if (createdProbeAttemptId) {
       report.artifacts.createdProbeAttemptId = createdProbeAttemptId;
-    }
-    if (createdWindowId) {
-      report.artifacts.createdProbeWindowId = createdWindowId;
-    }
-    if (restorePausedWindowId) {
-      report.artifacts.pausedWindowTemporarilyResumed = restorePausedWindowId;
     }
   }
 
@@ -353,24 +323,6 @@ async function run() {
       body: { attemptIds: [createdProbeAttemptId] },
     });
     expectStatus(cleanupProbe, 200, "cleanup canary probe attempt");
-  }
-
-  if (restorePausedWindowId) {
-    const rePauseWindow = await callFunction("teacher-windows", {
-      method: "PATCH",
-      token,
-      body: { windowId: restorePausedWindowId, status: "paused" },
-    });
-    expectStatus(rePauseWindow, 200, "restore paused window status after canary probe");
-  }
-
-  if (createdWindowId) {
-    const endCreatedWindow = await callFunction("teacher-windows", {
-      method: "PATCH",
-      token,
-      body: { windowId: createdWindowId, status: "ended" },
-    });
-    expectStatus(endCreatedWindow, 200, "end canary-created in-progress window");
   }
 
   const logout = await callFunction("teacher-logout", { method: "POST", token });

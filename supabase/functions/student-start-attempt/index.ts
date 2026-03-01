@@ -8,8 +8,8 @@ import {
   findOrCreateStudent,
   getAttemptResponseCount,
   getBaselineTest,
+  getCanonicalBaselineWindow,
   getLatestAttempt,
-  getOpenWindowForStudent,
   getQuestionByOrder,
   isAttemptCreationAllowed,
   toQuestionResponse,
@@ -53,7 +53,7 @@ Deno.serve(async (req) => {
     const test = await getBaselineTest(client);
     const klass = await findOrCreateClass(client, className);
     const student = await findOrCreateStudent(client, firstName, lastName, klass.id);
-    const window = await getOpenWindowForStudent(client, test.id, klass.id, firstName, lastName, className);
+    const window = await getCanonicalBaselineWindow(client, test.id);
     const latestAttempt = await getLatestAttempt(client, student.id, test.id);
 
     if (latestAttempt && latestAttempt.status === "in_progress") {

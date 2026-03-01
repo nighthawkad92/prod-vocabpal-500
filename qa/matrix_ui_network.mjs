@@ -183,42 +183,19 @@ async function logoutTeacher(token) {
   addApiCheck("teacher-logout", result.status === 200, { status: result.status });
 }
 
-async function createAllowlistSession(token, allowlist) {
-  const now = Date.now();
+async function getBaselineWindowStatus(token) {
   const result = await callFunction("teacher-windows", {
-    method: "POST",
     token,
-    body: {
-      scope: "allowlist",
-      allowlist,
-      status: "in_progress",
-      startAt: new Date(now - 5 * 60 * 1000).toISOString(),
-      endAt: new Date(now + 2 * 60 * 60 * 1000).toISOString(),
-    },
   });
 
-  if (!result.ok || !result.payload?.window?.id) {
-    throw new Error(`teacher-windows create failed (${result.status}): ${JSON.stringify(result.payload)}`);
+  if (!result.ok || !result.payload?.window?.id || result.payload?.status !== "in_progress") {
+    throw new Error(`teacher-windows GET failed (${result.status}): ${JSON.stringify(result.payload)}`);
   }
-  addApiCheck("teacher-session-created", true, {
+  addApiCheck("teacher-baseline-always-on", true, {
     windowId: result.payload.window.id,
     status: result.payload.status,
-    allowlistCount: allowlist.length,
   });
   return result.payload.window.id;
-}
-
-async function updateSessionStatus(token, windowId, status) {
-  const result = await callFunction("teacher-windows", {
-    method: "PATCH",
-    token,
-    body: { windowId, status },
-  });
-
-  addApiCheck(`teacher-session-${status}`, result.status === 200, {
-    status: result.status,
-    responseStatus: result.payload?.status ?? null,
-  });
 }
 
 async function applyNetworkProfile(context, page, networkProfile) {
@@ -795,12 +772,7 @@ async function main() {
   const token = await loginTeacher();
   report.artifacts.teacherTokenIssued = true;
 
-  const allowlist = effectiveStudents.map((student) => ({
-    firstName: student.firstName,
-    lastName: student.lastName,
-    className: student.className,
-  }));
-  const windowId = await createAllowlistSession(token, allowlist);
+  const windowId = await getBaselineWindowStatus(token);
   report.artifacts.windowId = windowId;
 
   const browser = await chromium.launch({ headless: true });
@@ -829,7 +801,6 @@ async function main() {
 
   await runDataIntegrityChecks(token, effectiveStudents, attemptIds);
   await cleanupQaAttempts(token, attemptIds);
-  await updateSessionStatus(token, windowId, "ended");
   await logoutTeacher(token);
 
   const allCasePass = finishedCases.length > 0 && finishedCases.every((item) => item.status === "passed");

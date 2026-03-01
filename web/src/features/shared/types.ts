@@ -1,5 +1,4 @@
 export type AppMode = "student" | "teacher";
-export type SessionStatus = "in_progress" | "paused" | "ended";
 
 export type Question = {
   id: string;
@@ -41,14 +40,6 @@ export type TeacherSummary = {
     avgScore10: number;
     completionRate: number;
   }>;
-};
-
-export type TeacherWindowState = {
-  hasWindow: boolean;
-  status: SessionStatus;
-  window: {
-    id: string;
-  } | null;
 };
 
 export type TeacherAttempt = {
